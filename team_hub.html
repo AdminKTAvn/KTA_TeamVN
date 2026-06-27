@@ -2728,10 +2728,29 @@ function buildSheetsModal(){
 }
 
 function openSheetsConnectedMenu(){
-  const role = sheetsRole === 'admin' ? 'Admin' : 'User (xem)';
-  if(confirm(`Google Sheets đang kết nối ✓\nVai trò: ${role}\n\nBấm OK để ngắt kết nối.`)){
-    sheetsConnected = false; sheetsRole = null;
+  const roleLabel = sheetsRole==='admin' ? 'Admin' : sheetsRole==='leader' ? 'Leader' : 'User';
+  if(confirm(`Google Sheets đang kết nối ✓\nVai trò: ${roleLabel}\n\nBấm OK để đăng xuất.`)){
+    // Xóa password + hint → lần sau phải đăng nhập lại
+    localStorage.removeItem('teamhub_sheets_adminpw');
+    localStorage.removeItem('teamhub_sheets_leaderpw');
+    localStorage.removeItem('teamhub_sheets_hint');
+    sheetsConnected = false;
+    sheetsRole = null;
+    sheetsScriptUrl = '';
     updateSheetsBadge();
+    // Hiện lại màn hình đăng nhập
+    const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+    if(!isUserMode){
+      const overlay = document.getElementById('login-overlay');
+      const appShell = document.querySelector('.app-shell');
+      if(overlay) overlay.style.display = 'flex';
+      if(appShell) appShell.style.visibility = 'hidden';
+      // Clear password input
+      const pwInp = document.getElementById('login-pw-input');
+      if(pwInp) pwInp.value = '';
+      const err = document.getElementById('login-error');
+      if(err) err.style.display = 'none';
+    }
   }
 }
 
