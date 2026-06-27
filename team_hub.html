@@ -50,22 +50,22 @@ button{font-family:var(--font-sans)}
 <!-- Login Screen (chỉ hiện cho link Admin, không phải ?mode=user) -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-card">
-    <div class="login-logo">🏢</div>
-    <div class="login-title">Team Hub</div>
+    <img src="data:image/png;base64,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" style="width:80px;height:80px;object-fit:contain;margin-bottom:8px" />
+    <div class="login-title">KTA Team VN</div>
     <div class="login-sub">Đăng nhập để tiếp tục</div>
     <input class="login-input" type="password" id="login-pw-input"
       placeholder="Nhập password..."
       onkeydown="if(event.key==='Enter') doLogin()" />
     <button class="login-btn" onclick="doLogin()">Đăng nhập →</button>
     <div class="login-error" id="login-error">Password không đúng. Thử lại!</div>
-    <div class="login-hint">Liên hệ Admin để được cấp password</div>
+    <div class="login-hint">Nhập password được cấp bởi Admin</div>
   </div>
 </div>
 
 <div class="app-shell">
   <div class="app-header">
     <div>
-      <div class="app-title">Team Hub</div>
+      <div class="app-title">KTA Team VN</div>
       <div class="app-title-sub">Quản lý dự án &amp; Đánh giá năng lực — đồng bộ qua Google Sheets</div>
     </div>
     <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()">📊 Sheets: Chưa kết nối</span>
@@ -893,6 +893,10 @@ const SEED_PROJECTS = [{"id": "proj_b30dfed1", "name": "333 Palm", "size": "Medi
 const SEED_KEY = 'teamhub_seeded_v1';
 
 function checkAndSeedData(){
+  // Nếu đã có Sheets config → không dùng seed data, để Sheets load
+  const sheetsHint = localStorage.getItem('teamhub_sheets_hint');
+  if(sheetsHint) return;
+
   // Only prompt if localStorage is empty AND user hasn't been asked before
   const existing = localStorage.getItem('teamhub_projects');
   const alreadyAsked = localStorage.getItem(SEED_KEY);
@@ -2473,16 +2477,13 @@ function switchMainTab(id){
 
 // ═══════════ LOGIN SCREEN ═══════════
 (function initLoginScreen(){
-  // Không hiện login cho link ?mode=user
-  const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
-  if(isUserMode) return;
-
-  // Kiểm tra đã đăng nhập chưa (có password lưu trong localStorage)
+  // Kiểm tra đã đăng nhập chưa
   const savedAdmin  = localStorage.getItem('teamhub_sheets_adminpw')  || '';
   const savedLeader = localStorage.getItem('teamhub_sheets_leaderpw') || '';
+  const savedUser   = localStorage.getItem('teamhub_sheets_userpw')   || '';
   const savedUrl    = (function(){ try{ return JSON.parse(localStorage.getItem('teamhub_sheets_config')||'{}').scriptUrl||''; }catch(e){ return ''; } })();
 
-  if((savedAdmin || savedLeader) && savedUrl){
+  if((savedAdmin || savedLeader || savedUser) && savedUrl){
     // Đã từng đăng nhập → ẩn login, auto-reconnect sẽ xử lý
     return;
   }
@@ -2501,30 +2502,34 @@ async function doLogin(){
 
   if(!pw){ if(err){ err.style.display='block'; err.textContent='Vui lòng nhập password!'; } return; }
   if(!cfg.scriptUrl){
-    // Chưa có URL → mở modal nhập URL trước
     hideLoginShowSetup();
     return;
   }
 
-  // Thử ping với password
   try{
     const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pw });
-    if(res.ok && (res.role==='admin' || res.role==='leader')){
-      // Lưu password
-      if(res.role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
-      if(res.role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
+    if(res.ok){
+      const role = res.role || 'user';
+      // Lưu password theo role
+      if(role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
+      if(role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
+      if(role==='user')   localStorage.setItem('teamhub_sheets_userpw',   pw);
       // Ẩn login, hiện app
       document.getElementById('login-overlay').style.display = 'none';
       document.querySelector('.app-shell').style.visibility = 'visible';
-      // Trigger kết nối
-      sheetsRole = res.role;
+      sheetsRole = role;
       sheetsConnected = true;
       sheetsScriptUrl = cfg.scriptUrl;
-      updateSheetsBadge(res.role==='admin' ? 'connected_admin' : 'connected_leader');
+      localStorage.setItem('teamhub_sheets_hint','1');
+      if(role==='admin')       updateSheetsBadge('connected_admin');
+      else if(role==='leader') updateSheetsBadge('connected_leader');
+      else                     updateSheetsBadge('connected_user');
       if(typeof applyRoleUI==='function') applyRoleUI();
-      await sheetsLoadAll();
+      // User: load fresh data; Admin/Leader: load all
+      if(role==='user') await sheetsLoadAllFresh();
+      else await sheetsLoadAll();
     } else {
-      if(err){ err.style.display='block'; err.textContent='Password không đúng hoặc không có quyền truy cập!'; }
+      if(err){ err.style.display='block'; err.textContent='Password không đúng. Vui lòng thử lại!'; }
     }
   } catch(e){
     if(err){ err.style.display='block'; err.textContent='Không thể kết nối. Kiểm tra mạng và thử lại!'; }
@@ -2558,6 +2563,9 @@ function getAdminPw(){
 }
 function getLeaderPw(){
   return localStorage.getItem('teamhub_sheets_leaderpw') || '';
+}
+function getUserPw(){
+  return localStorage.getItem('teamhub_sheets_userpw') || '';
 }
 function getRolePw(){
   if(sheetsRole==='admin')  return getAdminPw();
@@ -2738,19 +2746,16 @@ function openSheetsConnectedMenu(){
     sheetsRole = null;
     sheetsScriptUrl = '';
     updateSheetsBadge();
-    // Hiện lại màn hình đăng nhập
-    const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
-    if(!isUserMode){
-      const overlay = document.getElementById('login-overlay');
-      const appShell = document.querySelector('.app-shell');
-      if(overlay) overlay.style.display = 'flex';
-      if(appShell) appShell.style.visibility = 'hidden';
-      // Clear password input
-      const pwInp = document.getElementById('login-pw-input');
-      if(pwInp) pwInp.value = '';
-      const err = document.getElementById('login-error');
-      if(err) err.style.display = 'none';
-    }
+    // Quay về màn hình đăng nhập
+    localStorage.removeItem('teamhub_sheets_userpw');
+    const overlay = document.getElementById('login-overlay');
+    const appShell = document.querySelector('.app-shell');
+    if(overlay){ overlay.style.display='flex'; }
+    if(appShell){ appShell.style.visibility='hidden'; }
+    const pwInp = document.getElementById('login-pw-input');
+    if(pwInp) pwInp.value='';
+    const errEl = document.getElementById('login-error');
+    if(errEl) errEl.style.display='none';
   }
 }
 
@@ -2954,8 +2959,9 @@ function getAppsScriptCode(){
   return `// Team Hub — Apps Script Backend
 // Deploy as Web App: Execute as Me, Anyone can access
 
-const ADMIN_PASSWORD  = 'YOUR_PASSWORD_HERE';  // <-- password Admin
-const LEADER_PASSWORD = 'YOUR_LEADER_PASSWORD'; // <-- password Leader
+const ADMIN_PASSWORD  = 'YOUR_PASSWORD_HERE';   // <-- password Admin
+const LEADER_PASSWORD = 'YOUR_LEADER_PASSWORD';  // <-- password Leader
+const USER_PASSWORD   = 'YOUR_USER_PASSWORD';    // <-- password User
 const SHEET_NAME_PROJECTS = 'Projects';
 const SHEET_NAME_EVAL     = 'Evaluation';
 const SHEET_NAME_FEEDBACK = 'Feedback';
@@ -2968,8 +2974,11 @@ function doPost(e){
     const isAdmin  = pw === ADMIN_PASSWORD;
     const isLeader = pw === LEADER_PASSWORD;
 
+    const isUser   = pw === USER_PASSWORD;
+
     if(action === 'ping'){
-      return ok({ role: isAdmin ? 'admin' : isLeader ? 'leader' : 'user' });
+      if(!pw) return ok({ role: 'none' }); // no password
+      return ok({ role: isAdmin ? 'admin' : isLeader ? 'leader' : isUser ? 'user' : 'none' });
     }
     if(action === 'loadAll'){
       return ok(loadAll());
@@ -3167,6 +3176,7 @@ function applyRoleUI(){
   const evalTab = document.getElementById('maintab-eval');
   if(!userTab) return;
   if(sheetsRole === 'user'){
+    // User: chỉ thấy tab Tra cứu
     userTab.style.display = 'flex';
     projTab.style.display = 'none';
     evalTab.style.display = 'none';
@@ -3190,7 +3200,7 @@ function applyRoleUI(){
 // ── URL mode detection ──
 (function detectUrlMode(){
   const params = new URLSearchParams(window.location.search);
-  if(params.get('mode') === 'user'){
+  if(false && params.get('mode') === 'user'){ // disabled: now using password system
     // Force user mode: hide admin tabs, show user portal
     sheetsRole = 'user';
     const userTab = document.getElementById('maintab-user');
