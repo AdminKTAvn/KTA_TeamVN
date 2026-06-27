@@ -32,6 +32,10 @@ body{margin:0;font-family:var(--font-sans);background:var(--color-background-sec
 .main-panel.active{display:block}
 button{font-family:var(--font-sans)}
 .login-overlay{position:fixed;inset:0;background:#F7F6F3;z-index:99999;display:flex;align-items:center;justify-content:center}
+  .blur-overlay{position:fixed;inset:0;background:rgba(247,246,243,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:99998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .blur-spinner{width:36px;height:36px;border:3px solid #E5E3DD;border-top-color:#1A1A18;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .blur-text{font-size:13px;color:#9C9A94;font-weight:500}
   .login-card{background:#fff;border-radius:16px;padding:40px 36px;max-width:400px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center}
   .login-logo{font-size:36px;margin-bottom:12px}
   .login-title{font-size:22px;font-weight:700;color:#1A1A18;margin-bottom:4px}
@@ -47,6 +51,12 @@ button{font-family:var(--font-sans)}
 </style>
 </head>
 <body>
+<!-- Blur overlay — hiện khi đang kết nối -->
+<div class="blur-overlay" id="blur-overlay" style="display:none">
+  <div class="blur-spinner"></div>
+  <div class="blur-text">Đang kết nối...</div>
+</div>
+
 <!-- Login Screen (chỉ hiện cho link Admin, không phải ?mode=user) -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-card">
@@ -2940,6 +2950,9 @@ async function sendFeedback(personName, message){
   if(hint && cfg.scriptUrl){
     sheetsScriptUrl = cfg.scriptUrl;
     updateSheetsBadge('connecting');
+    // Hiện blur overlay trong khi kết nối
+    const blurEl = document.getElementById('blur-overlay');
+    if(blurEl) blurEl.style.display='flex';
     setTimeout(async ()=>{
       try{
         // Dùng password đúng với role đã lưu
@@ -2986,6 +2999,9 @@ async function sendFeedback(personName, message){
             sheetsRole = verifiedRole;
           }
           sheetsConnected = true;
+          // Ẩn blur overlay
+          const blurOverlay = document.getElementById('blur-overlay');
+          if(blurOverlay) blurOverlay.style.display='none';
           // Hiện app nếu đang bị ẩn (sau login)
           const appShell = document.querySelector('.app-shell');
           if(appShell) appShell.style.visibility = 'visible';
@@ -3014,6 +3030,8 @@ async function sendFeedback(personName, message){
           if(overlay) overlay.style.display = 'flex';
           if(appShell) appShell.style.visibility = 'hidden';
         }
+        const blurFail = document.getElementById('blur-overlay');
+        if(blurFail) blurFail.style.display='none';
       }
     }, 1200);
   }
