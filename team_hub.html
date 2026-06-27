@@ -2942,14 +2942,49 @@ async function sendFeedback(personName, message){
     updateSheetsBadge('connecting');
     setTimeout(async ()=>{
       try{
-        // Thử lần lượt: admin pw → leader pw → không pw (user)
-        const adminPw  = localStorage.getItem('teamhub_sheets_adminpw')  || '';
-        const leaderPw = localStorage.getItem('teamhub_sheets_leaderpw') || '';
-        const pwToTry  = adminPw || leaderPw || '';
+        // Dùng password đúng với role đã lưu
+        const savedRole   = localStorage.getItem('teamhub_sheets_role') || '';
+        const adminPw     = localStorage.getItem('teamhub_sheets_adminpw')  || '';
+        const leaderPw    = localStorage.getItem('teamhub_sheets_leaderpw') || '';
+        const userPw      = localStorage.getItem('teamhub_sheets_userpw')   || '';
+        // Ưu tiên dùng password của role đã lưu
+        let pwToTry = '';
+        if(savedRole === 'admin')       pwToTry = adminPw;
+        else if(savedRole === 'leader') pwToTry = leaderPw;
+        else if(savedRole === 'user')   pwToTry = userPw;
+        else pwToTry = adminPw || leaderPw || userPw || '';
 
         const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pwToTry });
         if(res.ok){
-          sheetsRole = res.role || localStorage.getItem('teamhub_sheets_role') || 'user';
+          // Luôn dùng role từ Sheets trả về, không tin localStorage
+          const verifiedRole = res.role || 'none';
+          // Nếu role không khớp với password đã lưu → thử lại với các password khác
+          if(verifiedRole === 'none' || verifiedRole !== savedRole){
+            // Thử tất cả password để tìm đúng role
+            const allPws = [adminPw, leaderPw, userPw].filter(p=>p && p !== pwToTry);
+            let finalRole = verifiedRole;
+            let finalPw = pwToTry;
+            for(const p of allPws){
+              const r2 = await sheetsRequest(cfg.scriptUrl, {action:'ping', password: p});
+              if(r2.ok && r2.role && r2.role !== 'none'){
+                finalRole = r2.role;
+                finalPw = p;
+                break;
+              }
+            }
+            // Cập nhật role đúng
+            if(finalRole !== 'none'){
+              localStorage.setItem('teamhub_sheets_role', finalRole);
+              if(finalRole==='admin')  localStorage.setItem('teamhub_sheets_adminpw', finalPw);
+              if(finalRole==='leader') localStorage.setItem('teamhub_sheets_leaderpw', finalPw);
+              if(finalRole==='user')   localStorage.setItem('teamhub_sheets_userpw', finalPw);
+              sheetsRole = finalRole;
+            } else {
+              sheetsRole = savedRole || 'user';
+            }
+          } else {
+            sheetsRole = verifiedRole;
+          }
           sheetsConnected = true;
           // Hiện app nếu đang bị ẩn (sau login)
           const appShell = document.querySelector('.app-shell');
@@ -3230,6 +3265,12 @@ function applyRoleUI(){
 // ── URL mode detection ──
 (function detectUrlMode(){
   const params = new URLSearchParams(window.location.search);
+  // ?reset=1 → xóa localStorage và về màn hình đăng nhập
+  if(params.get('reset') === '1'){
+    localStorage.clear();
+    window.location.replace(window.location.pathname);
+    return;
+  }
   // Redirect ?mode=user về link chính (giờ dùng password thay thế)
   if(params.get('mode') === 'user'){
     window.location.replace(window.location.pathname);
