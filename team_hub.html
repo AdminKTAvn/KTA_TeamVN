@@ -3200,7 +3200,12 @@ function applyRoleUI(){
 // ── URL mode detection ──
 (function detectUrlMode(){
   const params = new URLSearchParams(window.location.search);
-  if(false && params.get('mode') === 'user'){ // disabled: now using password system
+  // Redirect ?mode=user về link chính (giờ dùng password thay thế)
+  if(params.get('mode') === 'user'){
+    window.location.replace(window.location.pathname);
+    return;
+  }
+  if(false && params.get('mode') === 'user'){ // disabled
     // Force user mode: hide admin tabs, show user portal
     sheetsRole = 'user';
     const userTab = document.getElementById('maintab-user');
