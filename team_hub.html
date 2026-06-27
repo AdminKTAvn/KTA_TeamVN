@@ -31,11 +31,37 @@ body{margin:0;font-family:var(--font-sans);background:var(--color-background-sec
 .main-panel{display:none}
 .main-panel.active{display:block}
 button{font-family:var(--font-sans)}
-.sheets-status{font-size:11px;padding:5px 12px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px dashed var(--color-border-secondary);cursor:pointer;white-space:nowrap}
+.login-overlay{position:fixed;inset:0;background:#F7F6F3;z-index:99999;display:flex;align-items:center;justify-content:center}
+  .login-card{background:#fff;border-radius:16px;padding:40px 36px;max-width:400px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center}
+  .login-logo{font-size:36px;margin-bottom:12px}
+  .login-title{font-size:22px;font-weight:700;color:#1A1A18;margin-bottom:4px}
+  .login-sub{font-size:13px;color:#9C9A94;margin-bottom:28px}
+  .login-input{width:100%;box-sizing:border-box;padding:11px 14px;border-radius:8px;border:1.5px solid #E5E3DD;font-size:14px;color:#1A1A18;outline:none;transition:border .15s;font-family:inherit}
+  .login-input:focus{border-color:#1A1A18}
+  .login-btn{width:100%;padding:12px;border-radius:8px;border:none;background:#1A1A18;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit;transition:opacity .15s}
+  .login-btn:hover{opacity:.85}
+  .login-error{display:none;background:#FAECE7;color:#993C1D;font-size:12px;padding:8px 12px;border-radius:6px;margin-top:10px}
+  .login-hint{font-size:11px;color:#9C9A94;margin-top:16px}
+  .sheets-status{font-size:11px;padding:5px 12px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px dashed var(--color-border-secondary);cursor:pointer;white-space:nowrap}
   .sheets-status:hover{background:var(--color-border-tertiary)}
 </style>
 </head>
 <body>
+<!-- Login Screen (chỉ hiện cho link Admin, không phải ?mode=user) -->
+<div class="login-overlay" id="login-overlay" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">🏢</div>
+    <div class="login-title">Team Hub</div>
+    <div class="login-sub">Đăng nhập để tiếp tục</div>
+    <input class="login-input" type="password" id="login-pw-input"
+      placeholder="Nhập password..."
+      onkeydown="if(event.key==='Enter') doLogin()" />
+    <button class="login-btn" onclick="doLogin()">Đăng nhập →</button>
+    <div class="login-error" id="login-error">Password không đúng. Thử lại!</div>
+    <div class="login-hint">Liên hệ Admin để được cấp password</div>
+  </div>
+</div>
+
 <div class="app-shell">
   <div class="app-header">
     <div>
@@ -2444,6 +2470,75 @@ function switchMainTab(id){
 }
 
 
+
+// ═══════════ LOGIN SCREEN ═══════════
+(function initLoginScreen(){
+  // Không hiện login cho link ?mode=user
+  const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+  if(isUserMode) return;
+
+  // Kiểm tra đã đăng nhập chưa (có password lưu trong localStorage)
+  const savedAdmin  = localStorage.getItem('teamhub_sheets_adminpw')  || '';
+  const savedLeader = localStorage.getItem('teamhub_sheets_leaderpw') || '';
+  const savedUrl    = (function(){ try{ return JSON.parse(localStorage.getItem('teamhub_sheets_config')||'{}').scriptUrl||''; }catch(e){ return ''; } })();
+
+  if((savedAdmin || savedLeader) && savedUrl){
+    // Đã từng đăng nhập → ẩn login, auto-reconnect sẽ xử lý
+    return;
+  }
+
+  // Chưa đăng nhập → hiện màn hình login
+  const overlay = document.getElementById('login-overlay');
+  const appShell = document.querySelector('.app-shell');
+  if(overlay) overlay.style.display = 'flex';
+  if(appShell) appShell.style.visibility = 'hidden';
+})();
+
+async function doLogin(){
+  const pw  = (document.getElementById('login-pw-input').value || '').trim();
+  const err = document.getElementById('login-error');
+  const cfg = getSheetsConfig();
+
+  if(!pw){ if(err){ err.style.display='block'; err.textContent='Vui lòng nhập password!'; } return; }
+  if(!cfg.scriptUrl){
+    // Chưa có URL → mở modal nhập URL trước
+    hideLoginShowSetup();
+    return;
+  }
+
+  // Thử ping với password
+  try{
+    const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pw });
+    if(res.ok && (res.role==='admin' || res.role==='leader')){
+      // Lưu password
+      if(res.role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
+      if(res.role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
+      // Ẩn login, hiện app
+      document.getElementById('login-overlay').style.display = 'none';
+      document.querySelector('.app-shell').style.visibility = 'visible';
+      // Trigger kết nối
+      sheetsRole = res.role;
+      sheetsConnected = true;
+      sheetsScriptUrl = cfg.scriptUrl;
+      updateSheetsBadge(res.role==='admin' ? 'connected_admin' : 'connected_leader');
+      if(typeof applyRoleUI==='function') applyRoleUI();
+      await sheetsLoadAll();
+    } else {
+      if(err){ err.style.display='block'; err.textContent='Password không đúng hoặc không có quyền truy cập!'; }
+    }
+  } catch(e){
+    if(err){ err.style.display='block'; err.textContent='Không thể kết nối. Kiểm tra mạng và thử lại!'; }
+  }
+}
+
+function hideLoginShowSetup(){
+  // Chưa có URL Sheets → hiện setup modal để nhập URL + password cùng lúc
+  document.getElementById('login-overlay').style.display = 'none';
+  document.querySelector('.app-shell').style.visibility = 'visible';
+  openSheetsSetup();
+}
+// ═══════════ /LOGIN SCREEN ═══════════
+
 // ═══════════ GOOGLE SHEETS SYNC ═══════════
 // Kiến trúc: Apps Script làm API trung gian, Sheet là database trung tâm
 // Admin: full quyền đọc/ghi | User: chỉ xem data của mình + gửi góp ý
@@ -2802,13 +2897,35 @@ async function sendFeedback(personName, message){
         if(res.ok){
           sheetsRole = res.role || 'user';
           sheetsConnected = true;
+          // Hiện app nếu đang bị ẩn (sau login)
+          const appShell = document.querySelector('.app-shell');
+          if(appShell) appShell.style.visibility = 'visible';
+          const loginOverlay = document.getElementById('login-overlay');
+          if(loginOverlay) loginOverlay.style.display = 'none';
           updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : sheetsRole==='leader' ? 'connected_leader' : 'connected_user');
           if(typeof applyRoleUI==='function') applyRoleUI();
           await sheetsLoadAll();
         } else {
           updateSheetsBadge();
+          // Auto-reconnect thất bại → hiện login screen
+          const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+          if(!isUserMode){
+            const overlay = document.getElementById('login-overlay');
+            const appShell = document.querySelector('.app-shell');
+            if(overlay) overlay.style.display = 'flex';
+            if(appShell) appShell.style.visibility = 'hidden';
+          }
         }
-      } catch(e){ updateSheetsBadge(); }
+      } catch(e){
+        updateSheetsBadge();
+        const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+        if(!isUserMode){
+          const overlay = document.getElementById('login-overlay');
+          const appShell = document.querySelector('.app-shell');
+          if(overlay) overlay.style.display = 'flex';
+          if(appShell) appShell.style.visibility = 'hidden';
+        }
+      }
     }, 1200);
   }
 })();
