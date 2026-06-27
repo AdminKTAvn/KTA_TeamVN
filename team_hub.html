@@ -2922,6 +2922,39 @@ function applyRoleUI(){
   }
 }
 
+// ── URL mode detection ──
+(function detectUrlMode(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('mode') === 'user'){
+    // Force user mode: hide admin tabs, show user portal
+    sheetsRole = 'user';
+    const userTab = document.getElementById('maintab-user');
+    const projTab = document.getElementById('maintab-projects');
+    const evalTab = document.getElementById('maintab-eval');
+    if(userTab) userTab.style.display = 'flex';
+    if(projTab) projTab.style.display = 'none';
+    if(evalTab) evalTab.style.display = 'none';
+    // Switch to user panel after DOM ready
+    setTimeout(()=> switchMainTab('user'), 100);
+    // Auto-connect Sheets in user mode (no password needed)
+    const cfg = getSheetsConfig();
+    if(cfg.scriptUrl){
+      sheetsScriptUrl = cfg.scriptUrl;
+      setTimeout(async ()=>{
+        try{
+          const res = await sheetsRequest(cfg.scriptUrl, {action:'ping', password:''});
+          if(res.ok){
+            sheetsConnected = true;
+            sheetsRole = 'user';
+            updateSheetsBadge('connected_user');
+            await sheetsLoadAll();
+          }
+        } catch(e){}
+      }, 800);
+    }
+  }
+})();
+
 // ═══════════ /USER PORTAL ═══════════
 
 // ═══════════ LINK: auto-fill project count in Evaluation tab from Project data ═══════════
