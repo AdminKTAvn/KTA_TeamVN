@@ -912,6 +912,11 @@ checkAndSeedData();
         <button onclick="userPortalSearch()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
       </div>
 
+      <!-- Loading indicator -->
+      <div id="user-loading" style="display:none;text-align:center;padding:20px;color:var(--color-text-secondary);font-size:13px">
+        <div style="margin-bottom:8px">⏳ Đang tải dữ liệu mới nhất...</div>
+      </div>
+
       <div id="user-portal-result" style="display:none">
         <!-- Projects section -->
         <div style="margin-bottom:20px">
@@ -2693,6 +2698,29 @@ async function sheetsRequest(url, payload){
 }
 
 // ── Load all data from Sheet ──
+// Fresh version: luôn lấy từ Sheets, không dùng cache localStorage
+async function sheetsLoadAllFresh(){
+  try{
+    const res = await sheetsRequest(null, { action:'loadAll', password: getRolePw() });
+    if(res.ok && res.data){
+      if(res.data.projects){
+        projects = res.data.projects;
+        localStorage.setItem('teamhub_projects', JSON.stringify(projects));
+        renderProjects();
+      }
+      if(res.data.eval_persons){
+        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(res.data.eval_persons)); } catch(e){}
+      }
+      if(res.data.eval_data){
+        Object.entries(res.data.eval_data).forEach(([key,val])=>{
+          try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+        });
+      }
+      if(typeof renderPersonList==='function') renderPersonList();
+    }
+  } catch(e){ console.error('Sheets fresh load error', e); }
+}
+
 async function sheetsLoadAll(){
   try{
     const cfg = getSheetsConfig();
@@ -3028,12 +3056,15 @@ function applyRoleUI(){
     if(userTab) userTab.style.display = 'flex';
     if(projTab) projTab.style.display = 'none';
     if(evalTab) evalTab.style.display = 'none';
-    // Switch to user panel after DOM ready
     setTimeout(()=> switchMainTab('user'), 100);
-    // Auto-connect Sheets in user mode (no password needed)
+
+    // Auto-connect và load data mới nhất từ Sheets mỗi lần mở
     const cfg = getSheetsConfig();
     if(cfg.scriptUrl){
       sheetsScriptUrl = cfg.scriptUrl;
+      updateSheetsBadge('connecting');
+      const loadingEl2 = document.getElementById('user-loading');
+      if(loadingEl2) loadingEl2.style.display='block';
       setTimeout(async ()=>{
         try{
           const res = await sheetsRequest(cfg.scriptUrl, {action:'ping', password:''});
@@ -3041,10 +3072,19 @@ function applyRoleUI(){
             sheetsConnected = true;
             sheetsRole = 'user';
             updateSheetsBadge('connected_user');
-            await sheetsLoadAll();
+            // Luôn load data mới từ Sheets, bỏ qua localStorage cũ
+            await sheetsLoadAllFresh();
+            // Nếu user đã nhập tên → tự search lại sau khi có data
+            const nameInp = document.getElementById('user-search-name');
+            if(nameInp && nameInp.value.trim()) userPortalSearch();
+            // Ẩn loading indicator
+            const loadingEl = document.getElementById('user-loading');
+            if(loadingEl) loadingEl.style.display='none';
+          } else {
+            updateSheetsBadge();
           }
-        } catch(e){}
-      }, 800);
+        } catch(e){ updateSheetsBadge(); }
+      }, 600);
     }
   }
 })();
