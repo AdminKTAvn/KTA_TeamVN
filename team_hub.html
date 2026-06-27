@@ -2790,18 +2790,25 @@ async function sendFeedback(personName, message){
   const cfg  = getSheetsConfig();
   if(hint && cfg.scriptUrl){
     sheetsScriptUrl = cfg.scriptUrl;
+    updateSheetsBadge('connecting');
     setTimeout(async ()=>{
       try{
-        const pw = getRolePw();
-        const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pw });
+        // Thử lần lượt: admin pw → leader pw → không pw (user)
+        const adminPw  = localStorage.getItem('teamhub_sheets_adminpw')  || '';
+        const leaderPw = localStorage.getItem('teamhub_sheets_leaderpw') || '';
+        const pwToTry  = adminPw || leaderPw || '';
+
+        const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pwToTry });
         if(res.ok){
           sheetsRole = res.role || 'user';
           sheetsConnected = true;
           updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : sheetsRole==='leader' ? 'connected_leader' : 'connected_user');
           if(typeof applyRoleUI==='function') applyRoleUI();
           await sheetsLoadAll();
+        } else {
+          updateSheetsBadge();
         }
-      } catch(e){}
+      } catch(e){ updateSheetsBadge(); }
     }, 1200);
   }
 })();
