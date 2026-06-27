@@ -2537,6 +2537,7 @@ async function doLogin(){
       if(role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
       if(role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
       if(role==='user')   localStorage.setItem('teamhub_sheets_userpw',   pw);
+      localStorage.setItem('teamhub_sheets_role', role); // save role for auto-reconnect
       // Ẩn login, hiện app
       document.getElementById('login-overlay').style.display = 'none';
       document.querySelector('.app-shell').style.visibility = 'visible';
@@ -2764,6 +2765,8 @@ function openSheetsConnectedMenu(){
     // Xóa password + hint → lần sau phải đăng nhập lại
     localStorage.removeItem('teamhub_sheets_adminpw');
     localStorage.removeItem('teamhub_sheets_leaderpw');
+    localStorage.removeItem('teamhub_sheets_userpw');
+    localStorage.removeItem('teamhub_sheets_role');
     localStorage.removeItem('teamhub_sheets_hint');
     sheetsConnected = false;
     sheetsRole = null;
@@ -2946,7 +2949,7 @@ async function sendFeedback(personName, message){
 
         const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pwToTry });
         if(res.ok){
-          sheetsRole = res.role || 'user';
+          sheetsRole = res.role || localStorage.getItem('teamhub_sheets_role') || 'user';
           sheetsConnected = true;
           // Hiện app nếu đang bị ẩn (sau login)
           const appShell = document.querySelector('.app-shell');
