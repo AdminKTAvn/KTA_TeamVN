@@ -2449,6 +2449,21 @@ function getSheetsConfig(){
   try{ return JSON.parse(localStorage.getItem(SHEETS_CONFIG_KEY)) || {}; }
   catch(e){ return {}; }
 }
+
+// ── Password config — Admin/Leader tự lưu 1 lần vào localStorage ──
+// Nếu chưa có trong localStorage, dùng giá trị mặc định bên dưới
+// (để trống '' nếu không muốn hardcode)
+function getAdminPw(){
+  return localStorage.getItem('teamhub_sheets_adminpw') || '';
+}
+function getLeaderPw(){
+  return localStorage.getItem('teamhub_sheets_leaderpw') || '';
+}
+function getRolePw(){
+  if(sheetsRole==='admin')  return getAdminPw();
+  if(sheetsRole==='leader') return getLeaderPw();
+  return '';
+}
 function saveSheetsConfig(cfg){
   localStorage.setItem(SHEETS_CONFIG_KEY, JSON.stringify(cfg));
 }
@@ -2464,8 +2479,9 @@ function updateSheetsBadge(state){
   const badge = document.getElementById('sheets-status-badge');
   if(!badge) return;
   const S = {
-    connected_admin: ['📊 Sheets: Admin ✓', '#3B6D11','#EAF3DE','#639922','solid'],
-    connected_user:  ['📊 Sheets: Đã kết nối ✓', '#185FA5','#E6F1FB','#378ADD','solid'],
+    connected_admin:  ['📊 Sheets: Admin ✓', '#3B6D11','#EAF3DE','#639922','solid'],
+    connected_leader: ['📊 Sheets: Leader ✓', '#993C1D','#FAECE7','#D85A30','solid'],
+    connected_user:   ['📊 Sheets: Đã kết nối ✓', '#185FA5','#E6F1FB','#378ADD','solid'],
     syncing:         ['📊 Sheets: Đang lưu...', '#BA7517','#FEF3DC','#BA7517','solid'],
     error:           ['📊 Sheets: Lỗi — thử lại', '#993C1D','#FAECE7','#D85A30','solid'],
     connecting:      ['📊 Sheets: Đang kết nối...', '#BA7517','#FEF3DC','#BA7517','solid'],
@@ -2646,8 +2662,11 @@ async function connectSheets(){
       sheetsConnected = true;
       saveSheetsConfig({ scriptUrl: url });
       localStorage.setItem('teamhub_sheets_hint','1');
+      // Save password by role so it persists across file updates
+      if(sheetsRole==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
+      if(sheetsRole==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
       closeSheetsModal();
-      updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : 'connected_user');
+      updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : sheetsRole==='leader' ? 'connected_leader' : 'connected_user');
       if(typeof applyRoleUI==='function') applyRoleUI();
       // Load data from Sheet
       await sheetsLoadAll();
@@ -2677,7 +2696,7 @@ async function sheetsRequest(url, payload){
 async function sheetsLoadAll(){
   try{
     const cfg = getSheetsConfig();
-    const pw = sheetsRole==='admin' ? (localStorage.getItem('teamhub_sheets_adminpw')||'') : '';
+    const pw = getAdminPw();
     const res = await sheetsRequest(null, { action:'loadAll', password: pw });
     if(res.ok && res.data){
       if(res.data.projects){
@@ -2700,12 +2719,12 @@ async function sheetsLoadAll(){
 
 // ── Sync to Sheet (admin only) ──
 async function syncToSheets(type){
-  if(!sheetsConnected || sheetsRole !== 'admin') return;
+  if(!sheetsConnected || (sheetsRole !== 'admin' && sheetsRole !== 'leader')) return;
   if(sheetsSyncing) return;
   sheetsSyncing = true;
   updateSheetsBadge('syncing');
   try{
-    const pw = localStorage.getItem('teamhub_sheets_adminpw') || '';
+    const pw = getRolePw();
     const snapshot = { projects, ts: Date.now() };
     try{
       const personList = JSON.parse(localStorage.getItem('eval_v7_persons'))||[];
@@ -2745,12 +2764,12 @@ async function sendFeedback(personName, message){
     sheetsScriptUrl = cfg.scriptUrl;
     setTimeout(async ()=>{
       try{
-        const pw = localStorage.getItem('teamhub_sheets_adminpw') || '';
+        const pw = getRolePw();
         const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pw });
         if(res.ok){
           sheetsRole = res.role || 'user';
           sheetsConnected = true;
-          updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : 'connected_user');
+          updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : sheetsRole==='leader' ? 'connected_leader' : 'connected_user');
           if(typeof applyRoleUI==='function') applyRoleUI();
           await sheetsLoadAll();
         }
@@ -2764,7 +2783,8 @@ function getAppsScriptCode(){
   return `// Team Hub — Apps Script Backend
 // Deploy as Web App: Execute as Me, Anyone can access
 
-const ADMIN_PASSWORD = 'YOUR_PASSWORD_HERE'; // <-- đổi thành password của bạn
+const ADMIN_PASSWORD  = 'YOUR_PASSWORD_HERE';  // <-- password Admin
+const LEADER_PASSWORD = 'YOUR_LEADER_PASSWORD'; // <-- password Leader
 const SHEET_NAME_PROJECTS = 'Projects';
 const SHEET_NAME_EVAL     = 'Evaluation';
 const SHEET_NAME_FEEDBACK = 'Feedback';
@@ -2774,16 +2794,17 @@ function doPost(e){
     const payload = JSON.parse(e.postData.contents);
     const action  = payload.action;
     const pw      = payload.password || '';
-    const isAdmin = pw === ADMIN_PASSWORD;
+    const isAdmin  = pw === ADMIN_PASSWORD;
+    const isLeader = pw === LEADER_PASSWORD;
 
     if(action === 'ping'){
-      return ok({ role: isAdmin ? 'admin' : 'user' });
+      return ok({ role: isAdmin ? 'admin' : isLeader ? 'leader' : 'user' });
     }
     if(action === 'loadAll'){
       return ok(loadAll());
     }
     if(action === 'saveAll'){
-      if(!isAdmin) return err('Unauthorized');
+      if(!isAdmin && !isLeader) return err('Unauthorized');
       saveAll(payload.data);
       return ok({saved: true});
     }
@@ -2975,11 +2996,18 @@ function applyRoleUI(){
   const evalTab = document.getElementById('maintab-eval');
   if(!userTab) return;
   if(sheetsRole === 'user'){
-    // User: show only User Portal tab, hide Admin tabs
     userTab.style.display = 'flex';
     projTab.style.display = 'none';
     evalTab.style.display = 'none';
     switchMainTab('user');
+  } else if(sheetsRole === 'leader'){
+    // Leader: full view, no user portal
+    userTab.style.display = 'none';
+    projTab.style.display = 'flex';
+    evalTab.style.display = 'flex';
+    // Hide delete-all / sheets config buttons
+    const dangerBtns = document.querySelectorAll('.admin-only');
+    dangerBtns.forEach(b => b.style.display='none');
   } else {
     // Admin: show all tabs, hide User Portal
     userTab.style.display = 'none';
