@@ -2481,6 +2481,11 @@ function openSheetsSetup(){
   if(sheetsConnected){
     openSheetsConnectedMenu(); return;
   }
+  // User mode: show simple modal
+  const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+  if(isUserMode){
+    openUserConnectModal(); return;
+  }
   let overlay = document.getElementById('sheets-setup-overlay');
   if(!overlay){ overlay = buildSheetsModal(); document.body.appendChild(overlay); }
   const cfg = getSheetsConfig();
@@ -2488,6 +2493,67 @@ function openSheetsSetup(){
   const pwInp  = document.getElementById('sheets-admin-pw-input');
   if(urlInp && cfg.scriptUrl) urlInp.value = cfg.scriptUrl;
   overlay.style.display = 'flex';
+}
+
+function openUserConnectModal(){
+  let overlay = document.getElementById('user-connect-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'user-connect-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `
+    <div style="background:var(--color-background-primary);border-radius:12px;padding:28px;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.2);position:relative">
+      <button onclick="document.getElementById('user-connect-overlay').style.display='none'" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:18px;cursor:pointer;color:var(--color-text-secondary)">✕</button>
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px">📊 Kết nối dữ liệu</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:18px">Nhập URL do Admin cung cấp để xem dữ liệu của bạn</div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">URL kết nối</div>
+        <input id="user-connect-url" type="text" placeholder="https://script.google.com/macros/s/.../exec"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;font-family:monospace" />
+      </div>
+      <div id="user-connect-error" style="display:none;background:#FAECE7;color:#993C1D;font-size:12px;padding:8px 12px;border-radius:6px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="document.getElementById('user-connect-overlay').style.display='none'" style="padding:7px 18px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:13px;color:var(--color-text-secondary)">Hủy</button>
+        <button onclick="connectUserSheets()" style="padding:7px 20px;border-radius:6px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500">Kết nối →</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+  const cfg = getSheetsConfig();
+  const inp = document.getElementById('user-connect-url');
+  if(inp && cfg.scriptUrl) inp.value = cfg.scriptUrl;
+  overlay.style.display = 'flex';
+}
+
+async function connectUserSheets(){
+  const inp = document.getElementById('user-connect-url');
+  const err = document.getElementById('user-connect-error');
+  const url = inp ? inp.value.trim() : '';
+  if(!url || !url.startsWith('https://script.google.com')){
+    if(err){ err.style.display='block'; err.textContent='URL không hợp lệ.'; }
+    return;
+  }
+  if(err) err.style.display='none';
+  updateSheetsBadge('connecting');
+  try{
+    const res = await sheetsRequest(url, {action:'ping', password:''});
+    if(res.ok){
+      sheetsScriptUrl = url;
+      sheetsRole = 'user';
+      sheetsConnected = true;
+      saveSheetsConfig({scriptUrl: url});
+      localStorage.setItem('teamhub_sheets_hint','1');
+      document.getElementById('user-connect-overlay').style.display='none';
+      updateSheetsBadge('connected_user');
+      await sheetsLoadAll();
+    } else {
+      updateSheetsBadge('error');
+      if(err){ err.style.display='block'; err.textContent='Kết nối thất bại. Kiểm tra lại URL.'; }
+    }
+  } catch(e){
+    updateSheetsBadge('error');
+    if(err){ err.style.display='block'; err.textContent='Không thể kết nối: '+e.message; }
+  }
 }
 
 function closeSheetsModal(){
