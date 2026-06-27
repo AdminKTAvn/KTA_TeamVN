@@ -1,0 +1,2936 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Hub — Quản lý dự án & Đánh giá năng lực</title>
+<style>
+:root{
+  --color-background-primary:#FFFFFF;
+  --color-background-secondary:#F7F6F3;
+  --color-text-primary:#1A1A18;
+  --color-text-secondary:#5F5E5A;
+  --color-text-tertiary:#9C9A94;
+  --color-border-tertiary:#E5E3DD;
+  --color-border-secondary:#D4D1C8;
+  --border-radius-md:8px;
+  --border-radius-lg:12px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);-webkit-font-smoothing:antialiased}
+.app-shell{max-width:1080px;margin:0 auto;padding:0 16px 60px}
+.app-header{padding:28px 0 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.app-title{font-size:20px;font-weight:600;letter-spacing:-0.01em}
+.app-title-sub{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.app-card{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.main-tabs{display:flex;gap:6px;margin-bottom:1.25rem;background:var(--color-background-primary);padding:5px;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);width:fit-content}
+.main-tab{padding:9px 20px;font-size:13px;font-weight:500;border-radius:var(--border-radius-md);cursor:pointer;color:var(--color-text-secondary);transition:all .15s;display:flex;align-items:center;gap:6px}
+.main-tab:hover{background:var(--color-background-secondary)}
+.main-tab.active{background:#1A1A18;color:#fff}
+.main-panel{display:none}
+.main-panel.active{display:block}
+button{font-family:var(--font-sans)}
+.sheets-status{font-size:11px;padding:5px 12px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px dashed var(--color-border-secondary);cursor:pointer;white-space:nowrap}
+  .sheets-status:hover{background:var(--color-border-tertiary)}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="app-header">
+    <div>
+      <div class="app-title">Team Hub</div>
+      <div class="app-title-sub">Quản lý dự án &amp; Đánh giá năng lực — đồng bộ qua Google Sheets</div>
+    </div>
+    <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()">📊 Sheets: Chưa kết nối</span>
+  </div>
+
+  <div class="main-tabs">
+    <div class="main-tab active" id="maintab-projects" onclick="switchMainTab('projects')">📁 Quản lý dự án</div>
+    <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')">📊 Đánh giá năng lực</div>
+    <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none">👤 Tra cứu của tôi</div>
+  </div>
+
+  <!-- ═══════════ PANEL 1: PROJECT MANAGEMENT ═══════════ -->
+  <div class="main-panel active" id="mainpanel-projects">
+  <style>
+  .pm-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:10px;flex-wrap:wrap}
+  .pm-add-btn{font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500}
+  .pm-add-btn:hover{background:#333}
+  .pm-filters{display:flex;gap:8px;flex-wrap:wrap}
+  .pm-filter-select{font-size:12px;padding:6px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)}
+  .pm-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+  .pm-stat{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:14px 16px}
+  .pm-stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:6px}
+  .pm-stat-value{font-size:24px;font-weight:600}
+  .pm-stat-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:3px}
+
+  .pm-section-title{font-size:13px;font-weight:600;color:var(--color-text-primary);margin:1.5rem 0 .75rem}
+
+  /* Team breakdown cards */
+  .pm-team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem}
+  .pm-team-card{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);overflow:hidden}
+  .pm-team-head{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--color-border-tertiary)}
+  .pm-team-name{font-size:14px;font-weight:600}
+  .pm-team-count{font-size:11px;padding:2px 9px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary)}
+  .pm-team-body{padding:12px 16px}
+  .pm-team-row{display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);padding:4px 0}
+  .pm-team-row b{color:var(--color-text-primary);font-weight:500}
+  .pm-bar-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .pm-bar-track{flex:1;height:6px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden}
+  .pm-bar-fill{height:100%;border-radius:3px}
+
+  /* Project table */
+  .pm-table-wrap{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);overflow:hidden}
+  .pm-table{width:100%;border-collapse:collapse;font-size:13px}
+  .pm-table th{text-align:left;font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.3px;padding:10px 14px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+  .pm-table td{padding:11px 14px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:top}
+  .pm-table tr:last-child td{border-bottom:none}
+  .pm-table tr:hover td{background:var(--color-background-secondary)}
+  .pm-proj-name{font-weight:500;color:var(--color-text-primary)}
+  .pm-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;display:inline-block}
+  .pm-size-small{background:#EAF3DE;color:#3B6D11}
+  .pm-size-medium{background:#FEF3DC;color:#BA7517}
+  .pm-size-large{background:#FAECE7;color:#993C1D}
+  .pm-team-liam{background:#F5E2DE;color:#8B2E1F}
+  .pm-team-stuart{background:#F1E8FA;color:#6B2FA0}
+  .pm-team-nina{background:#FDE8F1;color:#A02A6B}
+  .pm-status-complete{background:#EAF3DE;color:#3B6D11}
+  .pm-status-hold{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+  .pm-status-nonurgent{background:#E6F1FB;color:#185FA5}
+  .pm-status-priorities{background:#FEF3DC;color:#BA7517}
+  .pm-status-deadline{background:#FAECE7;color:#993C1D}
+  .pm-members{font-size:12px;color:var(--color-text-secondary)}
+  .pm-member-tag{display:inline-block;background:var(--color-background-secondary);padding:1px 7px;border-radius:10px;font-size:11px;margin:1px 2px 1px 0}
+  .pm-row-actions{display:flex;gap:6px}
+  .pm-icon-btn{font-size:13px;cursor:pointer;padding:3px 6px;border-radius:6px;color:var(--color-text-tertiary);background:none;border:none}
+  .pm-icon-btn:hover{background:var(--color-border-tertiary);color:var(--color-text-primary)}
+  .pm-empty{text-align:center;padding:3rem 1rem;color:var(--color-text-tertiary);font-size:13px}
+
+  /* Modal */
+  .pm-modal-overlay{display:none;position:fixed;inset:0;background:rgba(20,18,14,0.45);z-index:1000;align-items:center;justify-content:center;padding:20px}
+  .pm-modal-overlay.open{display:flex}
+  .pm-modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:1.5rem}
+  .pm-modal-title{font-size:16px;font-weight:600;margin-bottom:1.25rem}
+  .pm-field{margin-bottom:14px}
+  .pm-field label{font-size:12px;font-weight:500;color:var(--color-text-secondary);display:block;margin-bottom:6px}
+  .pm-field input[type=text],.pm-field select,.pm-field textarea{width:100%;font-size:13px;padding:8px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-family:var(--font-sans)}
+  .pm-field textarea{min-height:60px;resize:vertical}
+  .pm-radio-group{display:flex;gap:8px;flex-wrap:wrap}
+  .pm-radio-opt{flex:1;min-width:80px}
+  .pm-radio-opt input{display:none}
+  .pm-radio-opt label{display:block;text-align:center;font-size:12px;padding:8px 6px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);cursor:pointer;color:var(--color-text-secondary)}
+  .pm-radio-opt input:checked + label{background:#1A1A18;color:#fff;border-color:#1A1A18;font-weight:500}
+  .pm-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:1.5rem}
+  .pm-btn-cancel{font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+  .pm-btn-save{font-size:13px;padding:8px 18px;border-radius:var(--border-radius-md);border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500}
+  .pm-complexity-grid{display:flex;flex-direction:column;gap:6px}
+  .pm-cx-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--color-text-secondary);padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-primary)}
+  .pm-cx-item:hover{background:var(--color-background-secondary)}
+  .pm-cx-item input{margin-top:2px;flex-shrink:0}
+  .pm-cx-item input:checked ~ span{color:var(--color-text-primary);font-weight:500}
+  .pm-cx-preview{margin-top:8px;font-size:12px;padding:8px 12px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary)}
+  .pm-complexity-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;display:inline-block}
+  .pm-cx-simple{background:#EAF3DE;color:#3B6D11}
+  .pm-cx-moderate{background:#FEF3DC;color:#BA7517}
+  .pm-cx-complex{background:#FAECE7;color:#993C1D}
+  .pm-role-tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;margin:1px 2px 1px 0;font-weight:500}
+  .pm-role-main{background:#1A1A18;color:#fff}
+  .pm-role-backup{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)}
+  </style>
+
+  <div class="pm-toolbar">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
+      <button class="pm-add-btn" style="background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)" onclick="openCsvModal()">⬆ Nhập từ CSV</button>
+      <button class="pm-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveProjectsManual()">💾 Lưu dữ liệu</button>
+      <span id="pm-save-toast" style="font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px;display:none">✓ Đã lưu!</span>
+    </div>
+    <div class="pm-filters">
+      <select class="pm-filter-select" id="pm-filter-team" onchange="renderProjects()">
+        <option value="">Tất cả nhóm</option>
+        <option value="Liam">Liam</option>
+        <option value="Stuart">Stuart</option>
+        <option value="Nina">Nina</option>
+      </select>
+      <select class="pm-filter-select" id="pm-filter-size" onchange="renderProjects()">
+        <option value="">Tất cả quy mô</option>
+        <option value="Small">Small</option>
+        <option value="Medium">Medium</option>
+        <option value="Large">Large</option>
+      </select>
+      <select class="pm-filter-select" id="pm-filter-status" onchange="renderProjects()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="Complete">Complete</option>
+        <option value="Hold">Hold</option>
+        <option value="Non-Urgent">Non-Urgent</option>
+        <option value="Priorities">Priorities</option>
+        <option value="Deadline">Deadline</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Overview stats -->
+  <div class="pm-stats-grid" id="pm-stats-grid"></div>
+
+  <!-- Team breakdown -->
+  <div class="pm-section-title">Hiệu quả hoạt động theo nhóm</div>
+  <div class="pm-team-grid" id="pm-team-grid"></div>
+
+  <!-- Project table -->
+  <div class="pm-section-title">Danh sách dự án</div>
+  <div class="pm-table-wrap">
+    <table class="pm-table">
+      <thead>
+        <tr>
+          <th>Tên dự án</th>
+          <th>Quy mô</th>
+          <th>Độ phức tạp</th>
+          <th>Nhóm</th>
+          <th>Nhân sự</th>
+          <th>Trạng thái</th>
+          <th style="width:70px"></th>
+        </tr>
+      </thead>
+      <tbody id="pm-table-body"></tbody>
+    </table>
+    <div class="pm-empty" id="pm-empty" style="display:none">Chưa có dự án nào. Bấm "+ Thêm dự án" để bắt đầu.</div>
+  </div>
+
+  <!-- Modal: Add/Edit Project -->
+  <div class="pm-modal-overlay" id="pm-modal-overlay">
+    <div class="pm-modal">
+      <div class="pm-modal-title" id="pm-modal-title">Thêm dự án mới</div>
+      <input type="hidden" id="pm-edit-id" value="">
+
+      <div class="pm-field">
+        <label>Tên dự án</label>
+        <input type="text" id="pm-f-name" placeholder="VD: Riverside Apartments — Phase 2">
+      </div>
+
+      <div class="pm-field">
+        <label>Quy mô dự án</label>
+        <div class="pm-radio-group">
+          <div class="pm-radio-opt"><input type="radio" name="pm-size" id="pm-size-small" value="Small"><label for="pm-size-small">Small</label></div>
+          <div class="pm-radio-opt"><input type="radio" name="pm-size" id="pm-size-medium" value="Medium"><label for="pm-size-medium">Medium</label></div>
+          <div class="pm-radio-opt"><input type="radio" name="pm-size" id="pm-size-large" value="Large"><label for="pm-size-large">Large</label></div>
+        </div>
+      </div>
+
+      <div class="pm-field">
+        <label>Nhóm phụ trách</label>
+        <div class="pm-radio-group">
+          <div class="pm-radio-opt"><input type="radio" name="pm-team" id="pm-team-liam" value="Liam"><label for="pm-team-liam">Liam</label></div>
+          <div class="pm-radio-opt"><input type="radio" name="pm-team" id="pm-team-stuart" value="Stuart"><label for="pm-team-stuart">Stuart</label></div>
+          <div class="pm-radio-opt"><input type="radio" name="pm-team" id="pm-team-nina" value="Nina"><label for="pm-team-nina">Nina</label></div>
+        </div>
+      </div>
+
+      <div class="pm-field">
+        <label>Nhân sự Main (phụ trách chính — cách nhau bởi dấu phẩy)</label>
+        <input type="text" id="pm-f-members-main" placeholder="VD: An, Bình">
+      </div>
+
+      <div class="pm-field">
+        <label>Nhân sự Backup / Support (hỗ trợ, luân chuyển — cách nhau bởi dấu phẩy)</label>
+        <input type="text" id="pm-f-members-backup" placeholder="VD: Chi, Dũng">
+      </div>
+
+      <div class="pm-field">
+        <label>Tình trạng hoạt động</label>
+        <select id="pm-f-status">
+          <option value="Complete">Complete</option>
+          <option value="Hold">Hold</option>
+          <option value="Non-Urgent">Non-Urgent</option>
+          <option value="Priorities">Priorities</option>
+          <option value="Deadline">Deadline</option>
+        </select>
+      </div>
+
+      <div class="pm-field">
+        <label>Độ phức tạp dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(tick các yếu tố áp dụng — tự động suy ra mức độ tổng)</span></label>
+        <div class="pm-complexity-grid">
+          <label class="pm-cx-item"><input type="checkbox" id="cx-detail" onchange="updateComplexityPreview()"><span>Mức độ chi tiết cao (LOD cao, nhiều family/detail)</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-deadline" onchange="updateComplexityPreview()"><span>Progress Priorities — tiến độ gấp để hoàn thành</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-case" onchange="updateComplexityPreview()"><span>Case lạ phức tạp (địa hình / facade / hình khối / công năng)</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-coord" onchange="updateComplexityPreview()"><span>Phối hợp nhiều bộ môn (MEP / Structural)</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-nonstd" onchange="updateComplexityPreview()"><span>Không theo template chuẩn — tự thiết lập workflow/family mới</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-revision" onchange="updateComplexityPreview()"><span>Nhiều revision / thay đổi liên tục từ client hoặc KTA</span></label>
+        </div>
+        <div id="pm-cx-preview" class="pm-cx-preview">Mức độ phức tạp: <b>Simple</b> (0/6 yếu tố)</div>
+      </div>
+
+      <div class="pm-field">
+        <label>Ghi chú (tuỳ chọn)</label>
+        <textarea id="pm-f-notes" placeholder="Ghi chú thêm về dự án..."></textarea>
+      </div>
+
+      <div class="pm-modal-actions">
+        <button class="pm-btn-cancel" onclick="closeProjectModal()">Huỷ</button>
+        <button class="pm-btn-save" onclick="saveProject()">Lưu dự án</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: CSV Import -->
+  <div class="pm-modal-overlay" id="pm-csv-overlay">
+    <div class="pm-modal" style="max-width:640px">
+      <div class="pm-modal-title">Nhập dự án từ CSV</div>
+
+      <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
+        <strong style="font-weight:600;color:var(--color-text-primary)">Định dạng cột (theo đúng thứ tự):</strong><br>
+        Tên dự án, Quy mô, Nhóm, Nhân sự Main, Nhân sự Backup, Trạng thái, Số yếu tố phức tạp (0-6), Ghi chú<br><br>
+        <strong style="font-weight:600;color:var(--color-text-primary)">Lưu ý:</strong><br>
+        · Quy mô: <code>Small</code> / <code>Medium</code> / <code>Large</code><br>
+        · Nhóm: <code>Liam</code> / <code>Stuart</code> / <code>Nina</code><br>
+        · Nhân sự Main / Backup: nhiều người cách nhau bằng dấu <code>;</code> (chấm phẩy) — để trống nếu không có<br>
+        · Trạng thái: <code>Complete</code> / <code>Hold</code> / <code>Non-Urgent</code> / <code>Priorities</code> / <code>Deadline</code><br>
+        · Số yếu tố phức tạp: nhập số từ 0–6 (0-1 = Simple, 2-3 = Moderate, 4-6 = Complex) — để trống = 0<br>
+        · Dòng đầu tiên (header) sẽ tự động được bỏ qua nếu phát hiện chứa chữ "Tên dự án"
+      </div>
+
+      <div class="pm-field">
+        <label>Chọn file CSV (xuất từ Google Sheet: File → Download → CSV)</label>
+        <input type="file" id="pm-csv-file" accept=".csv,text/csv" onchange="handleCsvFile(event)" style="font-size:13px">
+      </div>
+
+      <div class="pm-field">
+        <label>Hoặc dán nội dung CSV trực tiếp</label>
+        <textarea id="pm-csv-paste" placeholder="Riverside Apartments, Large, Liam, An; Bình, Chi, Priorities, 3, Đang chờ duyệt MEP" style="min-height:100px;font-family:monospace;font-size:12px" oninput="previewCsv()"></textarea>
+      </div>
+
+      <div id="pm-csv-preview" style="display:none;margin-top:1rem">
+        <div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px">Xem trước (<span id="pm-csv-count">0</span> dự án sẽ được nhập):</div>
+        <div style="max-height:240px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)">
+          <table class="pm-table" style="font-size:12px">
+            <thead><tr><th>Tên</th><th>Quy mô</th><th>Độ phức tạp</th><th>Nhóm</th><th>Main</th><th>Backup</th><th>Trạng thái</th></tr></thead>
+            <tbody id="pm-csv-preview-body"></tbody>
+          </table>
+        </div>
+        <div id="pm-csv-errors" style="margin-top:8px;font-size:11px;color:#993C1D"></div>
+      </div>
+
+      <div class="pm-modal-actions">
+        <button class="pm-btn-cancel" onclick="closeCsvModal()">Huỷ</button>
+        <button class="pm-btn-save" onclick="confirmCsvImport()" id="pm-csv-confirm-btn" disabled>Nhập dữ liệu</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ═══════════ PROJECT MANAGEMENT MODULE ═══════════
+let projects = [];
+
+function loadProjects(){
+  try{
+    const raw = localStorage.getItem('teamhub_projects');
+    projects = raw ? JSON.parse(raw) : [];
+  } catch(e){ projects = []; }
+}
+
+function persistProjects(){
+  try{ localStorage.setItem('teamhub_projects', JSON.stringify(projects)); } catch(e){}
+  if(typeof syncToSheets === 'function') syncToSheets('projects');
+}
+
+function saveProjectsManual(){
+  persistProjects();
+  const toast = document.getElementById('pm-save-toast');
+  if(toast){
+    toast.style.display='inline-block';
+    setTimeout(()=>toast.style.display='none', 2000);
+  }
+}
+
+const CX_KEYS = ['cx-detail','cx-deadline','cx-case','cx-coord','cx-nonstd','cx-revision'];
+const CX_LABELS = {
+  'cx-detail':'Mức độ chi tiết cao',
+  'cx-deadline':'Progress Priorities — tiến độ gấp',
+  'cx-case':'Case lạ phức tạp (địa hình/facade/hình khối/công năng)',
+  'cx-coord':'Phối hợp nhiều bộ môn (MEP/Structural)',
+  'cx-nonstd':'Không theo template chuẩn',
+  'cx-revision':'Nhiều revision/thay đổi liên tục',
+};
+
+function calcComplexityLevel(count){
+  if(count>=4) return 'Complex';
+  if(count>=2) return 'Moderate';
+  return 'Simple';
+}
+const CX_LEVEL_CLASS = {'Simple':'pm-cx-simple','Moderate':'pm-cx-moderate','Complex':'pm-cx-complex'};
+
+// Color class purely by count, for number-based badges (0-6)
+function cxColorClass(count){
+  if(count>=4) return 'pm-cx-complex';
+  if(count>=2) return 'pm-cx-moderate';
+  return 'pm-cx-simple';
+}
+
+function updateComplexityPreview(){
+  const count = CX_KEYS.filter(k=>document.getElementById(k).checked).length;
+  document.getElementById('pm-cx-preview').innerHTML =
+    `Độ phức tạp: <span class="pm-complexity-badge ${cxColorClass(count)}">${count}/6</span>`;
+  return {count};
+}
+
+function openProjectModal(editId){
+  document.getElementById('pm-modal-overlay').classList.add('open');
+  if(editId){
+    const p = projects.find(x=>x.id===editId);
+    if(!p) return;
+    document.getElementById('pm-modal-title').textContent='Sửa dự án';
+    document.getElementById('pm-edit-id').value=editId;
+    document.getElementById('pm-f-name').value=p.name;
+    document.getElementById('pm-f-members-main').value=(p.membersMain||[]).join(', ');
+    document.getElementById('pm-f-members-backup').value=(p.membersBackup||[]).join(', ');
+    document.getElementById('pm-f-status').value=p.status;
+    document.getElementById('pm-f-notes').value=p.notes||'';
+    document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
+    document.getElementById('pm-team-'+p.team.toLowerCase()).checked=true;
+    const cx = p.complexity||{};
+    CX_KEYS.forEach(k=>{ document.getElementById(k).checked = !!cx[k]; });
+    updateComplexityPreview();
+  } else {
+    document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
+    document.getElementById('pm-edit-id').value='';
+    document.getElementById('pm-f-name').value='';
+    document.getElementById('pm-f-members-main').value='';
+    document.getElementById('pm-f-members-backup').value='';
+    document.getElementById('pm-f-notes').value='';
+    document.getElementById('pm-f-status').value='Priorities';
+    document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
+    document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
+    CX_KEYS.forEach(k=>{ document.getElementById(k).checked=false; });
+    updateComplexityPreview();
+  }
+}
+
+function closeProjectModal(){
+  document.getElementById('pm-modal-overlay').classList.remove('open');
+}
+
+function saveProject(){
+  const name = document.getElementById('pm-f-name').value.trim();
+  const sizeEl = document.querySelector('input[name=pm-size]:checked');
+  const teamEl = document.querySelector('input[name=pm-team]:checked');
+  const mainRaw = document.getElementById('pm-f-members-main').value.trim();
+  const backupRaw = document.getElementById('pm-f-members-backup').value.trim();
+  const status = document.getElementById('pm-f-status').value;
+  const notes = document.getElementById('pm-f-notes').value.trim();
+  const editId = document.getElementById('pm-edit-id').value;
+
+  if(!name){ alert('Vui lòng nhập tên dự án.'); return; }
+  if(!sizeEl){ alert('Vui lòng chọn quy mô dự án.'); return; }
+  if(!teamEl){ alert('Vui lòng chọn nhóm phụ trách.'); return; }
+
+  const membersMain = mainRaw ? mainRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const membersBackup = backupRaw ? backupRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const complexity = {};
+  CX_KEYS.forEach(k=>{ complexity[k]=document.getElementById(k).checked; });
+  const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
+  const complexityLevel = calcComplexityLevel(cxCount);
+
+  if(editId){
+    const p = projects.find(x=>x.id===editId);
+    if(p){
+      p.name=name; p.size=sizeEl.value; p.team=teamEl.value;
+      p.membersMain=membersMain; p.membersBackup=membersBackup;
+      p.members=[...membersMain,...membersBackup];
+      p.status=status; p.notes=notes;
+      p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
+      // cxTotal preserved from original creation — don't update on edit
+    }
+  } else {
+    projects.push({
+      id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      name, size: sizeEl.value, team: teamEl.value,
+      membersMain, membersBackup, members:[...membersMain,...membersBackup],
+      status, notes, createdAt: Date.now(),
+      complexity, complexityLevel, complexityCount: cxCount,
+      cxTotal: CX_KEYS.length // snapshot of total criteria at time of creation
+    });
+  }
+
+  persistProjects();
+  closeProjectModal();
+  renderProjects();
+}
+
+function deleteProject(id){
+  const p = projects.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm('Xoá dự án "'+p.name+'"?')) return;
+  projects = projects.filter(x=>x.id!==id);
+  persistProjects();
+  renderProjects();
+}
+
+const STATUS_LABEL_CLASS = {
+  'Complete':'pm-status-complete','Hold':'pm-status-hold','Non-Urgent':'pm-status-nonurgent',
+  'Priorities':'pm-status-priorities','Deadline':'pm-status-deadline'
+};
+const SIZE_CLASS = {'Small':'pm-size-small','Medium':'pm-size-medium','Large':'pm-size-large'};
+const TEAM_CLASS = {'Liam':'pm-team-liam','Stuart':'pm-team-stuart','Nina':'pm-team-nina'};
+const TEAM_COLOR = {'Liam':'#8B2E1F','Stuart':'#9B5DE0','Nina':'#E0529B'};
+
+function renderProjects(){
+  const fTeam=document.getElementById('pm-filter-team').value;
+  const fSize=document.getElementById('pm-filter-size').value;
+  const fStatus=document.getElementById('pm-filter-status').value;
+
+  const filtered = projects.filter(p=>
+    (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
+  );
+
+  // ── Stats ──
+  const total = projects.length;
+  const active = projects.filter(p=>p.status!=='Complete'&&p.status!=='Hold').length;
+  const deadline = projects.filter(p=>p.status==='Deadline').length;
+  const complete = projects.filter(p=>p.status==='Complete').length;
+  const completeRate = total ? Math.round(complete/total*100) : 0;
+
+  document.getElementById('pm-stats-grid').innerHTML = `
+    <div class="pm-stat"><div class="pm-stat-label">Tổng dự án</div><div class="pm-stat-value">${total}</div></div>
+    <div class="pm-stat"><div class="pm-stat-label">Đang hoạt động</div><div class="pm-stat-value" style="color:#185FA5">${active}</div></div>
+    <div class="pm-stat"><div class="pm-stat-label">Cận deadline</div><div class="pm-stat-value" style="color:#993C1D">${deadline}</div></div>
+    <div class="pm-stat"><div class="pm-stat-label">Tỷ lệ hoàn thành</div><div class="pm-stat-value" style="color:#3B6D11">${completeRate}%</div><div class="pm-stat-sub">${complete}/${total} dự án</div></div>
+  `;
+
+  // ── Team breakdown ──
+  const teamGrid = document.getElementById('pm-team-grid');
+  teamGrid.innerHTML = ['Liam','Stuart','Nina'].map(team=>{
+    const tProjs = projects.filter(p=>p.team===team);
+    const tComplete = tProjs.filter(p=>p.status==='Complete').length;
+    const tDeadline = tProjs.filter(p=>p.status==='Deadline').length;
+    const sizeCount = {Small:0,Medium:0,Large:0};
+    tProjs.forEach(p=>sizeCount[p.size]++);
+    const memberSet = new Set();
+    tProjs.forEach(p=>p.members.forEach(m=>memberSet.add(m)));
+    const pct = tProjs.length ? Math.round(tComplete/tProjs.length*100) : 0;
+    return `<div class="pm-team-card">
+      <div class="pm-team-head">
+        <span class="pm-team-name">${team}</span>
+        <span class="pm-team-count">${tProjs.length} dự án</span>
+      </div>
+      <div class="pm-team-body">
+        <div class="pm-team-row"><span>Hoàn thành</span><b>${tComplete}</b></div>
+        <div class="pm-team-row"><span>Cận deadline</span><b style="color:${tDeadline>0?'#993C1D':'inherit'}">${tDeadline}</b></div>
+        <div class="pm-team-row"><span>Nhân sự tham gia</span><b>${memberSet.size}</b></div>
+        <div class="pm-team-row"><span>Small / Medium / Large</span><b>${sizeCount.Small} / ${sizeCount.Medium} / ${sizeCount.Large}</b></div>
+        <div class="pm-bar-row">
+          <div class="pm-bar-track"><div class="pm-bar-fill" style="width:${pct}%;background:${TEAM_COLOR[team]}"></div></div>
+          <span style="font-size:11px;color:var(--color-text-secondary)">${pct}%</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Table ──
+  const tbody = document.getElementById('pm-table-body');
+  const empty = document.getElementById('pm-empty');
+  if(!filtered.length){
+    tbody.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+  tbody.innerHTML = filtered.slice().sort((a,b)=>{
+    // Use explicit order field if available, else createdAt ascending
+    if(a.order!==undefined && b.order!==undefined) return a.order - b.order;
+    return a.createdAt - b.createdAt;
+  }).map(p=>{
+    const cxCount = p.complexityCount||0;
+    const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
+    const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
+    return `
+    <tr>
+      <td>
+        <div class="pm-proj-name">${escapeHtml(p.name)}</div>
+        ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
+      </td>
+      <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
+      <td><span class="pm-complexity-badge ${cxColorClass(cxCount)}">${cxCount}/6</span></td>
+      <td><span class="pm-badge ${TEAM_CLASS[p.team]}">${p.team}</span></td>
+      <td class="pm-members">${mainTags}${backupTags}${(!mainTags&&!backupTags)?'—':''}</td>
+      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}">${p.status}</span></td>
+      <td>
+        <div class="pm-row-actions">
+          <button class="pm-icon-btn" onclick="openProjectModal('${p.id}')" title="Sửa">✎</button>
+          <button class="pm-icon-btn" onclick="deleteProject('${p.id}')" title="Xoá">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function escapeHtml(str){
+  const div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+// Get project stats for a given person — used by Evaluation module (Input 3 linkage)
+function getPersonProjectStats(personName){
+  const lower = personName.trim().toLowerCase();
+  const asMain = projects.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  const asBackup = projects.filter(p=>(p.membersBackup||[]).some(m=>m.toLowerCase()===lower) && !(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  const involved = [...asMain, ...asBackup];
+
+  const bySize = {Small:0,Medium:0,Large:0};
+  const byComplexity = {Simple:0,Moderate:0,Complex:0};
+  involved.forEach(p=>{
+    bySize[p.size]++;
+    const cx = p.complexityLevel || calcComplexityLevel(p.complexityCount||0);
+    byComplexity[cx]++;
+  });
+  const complete = involved.filter(p=>p.status==='Complete').length;
+  return {
+    total: involved.length,
+    mainCount: asMain.length,
+    backupCount: asBackup.length,
+    bySize, byComplexity, complete,
+    projects: involved
+  };
+}
+
+// ═══════════ CSV IMPORT ═══════════
+const VALID_SIZES = ['Small','Medium','Large'];
+const VALID_TEAMS = ['Liam','Stuart','Nina'];
+const VALID_STATUSES = ['Complete','Hold','Non-Urgent','Priorities','Deadline'];
+let pendingCsvProjects = [];
+
+function openCsvModal(){
+  document.getElementById('pm-csv-overlay').classList.add('open');
+  document.getElementById('pm-csv-file').value='';
+  document.getElementById('pm-csv-paste').value='';
+  document.getElementById('pm-csv-preview').style.display='none';
+  document.getElementById('pm-csv-confirm-btn').disabled=true;
+  pendingCsvProjects=[];
+}
+function closeCsvModal(){
+  document.getElementById('pm-csv-overlay').classList.remove('open');
+}
+
+function handleCsvFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    document.getElementById('pm-csv-paste').value = e.target.result;
+    previewCsv();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Simple CSV line parser supporting quoted fields with commas
+function parseCsvLine(line){
+  const result=[];
+  let cur=''; let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(inQuotes && line[i+1]==='"'){ cur+='"'; i++; }
+      else inQuotes=!inQuotes;
+    } else if(ch===',' && !inQuotes){
+      result.push(cur); cur='';
+    } else {
+      cur+=ch;
+    }
+  }
+  result.push(cur);
+  return result.map(s=>s.trim());
+}
+
+function matchEnum(val, validList){
+  if(!val) return null;
+  const v = val.trim().toLowerCase();
+  return validList.find(x=>x.toLowerCase()===v) || null;
+}
+
+function previewCsv(){
+  const raw = document.getElementById('pm-csv-paste').value;
+  const preview = document.getElementById('pm-csv-preview');
+  const tbody = document.getElementById('pm-csv-preview-body');
+  const errorsBox = document.getElementById('pm-csv-errors');
+  const confirmBtn = document.getElementById('pm-csv-confirm-btn');
+
+  if(!raw.trim()){
+    preview.style.display='none';
+    confirmBtn.disabled=true;
+    pendingCsvProjects=[];
+    return;
+  }
+
+  let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
+  // Skip header row if it looks like one
+  if(lines.length && /tên\s*dự\s*án|project\s*name/i.test(lines[0])){
+    lines = lines.slice(1);
+  }
+
+  const parsed=[];
+  const errors=[];
+  lines.forEach((line, idx)=>{
+    const cols = parseCsvLine(line);
+    const [name, sizeRaw, teamRaw, mainRaw, backupRaw, statusRaw, cxRaw, notes] = cols;
+    const rowNum = idx+1;
+    if(!name){ errors.push(`Dòng ${rowNum}: thiếu tên dự án — bỏ qua.`); return; }
+    const size = matchEnum(sizeRaw, VALID_SIZES);
+    const team = matchEnum(teamRaw, VALID_TEAMS);
+    const status = matchEnum(statusRaw, VALID_STATUSES) || 'Priorities';
+    if(!size) errors.push(`Dòng ${rowNum} ("${name}"): quy mô "${sizeRaw||''}" không hợp lệ — cần Small/Medium/Large.`);
+    if(!team) errors.push(`Dòng ${rowNum} ("${name}"): nhóm "${teamRaw||''}" không hợp lệ — cần Liam/Stuart/Nina.`);
+    const membersMain = (mainRaw||'').split(';').map(s=>s.trim()).filter(Boolean);
+    const membersBackup = (backupRaw||'').split(';').map(s=>s.trim()).filter(Boolean);
+    let cxCount = parseInt(cxRaw);
+    if(isNaN(cxCount)) cxCount=0;
+    cxCount = Math.max(0, Math.min(6, cxCount));
+    const complexityLevel = calcComplexityLevel(cxCount);
+    parsed.push({
+      id: 'proj_'+Date.now()+'_'+idx+'_'+Math.random().toString(36).slice(2,5),
+      name, size: size||'Medium', team: team||'Liam',
+      membersMain, membersBackup, members:[...membersMain,...membersBackup],
+      status, notes: notes||'', createdAt: Date.now(),
+      complexityCount: cxCount, complexityLevel, complexity:{},
+      _invalid: !size || !team
+    });
+  });
+
+  pendingCsvProjects = parsed;
+
+  document.getElementById('pm-csv-count').textContent = parsed.filter(p=>!p._invalid).length;
+  tbody.innerHTML = parsed.map(p=>`
+    <tr style="${p._invalid?'background:#FAECE7':''}">
+      <td>${escapeHtml(p.name)}</td>
+      <td><span class="pm-badge ${SIZE_CLASS[p.size]||''}">${p.size}</span></td>
+      <td><span class="pm-complexity-badge ${CX_LEVEL_CLASS[p.complexityLevel]}">${p.complexityLevel}</span></td>
+      <td><span class="pm-badge ${TEAM_CLASS[p.team]||''}">${p.team}</span></td>
+      <td>${p.membersMain.map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('')||'—'}</td>
+      <td>${p.membersBackup.map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('')||'—'}</td>
+      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]||''}">${p.status}</span></td>
+    </tr>
+  `).join('');
+
+  errorsBox.innerHTML = errors.length ? errors.map(e=>'⚠ '+e).join('<br>') : '';
+  preview.style.display='block';
+  confirmBtn.disabled = parsed.filter(p=>!p._invalid).length===0;
+}
+
+function confirmCsvImport(){
+  const valid = pendingCsvProjects.filter(p=>!p._invalid).map(p=>{
+    const {_invalid, ...rest} = p;
+    return rest;
+  });
+  if(!valid.length) return;
+  projects = projects.concat(valid);
+  persistProjects();
+  renderProjects();
+  closeCsvModal();
+  alert(`Đã nhập thành công ${valid.length} dự án!`);
+}
+
+// ═══════════ SCORING ENGINE ═══════════
+
+// Size base scores
+const SIZE_BASE = {Small:2, Medium:3, Large:5};
+
+// Complexity multiplier by tick count (using cxTotal for fairness)
+function getCxMultiplier(cxCount, cxTotal){
+  const ratio = cxTotal > 0 ? cxCount/cxTotal : 0;
+  if(ratio === 0) return 1.0;
+  if(ratio <= 0.33) return 1.2; // 1-2 ticks out of 6
+  return 1.4; // 3+ ticks
+}
+
+// Level fit multiplier — how well project size matches person's level
+const LEVEL_SIZE_MULTIPLIER = {
+  Staff:      {Small:1.0, Medium:1.3, Large:0},
+  Senior:     {Small:0.5, Medium:1.0, Large:1.3},
+  'Key Member':{Small:0.3, Medium:0.7, Large:1.0},
+  Leader:     {Small:0.2, Medium:0.5, Large:1.0},
+};
+
+// Is project above/at/below level?
+function getProjectLevelRelation(size, personLevel){
+  const order = {Small:0, Medium:1, Large:2};
+  const levelExpected = {Staff:0, Senior:1, 'Key Member':2, Leader:2};
+  const diff = order[size] - levelExpected[personLevel];
+  if(diff > 0) return 'above';
+  if(diff === 0) return 'match';
+  return 'below';
+}
+
+// Role multiplier
+function getRoleMultiplier(role){
+  // role: 'main_solo' | 'main_with_support' | 'support' | 'support_promoted'
+  const map = {
+    main_solo: 1.0,
+    main_with_support: 0.7,
+    support: 0.3,
+    support_promoted: 0.7,
+  };
+  return map[role] || 0.3;
+}
+
+// Calculate single project score for a person
+function calcProjectScore(proj, personLevel, role){
+  const base = SIZE_BASE[proj.size] || 2;
+  const cxTotal = proj.cxTotal || CX_KEYS.length;
+  const cxMult = getCxMultiplier(proj.complexityCount||0, cxTotal);
+  const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
+  const roleMult = getRoleMultiplier(role);
+  return base * cxMult * levelMult * roleMult;
+}
+
+// Benchmark: accumulated score that = 10/10 for each level
+const LEVEL_BENCHMARK = {Staff:15, Senior:25, 'Key Member':40, Leader:50};
+
+// Tỷ trọng I2/I3/Dự án by level + project relation
+function getWeights(personLevel, projectRelation){
+  if(personLevel==='Staff') return {proj:0.3, i3:0.7, i2:0.0};
+  if(personLevel==='Leader') return {proj:0, i3:0, i2:0.2, team:0.8};
+  const below = projectRelation==='below';
+  const weights = {
+    Senior:      below ? {proj:0.15,i3:0.70,i2:0.15} : {proj:0.30,i3:0.55,i2:0.15},
+    'Key Member':below ? {proj:0.15,i3:0.65,i2:0.20} : {proj:0.30,i3:0.50,i2:0.20},
+  };
+  return weights[personLevel] || {proj:0.30,i3:0.55,i2:0.15};
+}
+
+// Thâm niên calculation
+function calcSeniority(joinDateStr){
+  if(!joinDateStr) return null;
+  const join = new Date(joinDateStr);
+  const now = new Date();
+  const diffMs = now - join;
+  const months = Math.floor(diffMs / (1000*60*60*24*30.44));
+  const years = Math.floor(months/12);
+  const rem = months % 12;
+  if(years > 0 && rem > 0) return `${years} năm ${rem} tháng`;
+  if(years > 0) return `${years} năm`;
+  return `${months} tháng`;
+}
+
+// Get full project score profile for a person
+function calcPersonProjectScore(personName, personLevel){
+  const lower = personName.trim().toLowerCase();
+  const mainSolo = projects.filter(p=>
+    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
+    (p.membersBackup||[]).length===0
+  );
+  const mainWithSupport = projects.filter(p=>
+    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
+    (p.membersBackup||[]).length>0
+  );
+  const supportOnly = projects.filter(p=>
+    !(p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
+    (p.membersBackup||[]).some(m=>m.toLowerCase()===lower)
+  );
+
+  let totalRaw = 0;
+  const breakdown = [];
+
+  const addProjects = (list, role) => {
+    list.forEach(p=>{
+      const score = calcProjectScore(p, personLevel, role);
+      totalRaw += score;
+      breakdown.push({
+        name: p.name, size: p.size, role, score: score.toFixed(2),
+        relation: getProjectLevelRelation(p.size, personLevel)
+      });
+    });
+  };
+
+  addProjects(mainSolo, 'main_solo');
+  addProjects(mainWithSupport, 'main_with_support');
+  addProjects(supportOnly, 'support');
+
+  const benchmark = LEVEL_BENCHMARK[personLevel] || 25;
+  const projScore10 = Math.min(10, (totalRaw / benchmark) * 10);
+
+  return {
+    totalRaw: totalRaw.toFixed(2),
+    projScore10: projScore10.toFixed(1),
+    benchmark,
+    totalProjects: mainSolo.length + mainWithSupport.length + supportOnly.length,
+    mainCount: mainSolo.length + mainWithSupport.length,
+    backupCount: supportOnly.length,
+    breakdown
+  };
+}
+
+// ═══════════ /SCORING ENGINE ═══════════
+
+
+// ═══════════ AUTO SEED DATA ═══════════
+const SEED_PROJECTS = [{"id": "proj_b30dfed1", "name": "333 Palm", "size": "Medium", "team": "Stuart", "membersMain": [], "membersBackup": ["Henry"], "members": ["Henry"], "status": "Complete", "notes": "", "createdAt": 1782439538099, "order": 1, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_ipnmxdmv", "name": "Spalding (1)", "size": "Medium", "team": "Liam", "membersMain": [], "membersBackup": ["Daniel"], "members": ["Daniel"], "status": "Complete", "notes": "", "createdAt": 1782439538100, "order": 2, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_vt50pt14", "name": "Flores ID", "size": "Medium", "team": "Stuart", "membersMain": ["Alice"], "membersBackup": [], "members": ["Alice"], "status": "Complete", "notes": "", "createdAt": 1782439538101, "order": 3, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_2yth850y", "name": "Old Normandie (CA)", "size": "Medium", "team": "Liam", "membersMain": [], "membersBackup": ["Liam"], "members": ["Liam"], "status": "Hold", "notes": "", "createdAt": 1782439538102, "order": 4, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_70c9s9xg", "name": "Santa Fe (1)", "size": "Large", "team": "Liam", "membersMain": [], "membersBackup": ["Liam"], "members": ["Liam"], "status": "Complete", "notes": "", "createdAt": 1782439538103, "order": 5, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_yp45zos4", "name": "Yorba Linda (Supplemental)", "size": "Large", "team": "Liam", "membersMain": ["Liam"], "membersBackup": [], "members": ["Liam"], "status": "Complete", "notes": "", "createdAt": 1782439538104, "order": 6, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_7k4y0ngv", "name": "Aqua Vista ED1 (1)", "size": "Medium", "team": "Nina", "membersMain": ["Sayid"], "membersBackup": [], "members": ["Sayid"], "status": "Hold", "notes": "", "createdAt": 1782439538105, "order": 7, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_cpjeyrys", "name": "Jefferson ED1 (1)", "size": "Medium", "team": "Stuart", "membersMain": [], "membersBackup": [], "members": [], "status": "Complete", "notes": "", "createdAt": 1782439538106, "order": 8, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_410y51z9", "name": "Lorraine ED1 (1)", "size": "Medium", "team": "Stuart", "membersMain": [], "membersBackup": ["Bonnie"], "members": ["Bonnie"], "status": "Complete", "notes": "", "createdAt": 1782439538107, "order": 9, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_8xlnxk5s", "name": "55 La Cienega (2)", "size": "Large", "team": "Stuart", "membersMain": ["Stuart"], "membersBackup": [], "members": ["Stuart"], "status": "Hold", "notes": "", "createdAt": 1782439538108, "order": 10, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_8gr4euln", "name": "Jade Venice (1)", "size": "Medium", "team": "Liam", "membersMain": [], "membersBackup": ["Andrew"], "members": ["Andrew"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538109, "order": 11, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_wnwt4ird", "name": "Catalina ED1 (3)", "size": "Small", "team": "Nina", "membersMain": [], "membersBackup": ["Jayce"], "members": ["Jayce"], "status": "Complete", "notes": "", "createdAt": 1782439538110, "order": 12, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_2p5xz4az", "name": "Santa Monica ED1 (4)", "size": "Medium", "team": "Stuart", "membersMain": ["Alice"], "membersBackup": [], "members": ["Alice"], "status": "Complete", "notes": "", "createdAt": 1782439538111, "order": 13, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_8dvg0d4l", "name": "The Bond (Entitlement)", "size": "Large", "team": "Stuart", "membersMain": ["Stuart"], "membersBackup": [], "members": ["Stuart"], "status": "Hold", "notes": "", "createdAt": 1782439538112, "order": 14, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_3d33itao", "name": "Normandie ED1 (5)", "size": "Small", "team": "Liam", "membersMain": [], "membersBackup": ["William"], "members": ["William"], "status": "Complete", "notes": "", "createdAt": 1782439538113, "order": 15, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_1pwrx8uu", "name": "Burlington ED1 (6)", "size": "Small", "team": "Stuart", "membersMain": [], "membersBackup": [], "members": [], "status": "Hold", "notes": "", "createdAt": 1782439538114, "order": 16, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_qudrzdie", "name": "5th Street ED1 (7)", "size": "Small", "team": "Liam", "membersMain": ["Daniel"], "membersBackup": [], "members": ["Daniel"], "status": "Complete", "notes": "", "createdAt": 1782439538115, "order": 17, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_44asws8v", "name": "333 Douglas ED1 (8)", "size": "Small", "team": "Liam", "membersMain": [], "membersBackup": ["Andrew"], "members": ["Andrew"], "status": "Complete", "notes": "", "createdAt": 1782439538116, "order": 18, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_xjzdb3qf", "name": "Sunset ED1 (9)", "size": "Medium", "team": "Liam", "membersMain": ["Nina"], "membersBackup": [], "members": ["Nina"], "status": "Complete", "notes": "", "createdAt": 1782439538117, "order": 19, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_0ikf9dfn", "name": "Camelback (10)", "size": "Medium", "team": "Liam", "membersMain": ["Liam"], "membersBackup": [], "members": ["Liam"], "status": "Priorities", "notes": "", "createdAt": 1782439538118, "order": 20, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_77693sx9", "name": "Wellesley ED1 (11)", "size": "Medium", "team": "Stuart", "membersMain": [], "membersBackup": ["Dale Ha"], "members": ["Dale Ha"], "status": "Hold", "notes": "", "createdAt": 1782439538119, "order": 21, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_hv50vezq", "name": "Chesapeake ED1 (12)", "size": "Medium", "team": "Nina", "membersMain": ["Zolius"], "membersBackup": [], "members": ["Zolius"], "status": "Complete", "notes": "", "createdAt": 1782439538120, "order": 22, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_hu3gxcvl", "name": "Kingsley ED1 (13)", "size": "Medium", "team": "Liam", "membersMain": [], "membersBackup": ["Andrew"], "members": ["Andrew"], "status": "Complete", "notes": "", "createdAt": 1782439538121, "order": 23, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_7fvjdx7k", "name": "KTA Jefferson (14)", "size": "Small", "team": "Stuart", "membersMain": ["Bonnie"], "membersBackup": [], "members": ["Bonnie"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538122, "order": 24, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_11olenk7", "name": "3200 La Cienega (2025_1)", "size": "Large", "team": "Liam", "membersMain": ["Daniel"], "membersBackup": [], "members": ["Daniel"], "status": "Priorities", "notes": "", "createdAt": 1782439538123, "order": 25, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_wrk57tc3", "name": "Pico Manning (2025_2)", "size": "Medium", "team": "Liam", "membersMain": [], "membersBackup": ["William"], "members": ["William"], "status": "Priorities", "notes": "", "createdAt": 1782439538124, "order": 26, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_opu3xjco", "name": "Ventura DB (2025_3)", "size": "Medium", "team": "Stuart", "membersMain": ["Jayson"], "membersBackup": [], "members": ["Jayson"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538125, "order": 27, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_3we036em", "name": "Wilshire (2025_16)", "size": "Medium", "team": "Nina", "membersMain": [], "membersBackup": ["Nora"], "members": ["Nora"], "status": "Priorities", "notes": "", "createdAt": 1782439538126, "order": 28, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_10453ml6", "name": "Martel (2025_17)", "size": "Small", "team": "Stuart", "membersMain": ["Henry"], "membersBackup": [], "members": ["Henry"], "status": "Hold", "notes": "", "createdAt": 1782439538127, "order": 29, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_kq7hqvj2", "name": "Purdue", "size": "Small", "team": "Stuart", "membersMain": [], "membersBackup": ["Bonnie"], "members": ["Bonnie"], "status": "Hold", "notes": "", "createdAt": 1782439538128, "order": 30, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_3oqt5ic5", "name": "Glendale", "size": "Medium", "team": "Liam", "membersMain": ["Wilder"], "membersBackup": [], "members": ["Wilder"], "status": "Priorities", "notes": "", "createdAt": 1782439538129, "order": 31, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_v9snmsyq", "name": "Pico Military (2025_4)", "size": "Medium", "team": "Stuart", "membersMain": ["Zolius"], "membersBackup": [], "members": ["Zolius"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538130, "order": 32, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_e95tsqmh", "name": "North Croft (2025_6)", "size": "Small", "team": "Nina", "membersMain": ["Rhys"], "membersBackup": [], "members": ["Rhys"], "status": "Priorities", "notes": "", "createdAt": 1782439538131, "order": 33, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_vmj3f7za", "name": "Wellesley V2", "size": "Small", "team": "Stuart", "membersMain": [], "membersBackup": ["Dale"], "members": ["Dale"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538132, "order": 34, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_0ao4walf", "name": "Crenshaw SoFi", "size": "Large", "team": "Nina", "membersMain": [], "membersBackup": ["Sayid"], "members": ["Sayid"], "status": "Priorities", "notes": "", "createdAt": 1782439538133, "order": 35, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_354yzu7x", "name": "Hyperion", "size": "Medium", "team": "Stuart", "membersMain": ["Alice"], "membersBackup": [], "members": ["Alice"], "status": "Hold", "notes": "", "createdAt": 1782439538134, "order": 36, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_e3i6ec8f", "name": "Santa Fe V2", "size": "Large", "team": "Liam", "membersMain": ["Wilder"], "membersBackup": [], "members": ["Wilder"], "status": "Hold", "notes": "", "createdAt": 1782439538135, "order": 37, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_7rmkuttl", "name": "Wilton", "size": "Medium", "team": "Stuart", "membersMain": ["Henry"], "membersBackup": [], "members": ["Henry"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538136, "order": 38, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_qd70zaxc", "name": "Sunset V2 ID", "size": "Small", "team": "Liam", "membersMain": ["William"], "membersBackup": [], "members": ["William"], "status": "Complete", "notes": "", "createdAt": 1782439538137, "order": 39, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_ixyyycwd", "name": "Beverlywood", "size": "Small", "team": "Liam", "membersMain": ["Andrew"], "membersBackup": [], "members": ["Andrew"], "status": "Hold", "notes": "", "createdAt": 1782439538138, "order": 40, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_jqjw001z", "name": "Clark", "size": "Small", "team": "Stuart", "membersMain": ["Bonnie"], "membersBackup": [], "members": ["Bonnie"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538139, "order": 41, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_5f0q06l7", "name": "Military", "size": "Large", "team": "Stuart", "membersMain": ["Jayson"], "membersBackup": [], "members": ["Jayson"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538140, "order": 42, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_7hx4vy7j", "name": "Los Robles", "size": "Medium", "team": "Nina", "membersMain": [], "membersBackup": ["Nick"], "members": ["Nick"], "status": "Hold", "notes": "", "createdAt": 1782439538141, "order": 43, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_aj0o7r4i", "name": "Marine-Gardena", "size": "Large", "team": "Nina", "membersMain": ["Sayid"], "membersBackup": [], "members": ["Sayid"], "status": "Hold", "notes": "", "createdAt": 1782439538142, "order": 44, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_w2bzqqi0", "name": "La Salle", "size": "Small", "team": "Liam", "membersMain": ["Andrew"], "membersBackup": [], "members": ["Andrew"], "status": "Hold", "notes": "", "createdAt": 1782439538143, "order": 45, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_4gj85d4f", "name": "Lincoln", "size": "Small", "team": "Liam", "membersMain": ["William"], "membersBackup": [], "members": ["William"], "status": "Hold", "notes": "", "createdAt": 1782439538145, "order": 46, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_fw5tex3m", "name": "Stanford", "size": "Medium", "team": "Stuart", "membersMain": [], "membersBackup": [], "members": [], "status": "Hold", "notes": "", "createdAt": 1782439538146, "order": 47, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_bz55m6bj", "name": "Amherst", "size": "Small", "team": "Stuart", "membersMain": ["Dale"], "membersBackup": [], "members": ["Dale"], "status": "Priorities", "notes": "", "createdAt": 1782439538147, "order": 48, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_12qnifb7", "name": "St Andrews", "size": "Small", "team": "Stuart", "membersMain": ["Kane"], "membersBackup": [], "members": ["Kane"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538148, "order": 49, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_mpve3cfz", "name": "Sweetzer", "size": "Small", "team": "Liam", "membersMain": ["Andrew"], "membersBackup": [], "members": ["Andrew"], "status": "Priorities", "notes": "", "createdAt": 1782439538149, "order": 50, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_52erivpw", "name": "Ocean Wood", "size": "Medium", "team": "Liam", "membersMain": ["Daniel"], "membersBackup": ["Mei"], "members": ["Daniel", "Mei"], "status": "Priorities", "notes": "", "createdAt": 1782439538150, "order": 51, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_l8ii2re2", "name": "Austin Family Development", "size": "Large", "team": "Nina", "membersMain": ["Zolius"], "membersBackup": [], "members": ["Zolius"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538151, "order": 52, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_qlw2tpkn", "name": "Alta Vista", "size": "Medium", "team": "Stuart", "membersMain": ["Henry"], "membersBackup": [], "members": ["Henry"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538152, "order": 53, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_v952in32", "name": "Beverly Larchmont", "size": "Medium", "team": "Nina", "membersMain": ["Jayce"], "membersBackup": [], "members": ["Jayce"], "status": "Priorities", "notes": "", "createdAt": 1782439538153, "order": 54, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_joqi5yf3", "name": "Colorado", "size": "Large", "team": "Stuart", "membersMain": ["Alice"], "membersBackup": [], "members": ["Alice"], "status": "Priorities", "notes": "", "createdAt": 1782439538154, "order": 55, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_ojuiqpl1", "name": "Kittredge", "size": "Large", "team": "Stuart", "membersMain": ["Stuart"], "membersBackup": [], "members": ["Stuart"], "status": "Priorities", "notes": "", "createdAt": 1782439538155, "order": 56, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}, {"id": "proj_yth6ytd8", "name": "DEA Sepulveda", "size": "Large", "team": "Liam", "membersMain": ["William"], "membersBackup": [], "members": ["William"], "status": "Non-Urgent", "notes": "", "createdAt": 1782439538156, "order": 57, "complexityCount": 0, "complexityLevel": "Simple", "cxTotal": 6, "complexity": {}}];
+const SEED_KEY = 'teamhub_seeded_v1';
+
+function checkAndSeedData(){
+  // Only prompt if localStorage is empty AND user hasn't been asked before
+  const existing = localStorage.getItem('teamhub_projects');
+  const alreadyAsked = localStorage.getItem(SEED_KEY);
+  if(alreadyAsked) return; // already handled
+  
+  const hasData = existing && JSON.parse(existing).length > 0;
+  if(!hasData){
+    if(confirm('Tìm thấy 57 dự án từ Google Sheet.\nBạn có muốn nạp dữ liệu vào không?')){
+      localStorage.setItem('teamhub_projects', JSON.stringify(SEED_PROJECTS));
+      localStorage.setItem(SEED_KEY, '1');
+      loadProjects();
+      renderProjects();
+      alert('✓ Đã nạp xong 57 dự án!');
+    } else {
+      localStorage.setItem(SEED_KEY, '1'); // don't ask again
+    }
+  } else {
+    localStorage.setItem(SEED_KEY, '1'); // has data, mark as handled
+  }
+}
+// ═══════════ /AUTO SEED ═══════════
+
+loadProjects();
+renderProjects();
+checkAndSeedData();
+
+</script>
+  </div>
+  <!-- ═══════════ PANEL 3: USER PORTAL ═══════════ -->
+  <div class="main-panel" id="mainpanel-user">
+    <div class="app-card" style="max-width:600px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:32px;margin-bottom:8px">👤</div>
+        <div style="font-size:18px;font-weight:600;color:var(--color-text-primary)">Tra cứu thông tin của tôi</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">Nhập tên để xem dự án và kết quả đánh giá</div>
+      </div>
+
+      <!-- Name input -->
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <input id="user-search-name" type="text" placeholder="Nhập tên của bạn (VD: Liam, Stuart...)"
+          style="flex:1;padding:10px 14px;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px"
+          oninput="userPortalSearch()" />
+        <button onclick="userPortalSearch()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
+      </div>
+
+      <div id="user-portal-result" style="display:none">
+        <!-- Projects section -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            📁 Dự án đã tham gia <span id="user-proj-count" style="font-size:11px;font-weight:400;color:var(--color-text-secondary)"></span>
+          </div>
+          <div id="user-proj-list"></div>
+        </div>
+
+        <!-- Evaluation section -->
+        <div id="user-eval-section" style="margin-bottom:20px;display:none">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">📊 Kết quả đánh giá</div>
+          <div id="user-eval-card"></div>
+        </div>
+
+        <!-- Feedback section -->
+        <div style="border-top:0.5px solid var(--color-border-tertiary);padding-top:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px">💬 Góp ý / Phản hồi</div>
+          <textarea id="user-feedback-text" placeholder="Nhập góp ý của bạn (xác nhận dữ liệu dự án, nhận xét, câu hỏi...)"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px;resize:vertical;min-height:80px;font-family:inherit"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button onclick="userSendFeedback()" style="padding:8px 20px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500">Gửi góp ý →</button>
+          </div>
+          <div id="user-feedback-toast" style="display:none;font-size:12px;color:#3B6D11;margin-top:6px;text-align:right">✓ Đã gửi góp ý!</div>
+        </div>
+      </div>
+
+      <div id="user-portal-empty" style="text-align:center;color:var(--color-text-tertiary);font-size:13px;padding:20px 0;display:none">
+        Không tìm thấy dữ liệu cho tên này. Kiểm tra lại chính tả.
+      </div>
+    </div>
+  </div>
+  <!-- ═══════════ /PANEL 3 ═══════════ -->
+
+  <!-- ═══════════ /PANEL 1 ═══════════ -->
+
+  <!-- ═══════════ PANEL 2: EVALUATION (v7 content) ═══════════ -->
+  <div class="main-panel" id="mainpanel-eval">
+<style>
+.person-chip.active-chip{background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:500}
+.person-chip-del{font-size:13px;color:var(--color-text-tertiary);line-height:1;padding:0 2px;cursor:pointer}
+.person-chip-del:hover{color:#A32D2D}
+.person-chip-score{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--color-background-secondary);color:var(--color-text-secondary);margin-left:2px}
+</style>
+
+<style>
+.ev-wrap *{box-sizing:border-box}
+.ev-wrap{padding:1rem 0;font-family:var(--font-sans)}
+.ev-wrap .tabs{display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .tab{padding:8px 16px;font-size:13px;cursor:pointer;border-radius:var(--border-radius-md) var(--border-radius-md) 0 0;color:var(--color-text-secondary);border:0.5px solid transparent;margin-bottom:-1px;user-select:none}
+.ev-wrap .tab.active{color:var(--color-text-primary);font-weight:500;background:var(--color-background-primary);border-color:var(--color-border-tertiary);border-bottom-color:var(--color-background-primary)}
+.ev-wrap .panel{display:none}.ev-wrap .panel.active{display:block}
+.ev-wrap .level-selector{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.25rem}
+.ev-wrap .lv-btn{padding:10px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);cursor:pointer;text-align:center;background:var(--color-background-primary);transition:all .15s}
+.ev-wrap .lv-btn:hover{background:var(--color-background-secondary)}
+.ev-wrap .lv-btn.active-staff{background:#E6F1FB;border-color:#378ADD}
+.ev-wrap .lv-btn.active-senior{background:#EAF3DE;border-color:#639922}
+.ev-wrap .lv-btn.active-key{background:#FDE8F1;border-color:#D85AA0}
+.ev-wrap .lv-btn.active-leader{background:#FAECE7;border-color:#D85A30}
+.ev-wrap .lv-btn-name{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .lv-btn-sub{font-size:10px;color:var(--color-text-secondary);margin-top:2px}
+.ev-wrap .info-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;font-size:12px;color:var(--color-text-secondary);margin-bottom:1rem;line-height:1.6}
+.ev-wrap .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.ev-wrap .metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem}
+.ev-wrap .metric-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.ev-wrap .metric-value{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .metric-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.ev-wrap .prog-bar{height:6px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden;margin-top:4px}
+.ev-wrap .prog-fill{height:100%;border-radius:3px;transition:width .4s}
+.ev-wrap .section-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);margin-bottom:8px;overflow:hidden}
+.ev-wrap .sec-header{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--color-background-secondary)}
+.ev-wrap .sec-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .row-i3{display:grid;grid-template-columns:1fr 210px;align-items:start;gap:8px;padding:10px 14px;border-top:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .item-name{font-size:13px;color:var(--color-text-primary)}
+.ev-wrap .item-note{font-size:11px;color:var(--color-text-tertiary);margin-top:3px}
+.ev-wrap .score-select{font-size:12px;padding:4px 6px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:100%}
+.ev-wrap .lvl-badge{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:500;display:inline-block}
+.ev-wrap .lv-staff{background:#E6F1FB;color:#185FA5}
+.ev-wrap .lv-senior{background:#EAF3DE;color:#3B6D11}
+.ev-wrap .lv-key{background:#FDE8F1;color:#A02A6B}
+.ev-wrap .lv-leader{background:#FAECE7;color:#993C1D}
+.ev-wrap .result-hero{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem 1.5rem;margin-bottom:1rem}
+.ev-wrap .score-big{font-size:40px;font-weight:500;line-height:1}
+.ev-wrap .score-label{font-size:13px;color:var(--color-text-secondary);margin-top:4px}
+.ev-wrap .score-breakdown{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:1rem 0}
+.ev-wrap .breakdown-item{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.ev-wrap .breakdown-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.ev-wrap .breakdown-val{font-size:18px;font-weight:500}
+.ev-wrap .comment-box{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
+.ev-wrap .comment-section{padding:12px 14px;border-top:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .comment-section:first-child{border-top:none}
+.ev-wrap .comment-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.ev-wrap .comment-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ev-wrap .tag{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary);line-height:1.4}
+.ev-wrap .tag-pos{background:#EAF3DE;border-color:#639922;color:#3B6D11}
+.ev-wrap .tag-dev{background:#E6F1FB;border-color:#378ADD;color:#185FA5}
+.ev-wrap .i3-detail-box{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
+.ev-wrap .i3d-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .i3d-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .i3d-item{padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .i3d-item:last-child{border-bottom:none}
+.ev-wrap .i3d-item-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.ev-wrap .i3d-item-name{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .i3d-comment{font-size:12px;color:var(--color-text-secondary);line-height:1.65}
+.ev-wrap .i3d-extra{font-size:12px;color:var(--color-text-tertiary);line-height:1.65;margin-top:4px;font-style:italic}
+.ev-wrap .i3d-item-score{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.ev-wrap .summary-panel{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
+.ev-wrap .summary-panel-header{padding:12px 16px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .summary-panel-title{font-size:13px;font-weight:600;color:var(--color-text-primary)}
+.ev-wrap .summary-panel-body{padding:14px 16px}
+.ev-wrap .level-proposal{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--border-radius-md);margin-bottom:10px}
+.ev-wrap .lp-current{background:#F1EFE8;border:0.5px solid #888780}
+.ev-wrap .lp-suggest{background:#EAF3DE;border:0.5px solid #639922}
+.ev-wrap .lp-suggest-up{background:#E6F1FB;border:0.5px solid #378ADD}
+.ev-wrap .lp-warn{background:#FEF3DC;border:0.5px solid #E8A420}
+.ev-wrap .level-proposal-icon{font-size:20px;line-height:1}
+.ev-wrap .level-proposal-content{flex:1}
+.ev-wrap .level-proposal-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:2px}
+.ev-wrap .level-proposal-value{font-size:15px;font-weight:600;color:var(--color-text-primary)}
+.ev-wrap .level-proposal-sub{font-size:11px;color:var(--color-text-secondary);margin-top:2px;line-height:1.5}
+.ev-wrap .summary-text{font-size:13px;color:var(--color-text-primary);line-height:1.75;margin-bottom:10px}
+.ev-wrap .summary-bullets{list-style:none;margin:0;padding:0}
+.ev-wrap .summary-bullets li{font-size:12px;color:var(--color-text-secondary);line-height:1.6;padding:3px 0 3px 16px;position:relative}
+.ev-wrap .summary-bullets li::before{content:'·';position:absolute;left:4px;color:var(--color-text-tertiary)}
+.ev-wrap .sum-divider{height:0.5px;background:var(--color-border-tertiary);margin:12px 0}
+.ev-wrap .i2-analysis-box{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
+.ev-wrap .i2a-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .i2a-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.ev-wrap .i2a-sub{font-size:11px;color:var(--color-text-secondary)}
+.ev-wrap .i2a-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.ev-wrap .i2a-item{padding:9px 14px;border-bottom:0.5px solid var(--color-border-tertiary);border-right:0.5px solid var(--color-border-tertiary)}
+.ev-wrap .i2a-item:nth-child(even){border-right:none}
+.ev-wrap .i2a-item-name{font-size:12px;color:var(--color-text-primary);margin-bottom:3px}
+.ev-wrap .i2a-item-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ev-wrap .i2a-score{font-size:12px;font-weight:500}
+.ev-wrap .i2a-target{font-size:11px;color:var(--color-text-tertiary)}
+.ev-wrap .i2a-gap{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.ev-wrap .gap-good{background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922}
+.ev-wrap .gap-ok{background:#FEF3DC;color:#BA7517;border:0.5px solid #E8A420}
+.ev-wrap .gap-weak{background:#FAECE7;color:#993C1D;border:0.5px solid #D85A30}
+.ev-wrap .gap-none{background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px solid var(--color-border-secondary)}
+.ev-wrap .note-area{width:100%;font-size:12px;padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);resize:vertical;min-height:52px;margin-top:6px;font-family:var(--font-sans);line-height:1.5}
+.ev-wrap .proj-count-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);flex-wrap:wrap}
+.ev-wrap .proj-count-label{font-size:12px;color:var(--color-text-secondary);white-space:nowrap}
+.ev-wrap .proj-count-input{width:64px;font-size:13px;font-weight:500;padding:4px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);text-align:center}
+.ev-wrap .proj-count-badge{font-size:11px;padding:2px 10px;border-radius:20px;background:#E6F1FB;color:#185FA5;font-weight:500}
+.ev-wrap .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.ev-wrap .toolbar-left{display:flex;gap:8px}
+.ev-wrap .btn-reset{font-size:12px;padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.ev-wrap .btn-save{font-size:12px;padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500}
+.ev-wrap .btn-load{font-size:12px;padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid #639922;background:#EAF3DE;color:#3B6D11;cursor:pointer;font-weight:500}
+.ev-wrap .save-toast{font-size:12px;color:#3B6D11;background:#EAF3DE;padding:5px 12px;border-radius:var(--border-radius-md);display:none}
+.ev-wrap .person-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px 4px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;transition:all .15s}
+.ev-wrap .person-chip:hover{background:var(--color-background-secondary)}
+.ev-wrap .person-chip.active-chip{background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:500}
+.ev-wrap .person-chip-del{font-size:13px;color:var(--color-text-tertiary);line-height:1;padding:0 2px;cursor:pointer}
+.ev-wrap .person-chip-del:hover{color:#A32D2D}
+.ev-wrap .person-chip-score{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--color-background-secondary);color:var(--color-text-secondary);margin-left:2px}
+</style>
+
+<div class="wrap ev-wrap">
+<h2 class="sr-only">Bảng đánh giá năng lực tổng hợp v7</h2>
+
+<!-- PERSON SELECTOR BAR -->
+<div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:1rem;background:var(--color-background-secondary)">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:12px;font-weight:500;color:var(--color-text-secondary);white-space:nowrap">👤 Nhân viên:</span>
+    <input id="person-name-input" type="text" placeholder="Nhập tên nhân viên..." style="font-size:13px;padding:5px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:180px" oninput="onPersonNameInput()" />
+    <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">📅 Ngày vào team:</span>
+    <input id="person-joindate-input" type="date" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)" />
+    <button class="btn-save" onclick="savePerson()">💾 Lưu</button>
+    <button class="btn-reset" onclick="resetAll()" style="margin-left:auto">↺ Reset form</button>
+    <span class="save-toast" id="save-toast">✓ Đã lưu!</span>
+  </div>
+  <div id="person-seniority" style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px;display:none"></div>
+  <div id="person-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('t3')">Input 3 — Năng lực (80%)</div>
+  <div class="tab" onclick="switchTab('t2')">Input 2 — Kỹ năng (tham khảo)</div>
+  <div class="tab" onclick="switchTab('result')">Kết quả & Nhận xét</div>
+</div>
+
+<!-- INPUT 3 -->
+<div class="panel active" id="t3">
+
+  <!-- Project count — moved up top for visibility -->
+  <div style="border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);margin-bottom:1rem;overflow:hidden">
+    <div class="proj-count-row" style="border-bottom:0.5px solid transparent" id="proj-count-toprow">
+      <span class="proj-count-label">📁 Dự án đã thực hiện:</span>
+      <input class="proj-count-input" type="number" id="proj-count" min="0" placeholder="0" oninput="onProjCount()" />
+      <span class="proj-count-badge" id="proj-count-badge" style="display:none"></span>
+      <button onclick="autoFillProjectCount()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">↻ Đồng bộ từ dự án</button>
+      <button id="proj-list-toggle" onclick="toggleProjList()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;display:none">▾ Xem danh sách</button>
+    </div>
+    <div id="proj-link-detail" style="font-size:11px;color:var(--color-text-secondary);display:none;padding:6px 14px;background:var(--color-background-secondary);border-top:0.5px solid var(--color-border-tertiary)"></div>
+    <div id="proj-list-panel" style="display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)">
+            <th style="padding:5px 10px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Tên dự án</th>
+            <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:52px">Size</th>
+            <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:90px">Vai trò</th>
+            <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:80px">Phức tạp</th>
+            <th style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-secondary);width:52px">Điểm</th>
+          </tr>
+        </thead>
+        <tbody id="proj-list-body"></tbody>
+        <tfoot id="proj-list-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-bottom:1rem">
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;font-weight:500">Chọn level cần đánh giá:</div>
+    <div class="level-selector">
+      <div class="lv-btn" id="btn-Staff" onclick="setLevel('Staff')">
+        <div class="lv-btn-name">Staff</div>
+        <div class="lv-btn-sub">Mức 1–2</div>
+      </div>
+      <div class="lv-btn" id="btn-Senior" onclick="setLevel('Senior')">
+        <div class="lv-btn-name">Senior</div>
+        <div class="lv-btn-sub">Mức 3</div>
+      </div>
+      <div class="lv-btn" id="btn-KeyMember" onclick="setLevel('Key Member')">
+        <div class="lv-btn-name">Key Member</div>
+        <div class="lv-btn-sub">Mức 4</div>
+      </div>
+      <div class="lv-btn" id="btn-Leader" onclick="setLevel('Leader')">
+        <div class="lv-btn-name">Leader</div>
+        <div class="lv-btn-sub">Mức 5</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box" id="level-info">Chọn level để xem tiêu chí yêu cầu tương ứng.</div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="metric-label">Level đang đánh giá</div><div class="metric-value" id="i3lv" style="font-size:15px;padding-top:3px">–</div></div>
+    <div class="metric"><div class="metric-label">Điểm I3</div><div class="metric-value" id="i3score">–</div><div class="metric-sub">/ 10.0 điểm</div></div>
+    <div class="metric"><div class="metric-label">Đã chấm</div><div class="metric-value" id="i3cnt">0 / 7</div></div>
+    <div class="metric"><div class="metric-label">Tiến độ</div><div class="metric-value" id="i3pct">0%</div><div class="prog-bar"><div class="prog-fill" id="i3bar" style="width:0%;background:#378ADD"></div></div></div>
+  </div>
+  <div id="i3sections"></div>
+</div>
+
+<!-- INPUT 2 -->
+<div class="panel" id="t2">
+  <div class="info-box">Kỹ năng cá nhân — dùng để tham khảo định hướng phát triển, không tính vào điểm tổng.</div>
+  <div id="i2sections"></div>
+</div>
+
+<!-- RESULT -->
+<div class="panel" id="result">
+  <div class="result-hero">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px">Điểm tổng hợp</div>
+        <div class="score-big" id="r-total">–</div>
+        <div class="score-label" id="r-sublabel">Chưa đủ dữ liệu</div>
+      </div>
+      <div>
+        <div class="score-breakdown">
+          <div class="breakdown-item">
+            <div class="breakdown-label">Input 3 (80%)</div>
+            <div class="breakdown-val" id="r-i3b">–</div>
+          </div>
+          <div class="breakdown-item">
+            <div class="breakdown-label">Điểm dự án tích lũy</div>
+            <div class="breakdown-val" id="r-i4b" style="color:var(--color-text-tertiary)">–</div>
+          </div>
+          <div class="breakdown-item">
+            <div class="breakdown-label">Level đánh giá</div>
+            <div class="breakdown-val" id="r-lv" style="font-size:14px;padding-top:3px">–</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="comment-box" id="comment-box" style="display:none">
+    <div class="comment-section">
+      <div class="comment-title">Điểm mạnh & Ghi nhận</div>
+      <div class="comment-tags" id="tags-pos"></div>
+    </div>
+    <div class="comment-section">
+      <div class="comment-title">Định hướng phát triển</div>
+      <div class="comment-tags" id="tags-dev"></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY PANEL -->
+  <div class="summary-panel" id="summary-panel" style="display:none">
+    <div class="summary-panel-header"><div class="summary-panel-title">📋 Đánh giá tổng quan & Đề xuất level</div></div>
+    <div class="summary-panel-body">
+      <div id="sp-level-current" class="level-proposal lp-current" style="display:none">
+        <div class="level-proposal-icon">🎯</div>
+        <div class="level-proposal-content">
+          <div class="level-proposal-label">Level đang được đánh giá</div>
+          <div class="level-proposal-value" id="sp-lv-current-val">–</div>
+          <div class="level-proposal-sub" id="sp-lv-current-sub"></div>
+        </div>
+      </div>
+      <div id="sp-level-suggest" class="level-proposal" style="display:none">
+        <div class="level-proposal-icon" id="sp-suggest-icon">💡</div>
+        <div class="level-proposal-content">
+          <div class="level-proposal-label" id="sp-suggest-label">Đề xuất</div>
+          <div class="level-proposal-value" id="sp-suggest-val">–</div>
+          <div class="level-proposal-sub" id="sp-suggest-sub"></div>
+        </div>
+      </div>
+      <div class="sum-divider"></div>
+      <div class="summary-text" id="sp-summary-text"></div>
+      <ul class="summary-bullets" id="sp-bullets"></ul>
+    </div>
+  </div>
+
+  <!-- I3 DETAIL COMMENTS -->
+  <div class="i3-detail-box" id="i3-detail-box" style="display:none">
+    <div class="i3d-header">
+      <span class="i3d-title">Nhận xét chi tiết theo tiêu chí (Input 3)</span>
+    </div>
+    <div id="i3-detail-list"></div>
+  </div>
+
+  <div class="i2-analysis-box" id="i2-analysis" style="display:none">
+    <div class="i2a-header">
+      <span class="i2a-title">Phân tích Kỹ năng chuyên môn (Input 2)</span>
+      <span class="i2a-sub" id="i2a-sub"></span>
+    </div>
+    <div class="i2a-grid" id="i2a-grid"></div>
+    <div class="i2a-reco" id="i2a-reco" style="display:none">
+      <div class="i2a-reco-title">💡 Khuyến nghị phát triển từ Input 2</div>
+      <div id="i2a-reco-list"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:1rem;text-align:right">
+    <button onclick="sendPrompt('Phân tích chi tiết kết quả đánh giá: ' + getResultText())">Phân tích chi tiết ↗</button>
+  </div>
+</div>
+</div>
+
+<script>
+const MUC_TO_LEVEL={1:'Staff',2:'Staff',3:'Senior',4:'Key Member',5:'Leader'};
+const BADGE={Staff:'lv-staff',Senior:'lv-senior','Key Member':'lv-key',Leader:'lv-leader'};
+const LEVEL_MIN={Staff:1,Senior:3,'Key Member':4,Leader:5};
+const LEVEL_COLOR={Staff:'active-staff',Senior:'active-senior','Key Member':'active-key',Leader:'active-leader'};
+const LEVEL_INFO={
+  Staff:'Staff: Thực hiện task theo hướng dẫn · Cần hỗ trợ thường xuyên · Yêu cầu tối thiểu Mức 1–2 mỗi tiêu chí',
+  Senior:'Senior: Độc lập dự án nhỏ–vừa · Xử lý vấn đề thông thường · Yêu cầu tối thiểu Mức 3 mỗi tiêu chí',
+  'Key Member':'Key Member: Dự án lớn · Backcheck & training thành viên · Yêu cầu tối thiểu Mức 4 mỗi tiêu chí',
+  Leader:'Leader: Phụ trách team · Định hướng kỹ thuật · Phát triển đội ngũ · Yêu cầu Mức 5 mỗi tiêu chí',
+};
+
+// Keywords mapped by category and level context
+const KEYWORDS_POS = {
+  Staff:['Tiếp thu feedback nhanh, làm việc cần cù và có trách nhiệm','Hoàn thành tốt các dự án được giao','Thành thạo workflow và công cụ Revit phục vụ công việc hằng ngày','Luôn chủ động trong các dự án đã thực hiện'],
+  Senior:['Tinh thần trách nhiệm cao và cực kỳ chủ động','Làm việc độc lập và teamwork tốt trong các dự án cần support','Thực hiện nhiều dự án với nhiều mức độ và phối hợp tốt với leader','Chủ động QA/QC, chất lượng bản vẽ ổn định','Chủ động đọc SOP, học hỏi nhanh và giải quyết nhiều vấn đề phức tạp','Logic tốt, có khả năng xử lý độc lập các tình huống thông thường lẫn phức tạp'],
+  'Key Member':['Kinh nghiệm dày dặn với số lượng dự án đa dạng từ basic đến phức tạp','Hỗ trợ đội ngũ thông qua backup dự án, training và chia sẻ kiến thức','Thành viên rất tin cậy trong đội ngũ','Được KTA đánh giá tốt về cách làm việc và tinh thần trách nhiệm','Có chuyên môn ngoài thực tế và link vào model','Đa năng trong công việc','Tham gia hỗ trợ training cho thành viên mới'],
+  Leader:['Tinh thần trách nhiệm cao, chủ động và logic tốt ở tầm định hướng team','Hỗ trợ đội ngũ toàn diện: backup dự án, training và chia sẻ kiến thức','Được đánh giá rất tốt về phong cách làm việc và khả năng lãnh đạo','Có chuyên môn sâu và khả năng xây dựng SOP, thiết lập tiêu chuẩn cho team'],
+};
+const KEYWORDS_DEV = {
+  Staff:['Cần mở rộng năng lực QA/QC cá nhân và hoàn thiện workflow cá nhân','Tiếp tục duy trì phong độ và hoàn thành tốt dự án đang nắm','Nâng cao kiến thức MEP và khả năng coordinate để phát hiện clash sớm'],
+  Senior:['Phát triển năng lực QA/QC cho bản thân và đồng đội','Nâng cao kiến thức MEP và khả năng coordinate để phát hiện clash sớm','Chủ động cập nhật và chia sẻ kiến thức để training cho nhân sự mới','Tăng cường vai trò backup dự án và hỗ trợ team hiệu quả hơn'],
+  'Key Member':['Thể hiện vai trò Key Member thông qua ownership và ảnh hưởng tích cực đến đội ngũ','Phát triển năng lực QA/QC và xử lý các vấn đề kỹ thuật phức tạp hơn','Chủ động học hỏi để mở rộng năng lực sang các mảng kỹ thuật chuyên sâu','Tăng khả năng hỗ trợ, hướng dẫn và giải đáp thắc mắc cho các thành viên khác','Sắp xếp thời gian hiệu quả để đảm nhận vai trò backup dự án và hỗ trợ team'],
+  Leader:['Tiếp tục phát triển khả năng định hướng workflow và kỹ thuật cho team','Nếu cần có thể phối hợp leader để định hướng workflow cho phù hợp','Phát triển năng lực QA/QC đội ngũ và xây dựng SOP mới'],
+};
+
+const i3data=[
+  {s:'1. Technical Performance',items:[
+    {id:'j11',name:'1.1 Accuracy & Quality',descs:{1:'Đang làm quen tiêu chuẩn, cần leaders soát sửa.',2:'Nắm cơ bản, đôi khi cần nhắc lỗi nhỏ.',3:'Làm chủ bản vẽ, sản phẩm sạch, ít sai sót.',4:'Độ tin cậy cao, leaders gần như không cần sửa.',5:'Rất kỹ lưỡng, có thể soát lỗi và thiết lập tiêu chuẩn.'}},
+    {id:'j12',name:'1.2 Productivity / Deadline',descs:{1:'Cần thêm thời gian/hỗ trợ để kịp tiến độ.',2:'Xong việc đúng hạn khi được nhắc nhở/theo dõi sát.',3:'Đảm bảo tiến độ, tự sắp xếp không cần hỗ trợ nhiều.',4:'Tốc độ tốt, chủ động đẩy nhanh chuẩn bị task sau.',5:'Xử lý rất nhanh, gánh workload cao hoặc hỗ trợ team gấp.'}},
+    {id:'j13',name:'1.3 Kỹ thuật, Revit & Quy trình',descs:{1:'Đang học Revit cơ bản, làm quen US Code và SOP.',2:'Nắm SDP căn bản, cần hỗ trợ khi gặp case lạ.',3:'Vững chuyên môn, model đúng logic, đúng SOP, file ngăn nắp.',4:'Xử lý tốt ca khó, tự giác QA/QC, hồ sơ sạch và tuân thủ SOP.',5:'Chuyên gia, nắm chắc bản chất, đề xuất cải tiến SOP/Revit.'}},
+  ]},
+  {s:'2. Ownership & Problem Solving',items:[
+    {id:'j21',name:'2.1 Ownership',descs:{1:'Thực hiện theo hướng dẫn từng bước của Leader.',2:'Hoàn thành đủ task, cần nhắc nếu có thay đổi đột xuất.',3:'Chủ động theo dõi tiến độ và báo cáo kịp thời.',4:'Tự chuẩn bị RFI/dữ liệu, chủ động nắm đầu việc tiếp theo.',5:'Tự kiểm soát rủi ro, phát hiện sớm lỗi hệ thống, chịu trách nhiệm kết quả.'}},
+    {id:'j22',name:'2.2 Problem Solving',descs:{1:'Báo cáo ngay để đợi hướng dẫn chi tiết.',2:'Chỉ ra điểm vướng nhưng chưa tìm được phương án.',3:'Chủ động tìm thông tin và hỏi đúng trọng tâm để giải quyết nhanh.',4:'Luôn đi kèm ít nhất một đề xuất khi báo cáo Leader.',5:'Tự xử lý tốt tình huống khó và đúc kết kinh nghiệm cho team.'}},
+  ]},
+  {s:'3. Teamwork & Growth',items:[
+    {id:'j31',name:'3.1 Communication & Teamwork',descs:{1:'Đang làm quen trao đổi thông tin, phản hồi chậm.',2:'Đôi khi thông tin chưa đầy đủ hoặc phản hồi chưa kịp.',3:'Trao đổi rõ ràng, đúng hạn, phối hợp tốt với đồng nghiệp.',4:'Chủ động hỗ trợ, trình bày vấn đề kỹ thuật dễ hiểu.',5:'Sức ảnh hưởng tích cực, điều phối nhóm nhỏ, hỗ trợ Leaders.'}},
+    {id:'j32',name:'3.2 Learning New / Complex Tasks',descs:{1:'Cần nhiều thời gian và hướng dẫn chi tiết khi tiếp cận kiến thức mới.',2:'Cần hướng dẫn chi tiết khi tiếp cận kiến thức khó.',3:'Học và ứng dụng kiến thức mới ngay sau khi được hướng dẫn.',4:'Tự học tốt, chủ động nghiên cứu tài liệu để giải quyết task khó.',5:'Học cực nhanh, tư duy hệ thống, đóng gói kiến thức training lại cho team.'}},
+  ]},
+];
+
+const I2LEVELS={'Basic Awareness':2.5,'Working Level':5,'Advanced Level':7.5,'Lead Level':10};
+const i2data=[
+  {s:'Phần 1: Building Code & Life Safety',p:1,items:[{id:'i11',name:'1.1 Occupancy & Construction Type',target:'Working Level'},{id:'i12',name:'1.2 Egress',target:'Working Level'},{id:'i13',name:'1.3 Fire / Life Safety',target:'Basic Awareness'}]},
+  {s:'Phần 2: Accessibility Compliance',p:1,items:[{id:'i21',name:'2.1 General Accessibility',target:'Working Level'},{id:'i22',name:'2.2 Apartment Unit Accessibility',target:'Working Level'}]},
+  {s:'Phần 3: Allowable Openings & Fire Separation',p:1,items:[{id:'i31',name:'Allowable Openings & Fire Separation',target:'Working Level'}]},
+  {s:'Phần 4: Building Assemblies & Fire Rating',p:2,items:[{id:'i41',name:'4.1 Wall / Floor / Roof Assemblies',target:'Advanced Level'},{id:'i42',name:'4.2 Envelope & Waterproofing',target:'Working Level'}]},
+  {s:'Phần 5: Structural Coordination',p:2,items:[{id:'i51',name:'Structural Coordination',target:'Working Level'}]},
+  {s:'Phần 6: MEP Coordination',p:2,items:[{id:'i61',name:'6.1 Mechanical Principles',target:'Basic Awareness'},{id:'i62',name:'6.2 Unit Mechanical Systems',target:'Basic Awareness'},{id:'i63',name:'6.3 Corridor & BOH',target:'Basic Awareness'},{id:'i64',name:'6.4 Garage Coordination',target:'Basic Awareness'},{id:'i65',name:'6.5 Plumbing',target:'Basic Awareness'},{id:'i66',name:'6.6 Electrical',target:'Basic Awareness'}]},
+  {s:'Phần 7: BIM Standards',p:3,items:[{id:'i71',name:'7.1 Revit Production & Model Management',target:'Working Level'},{id:'i72',name:'7.2 BIM QA/QC & Coordination',target:'Basic Awareness'}]},
+  {s:'Phần 8: Project Delivery',p:3,items:[{id:'i81',name:'Project Delivery & Production Workflow',target:'Working Level'}]},
+];
+
+const scores3={},scores2={};
+let currentLevel=null;
+let i4Level=null;
+let projCount=0;
+const notes3={};
+const I4_SCORES={Staff:2.0,Senior:1.5,'Key Member':1.0,Leader:0.5};
+const I4_NOTES={
+  Staff:'Hoàn thành tốt task được giao, thái độ học hỏi tích cực và cần cù trong công việc hằng ngày.',
+  Senior:'Tinh thần chủ động, trách nhiệm cao với công việc và phối hợp tốt trong team.',
+  'Key Member':'Thể hiện ownership rõ ràng, hỗ trợ team tích cực và đóng góp vào chất lượng chung của đội.',
+  Leader:'Dẫn dắt bằng hành động, ảnh hưởng tích cực lên cả team và xây dựng văn hóa làm việc chuyên nghiệp.',
+};
+
+function setLevel(lv){
+  currentLevel=lv;
+  const btnIdMap={Staff:'btn-Staff',Senior:'btn-Senior','Key Member':'btn-KeyMember',Leader:'btn-Leader'};
+  document.querySelectorAll('.lv-btn').forEach(b=>b.className='lv-btn');
+  const btnEl=document.getElementById(btnIdMap[lv]);
+  if(btnEl) btnEl.classList.add(USER_LEVEL_COLOR[lv]);
+  document.getElementById('level-info').textContent=LEVEL_INFO[lv];
+  document.getElementById('i3lv').innerHTML=`<span class="lvl-badge ${BADGE[lv]}">${lv}</span>`;
+  // Auto-set i4 score based on level
+  i4Level=lv;
+  renderI3();updateI3Summary();updateResult();
+}
+
+function renderI3(){
+  const c=document.getElementById('i3sections');c.innerHTML='';
+  if(!currentLevel){c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--color-text-tertiary);font-size:13px">Chọn level để bắt đầu chấm điểm</div>';return;}
+  const minMuc=LEVEL_MIN[currentLevel];
+  i3data.forEach((sec,si)=>{
+    const card=document.createElement('div');card.className='section-card';
+    const rows=sec.items.map(item=>{
+      const curVal=scores3[item.id]||'';
+      const opts=[1,2,3,4,5].map(m=>{
+        const lv=MUC_TO_LEVEL[m];
+        const meet=m>=minMuc;
+        return `<option value="${m}" ${curVal==m?'selected':''} style="${meet?'':'color:var(--color-text-tertiary)'}">Mức ${m} — ${lv}${meet?'':' ✗'}</option>`;
+      }).join('');
+      const noteText=curVal?item.descs[curVal]:'Chọn mức để xem mô tả';
+      const badgeHtml=curVal?`<span class="lvl-badge ${BADGE[MUC_TO_LEVEL[curVal]]}" style="margin-top:4px;display:inline-block">${MUC_TO_LEVEL[curVal]}</span>`:'';
+      const savedNote=notes3[item.id]||'';
+      return `<div class="row-i3">
+        <div>
+          <div class="item-name">${item.name}</div>
+          <div class="item-note" id="note3-${item.id}">${noteText}</div>
+          <textarea class="note-area" id="textarea3-${item.id}" placeholder="Mục khác: dẫn chứng cụ thể, ví dụ minh họa..." oninput="onNote3('${item.id}')">${savedNote}</textarea>
+        </div>
+        <div>
+          <select class="score-select" id="s3-${item.id}" onchange="onI3('${item.id}')">
+            <option value="">— Chọn mức —</option>${opts}
+          </select>
+          <div id="lv3-${item.id}" style="margin-top:6px">${badgeHtml}</div>
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML=`<div class="sec-header"><span class="sec-title">${sec.s}</span><span id="s3h-${si}" style="font-size:11px"></span></div><div>${rows}</div>`;
+    c.appendChild(card);
+  });
+}
+
+function onI3(id){
+  const v=parseInt(document.getElementById('s3-'+id).value);
+  if(v) scores3[id]=v; else delete scores3[id];
+  const item=i3data.flatMap(s=>s.items).find(i=>i.id===id);
+  const lvEl=document.getElementById('lv3-'+id);
+  const noteEl=document.getElementById('note3-'+id);
+  if(v){
+    const lv=MUC_TO_LEVEL[v];
+    lvEl.innerHTML=`<span class="lvl-badge ${BADGE[lv]}" style="margin-top:4px;display:inline-block">${lv}</span>`;
+    noteEl.textContent=item.descs[v];
+    noteEl.style.color='var(--color-text-secondary)';
+  } else {
+    lvEl.innerHTML='';noteEl.textContent='Chọn mức để xem mô tả';noteEl.style.color='var(--color-text-tertiary)';
+  }
+  updateI3Summary();updateResult();
+}
+
+function onNote3(id){
+  const ta=document.getElementById('textarea3-'+id);
+  if(ta) notes3[id]=ta.value;
+  updateResult();
+}
+
+function onProjCount(){
+  const v=parseInt(document.getElementById('proj-count').value)||0;
+  projCount=v;
+  const badge=document.getElementById('proj-count-badge');
+  if(v>0){
+    badge.style.display='inline-block';
+    const label=v>=20?'Nhiều kinh nghiệm':v>=10?'Kinh nghiệm tốt':v>=5?'Đang tích lũy':'Mới bắt đầu';
+    badge.textContent=v+' dự án · '+label;
+  } else {
+    badge.style.display='none';
+  }
+  updateResult();
+}
+
+let projListOpen = false;
+
+function toggleProjList(){
+  projListOpen = !projListOpen;
+  const panel = document.getElementById('proj-list-panel');
+  const btn = document.getElementById('proj-list-toggle');
+  const toprow = document.getElementById('proj-count-toprow');
+  if(panel) panel.style.display = projListOpen ? 'block' : 'none';
+  if(btn) btn.textContent = projListOpen ? '▴ Ẩn danh sách' : '▾ Xem danh sách';
+  if(toprow) toprow.style.borderBottomColor = projListOpen ? 'var(--color-border-tertiary)' : 'transparent';
+}
+
+// Role display helpers
+const ROLE_LABEL = {
+  main_solo: 'Main (solo)',
+  main_with_support: 'Main + backup',
+  support: 'Backup',
+  support_promoted: 'Backup → Main'
+};
+const ROLE_COLOR = {
+  main_solo: {bg:'#1A1A18', color:'#fff'},
+  main_with_support: {bg:'#EAF3DE', color:'#3B6D11'},
+  support: {bg:'var(--color-background-secondary)', color:'var(--color-text-secondary)'},
+  support_promoted: {bg:'#FDE8F1', color:'#A02A6B'}
+};
+const CX_COLOR = {Simple:'#185FA5', Moderate:'#BA7517', Complex:'#A32D2D'};
+const SIZE_BG = {Small:'#F1EFE8', Medium:'#E6F1FB', Large:'#EAF3DE'};
+
+function renderProjListTable(breakdown, totalRaw){
+  const tbody = document.getElementById('proj-list-body');
+  const tfoot = document.getElementById('proj-list-foot');
+  if(!tbody || !tfoot) return;
+
+  // Get complexity from projects list for each project name
+  const projects = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
+  const cxMap = {};
+  projects.forEach(p => { cxMap[p.name] = p.complexityLevel || 'Simple'; });
+
+  tbody.innerHTML = breakdown.map((p,i) => {
+    const rc = ROLE_COLOR[p.role] || ROLE_COLOR.support;
+    const cx = cxMap[p.name] || 'Simple';
+    const rowBg = i%2===0 ? '' : 'background:var(--color-background-secondary)';
+    return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
+      <td style="padding:5px 10px;color:var(--color-text-primary)">${p.name}</td>
+      <td style="padding:5px 6px;text-align:center">
+        <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${SIZE_BG[p.size]||'#eee'};font-weight:500">${p.size}</span>
+      </td>
+      <td style="padding:5px 6px;text-align:center">
+        <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${rc.bg};color:${rc.color};font-weight:500;white-space:nowrap">${ROLE_LABEL[p.role]||p.role}</span>
+      </td>
+      <td style="padding:5px 6px;text-align:center;font-size:11px;color:${CX_COLOR[cx]||'inherit'};font-weight:500">${cx}</td>
+      <td style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-primary)">${p.score}</td>
+    </tr>`;
+  }).join('');
+
+  tfoot.innerHTML = `<tr style="border-top:1px solid var(--color-border-secondary);background:var(--color-background-secondary)">
+    <td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
+    <td style="padding:5px 10px;text-align:right;font-weight:600;color:var(--color-text-primary)">${parseFloat(totalRaw).toFixed(2)}</td>
+  </tr>`;
+}
+
+function autoFillProjectCount(silent=false){
+  const name = currentPersonName || document.getElementById('person-name-input').value.trim();
+  if(!name){
+    if(!silent) alert('Vui lòng nhập tên nhân viên trước.');
+    return;
+  }
+  if(typeof getPersonProjectStats!=='function') return;
+  // Use scoring engine for full breakdown (requires level)
+  const lv = currentLevel || 'Staff';
+  const pStats = getPersonProjectStats(name);           // basic totals + bySize/byComplexity
+  const scoreStats = (typeof calcPersonProjectScore==='function')
+    ? calcPersonProjectScore(name, lv) : null;
+  const stats = {
+    total: pStats.total,
+    mainCount: scoreStats ? scoreStats.mainCount : pStats.mainCount,
+    backupCount: scoreStats ? scoreStats.backupCount : pStats.backupCount,
+    bySize: pStats.bySize,
+    byComplexity: pStats.byComplexity,
+    breakdown: scoreStats ? scoreStats.breakdown : [],
+    totalRaw: scoreStats ? scoreStats.totalRaw : 0,
+  };
+  const pc = document.getElementById('proj-count');
+  if(pc){
+    pc.value = stats.total;
+    projCount = stats.total;
+    onProjCount();
+  }
+  const detail = document.getElementById('proj-link-detail');
+  const toggleBtn = document.getElementById('proj-list-toggle');
+  if(detail){
+    if(stats.total>0){
+      detail.style.display='block';
+      detail.innerHTML = `<b>${stats.total}</b> dự án`
+        + ` · Main: <b>${stats.mainCount}</b> · Backup: <b>${stats.backupCount}</b>`
+        + ` · S:${stats.bySize.Small||0} M:${stats.bySize.Medium||0} L:${stats.bySize.Large||0}`
+        + ` · <span style="color:#185FA5">Simple ${stats.byComplexity.Simple||0}</span>`
+        + ` / <span style="color:#BA7517">Moderate ${stats.byComplexity.Moderate||0}</span>`
+        + ` / <span style="color:#A32D2D">Complex ${stats.byComplexity.Complex||0}</span>`;
+      if(toggleBtn) toggleBtn.style.display='inline-block';
+      renderProjListTable(stats.breakdown||[], stats.totalRaw||0);
+      // Giữ nguyên trạng thái mở/đóng panel nếu đang mở
+      if(projListOpen){
+        const panel=document.getElementById('proj-list-panel');
+        if(panel) panel.style.display='block';
+        const tr=document.getElementById('proj-count-toprow');
+        if(tr) tr.style.borderBottomColor='var(--color-border-tertiary)';
+        if(toggleBtn) toggleBtn.textContent='▴ Ẩn danh sách';
+      }
+    } else {
+      detail.style.display = silent ? 'none' : 'block';
+      if(!silent) detail.textContent = `Không tìm thấy dự án nào gắn với tên "${name}". Kiểm tra lại chính tả.`;
+      if(toggleBtn) toggleBtn.style.display='none';
+      const panel=document.getElementById('proj-list-panel');
+      if(panel) panel.style.display='none';
+      projListOpen=false;
+    }
+  }
+}
+
+function setI4(lv){
+  i4Level=lv;
+  const classMap={Staff:'selected-staff',Senior:'selected-senior','Key Member':'selected-key',Leader:'selected-leader'};
+  const idMap={Staff:'i4-staff',Senior:'i4-senior','Key Member':'i4-key',Leader:'i4-leader'};
+  Object.keys(idMap).forEach(k=>{
+    const el=document.getElementById(idMap[k]);
+    el.className='i4-lv'+(k===lv?' '+classMap[k]:'');
+  });
+  const sc=I4_SCORES[lv];
+  document.getElementById('i4-score-tag').textContent=`+${sc.toFixed(1)} điểm (${lv})`;
+  document.getElementById('i4-note').textContent=I4_NOTES[lv]||'';
+  updateResult();
+}
+
+// ── Multi-person storage ──
+let currentPersonName = '';
+
+function getStorageKey(name){ return 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_'); }
+function getPersonListKey(){ return 'eval_v7_persons'; }
+
+function getPersonList(){
+  try{ return JSON.parse(localStorage.getItem(getPersonListKey()))||[]; } catch(e){ return []; }
+}
+function savePersonList(list){
+  try{ localStorage.setItem(getPersonListKey(), JSON.stringify(list)); } catch(e){}
+}
+
+function onPersonNameInput(){
+  currentPersonName = document.getElementById('person-name-input').value.trim();
+  // Show seniority if join date already set
+  const joinDate = document.getElementById('person-joindate-input').value;
+  const senEl = document.getElementById('person-seniority');
+  if(joinDate){
+    const s = calcSeniority(joinDate);
+    senEl.style.display='block';
+    senEl.textContent = '📅 Thâm niên: ' + s;
+  } else {
+    senEl.style.display='none';
+  }
+}
+
+function savePerson(){
+  const name = document.getElementById('person-name-input').value.trim();
+  if(!name){ alert('Vui lòng nhập tên nhân viên trước khi lưu.'); return; }
+  const joinDate = document.getElementById('person-joindate-input').value;
+  currentPersonName = name;
+
+  // Auto-sync project count from project data before saving
+  if(typeof getPersonProjectStats==='function'){
+    const stats = getPersonProjectStats(name);
+    projCount = stats.total;
+    const pc = document.getElementById('proj-count');
+    if(pc) pc.value = projCount||'';
+    onProjCount();
+    // Update detail display
+    const detail = document.getElementById('proj-link-detail');
+    if(detail && stats.total>0){
+      detail.style.display='block';
+      detail.innerHTML = `<b>${stats.total}</b> dự án (Main: <b>${stats.mainCount}</b> · Backup: <b>${stats.backupCount}</b>) · S:${stats.bySize.Small} M:${stats.bySize.Medium} L:${stats.bySize.Large}`;
+    }
+  }
+
+  const data = {
+    name, joinDate, currentLevel,
+    projCount, // saved per person separately
+    scores3:{...scores3}, scores2:{...scores2}, notes3:{...notes3},
+    ts: Date.now()
+  };
+  try{ localStorage.setItem(getStorageKey(name), JSON.stringify(data)); } catch(e){}
+  const list = getPersonList();
+  if(!list.includes(name)) list.push(name);
+  savePersonList(list);
+  if(typeof syncToSheets === 'function') syncToSheets('eval');
+  renderPersonList();
+  const t=document.getElementById('save-toast');
+  t.textContent='✓ Đã lưu '+name+'!'; t.style.display='inline-block';
+  setTimeout(()=>t.style.display='none', 2000);
+}
+
+function loadPerson(name){
+  let data = null;
+  try{ data = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
+  if(!data){ alert('Không tìm thấy dữ liệu của '+name); return; }
+
+  Object.keys(scores3).forEach(k=>delete scores3[k]);
+  Object.keys(scores2).forEach(k=>delete scores2[k]);
+  Object.keys(notes3).forEach(k=>delete notes3[k]);
+
+  Object.assign(scores3, data.scores3||{});
+  Object.assign(scores2, data.scores2||{});
+  Object.assign(notes3, data.notes3||{});
+  projCount = data.projCount||0;
+  currentPersonName = name;
+
+  document.getElementById('person-name-input').value = name;
+
+  // Restore join date
+  const jd = document.getElementById('person-joindate-input');
+  if(jd) jd.value = data.joinDate||'';
+  onPersonNameInput();
+
+  if(data.currentLevel) setLevel(data.currentLevel);
+  else { currentLevel=null; renderI3(); updateI3Summary(); }
+
+  // Restore proj count UI
+  const pc=document.getElementById('proj-count');
+  if(pc){ pc.value=projCount||''; onProjCount(); }
+
+  // Auto-sync project count from project data
+  autoFillProjectCount(true); // silent mode
+
+  // Restore i2
+  i2data.flatMap(s=>s.items).forEach(item=>{
+    if(scores2[item.id]!==undefined){
+      const sel=document.getElementById('s2-'+item.id);
+      if(sel){
+        const entry=Object.entries(I2LEVELS).find(([k,v])=>v===scores2[item.id]);
+        if(entry) sel.value=entry[0];
+        const d=document.getElementById('s2d-'+item.id);
+        if(d){const tv=I2LEVELS[item.target];const s=scores2[item.id];d.textContent=s.toFixed(1);d.style.color=s>=tv?'#3B6D11':s>=tv*.6?'#BA7517':'#A32D2D';}
+      }
+    }
+  });
+
+  updateResult();
+  renderPersonList(); // re-render to update active chip highlight
+
+  const t=document.getElementById('save-toast');
+  t.textContent='✓ Đã tải '+name+'!'; t.style.display='inline-block';
+  setTimeout(()=>t.style.display='none', 2000);
+}
+
+function deletePerson(name, e){
+  e.stopPropagation();
+  if(!confirm('Xoá dữ liệu của "'+name+'"?')) return;
+  try{ localStorage.removeItem(getStorageKey(name)); } catch(e){}
+  const list = getPersonList().filter(n=>n!==name);
+  savePersonList(list);
+  if(currentPersonName===name){
+    currentPersonName='';
+    document.getElementById('person-name-input').value='';
+  }
+  renderPersonList();
+}
+
+function renderPersonList(){
+  const list = getPersonList();
+  const container = document.getElementById('person-list');
+  if(!list.length){
+    container.innerHTML='<span style="font-size:12px;color:var(--color-text-tertiary)">Chưa có dữ liệu nào được lưu</span>';
+    return;
+  }
+  // Level → chip color map
+  const CHIP_LEVEL_COLOR = {
+    'Staff':      'background:#E6F1FB;border-color:#378ADD;color:#185FA5',
+    'Senior':     'background:#EAF3DE;border-color:#639922;color:#3B6D11',
+    'Key Member': 'background:#FDE8F1;border-color:#D85AA0;color:#A02A6B',
+    'Leader':     'background:#FAECE7;border-color:#D85A30;color:#993C1D',
+  };
+  container.innerHTML = list.map(name=>{
+    let scoreTag='';
+    let chipLevelStyle='';
+    try{
+      const d=JSON.parse(localStorage.getItem(getStorageKey(name)));
+      if(d&&d.scores3&&d.currentLevel){
+        const all=i3data.flatMap(s=>s.items);
+        const scored=all.filter(i=>d.scores3[i.id]);
+        if(scored.length){
+          const avgMuc=scored.reduce((a,i)=>a+d.scores3[i.id],0)/scored.length;
+          const i3s=((avgMuc/5)*10);
+          const w=getWeights(d.currentLevel,'match');
+          const preview=(i3s*(w.i3||0.7)).toFixed(1);
+          const lv=d.currentLevel?` ${d.currentLevel}`:'';
+          scoreTag=`<span class="person-chip-score">${preview}${lv}</span>`;
+        }
+        chipLevelStyle = CHIP_LEVEL_COLOR[d.currentLevel] || '';
+      }
+    } catch(e){}
+    const isActive = name === currentPersonName;
+    const styleAttr = isActive
+      ? `style="${chipLevelStyle || 'background:#E6F1FB;border-color:#378ADD;color:#185FA5'};font-weight:500"`
+      : (chipLevelStyle ? `style="${chipLevelStyle};opacity:0.7"` : '');
+    return `<div class="person-chip ${isActive?'active-chip':''}"
+      ${styleAttr}
+      onclick="loadPerson('${name.replace(/'/g,"\\'")}')">
+      ${name}${scoreTag}
+      <span class="person-chip-del" onclick="deletePerson('${name.replace(/'/g,"\\'")}', event)">×</span>
+    </div>`;
+  }).join('');
+}
+
+function resetAll(){
+  if(!confirm('Reset form hiện tại? (Dữ liệu đã lưu của các nhân viên khác không bị ảnh hưởng)')) return;
+  Object.keys(scores3).forEach(k=>delete scores3[k]);
+  Object.keys(scores2).forEach(k=>delete scores2[k]);
+  Object.keys(notes3).forEach(k=>delete notes3[k]);
+  i4Level=null; projCount=0; currentLevel=null; currentPersonName='';
+  document.getElementById('person-name-input').value='';
+  document.querySelectorAll('.lv-btn').forEach(b=>b.className='lv-btn');
+  document.getElementById('level-info').textContent='Chọn level để xem tiêu chí yêu cầu tương ứng.';
+  document.getElementById('i3lv').innerHTML='–';
+  const pc=document.getElementById('proj-count');if(pc) pc.value='';
+  document.getElementById('proj-count-badge').style.display='none';
+  renderPersonList();
+  renderI3();updateI3Summary();updateResult();
+}
+
+function updateI3Summary(){
+  const all=i3data.flatMap(s=>s.items);
+  const scored=all.filter(i=>scores3[i.id]);
+  const pct=Math.round(scored.length/all.length*100);
+  const minMuc=currentLevel?LEVEL_MIN[currentLevel]:3;
+  const avgMuc=scored.length?scored.reduce((a,i)=>a+scores3[i.id],0)/scored.length:0;
+  // score out of 10 = (avgMuc/5)*10
+  const i3score=scored.length?((avgMuc/5)*10):0;
+  document.getElementById('i3score').textContent=scored.length?i3score.toFixed(1):'–';
+  document.getElementById('i3cnt').textContent=scored.length+' / '+all.length;
+  document.getElementById('i3pct').textContent=pct+'%';
+  document.getElementById('i3bar').style.width=pct+'%';
+  i3data.forEach((sec,si)=>{
+    const vals=sec.items.map(i=>scores3[i.id]).filter(Boolean);
+    const el=document.getElementById('s3h-'+si);
+    if(!el) return;
+    if(!vals.length){el.innerHTML='';return;}
+    const minLv=MUC_TO_LEVEL[Math.min(...vals)];
+    el.innerHTML=`<span class="lvl-badge ${BADGE[minLv]}" style="font-size:10px">${minLv}</span>`;
+  });
+}
+
+function updateResult(){
+  const all=i3data.flatMap(s=>s.items);
+  const scored=all.filter(i=>scores3[i.id]);
+  const i2all=i2data.flatMap(s=>s.items);
+  const i2scored=i2all.filter(i=>scores2[i.id]!==undefined);
+
+  renderI2Analysis(i2scored);
+
+  if(!scored.length||!currentLevel){
+    document.getElementById('r-total').textContent='–';
+    document.getElementById('r-sublabel').textContent='Chọn level và chấm điểm để xem kết quả';
+    document.getElementById('r-i3b').textContent='–';
+    document.getElementById('r-i4b').textContent='–';
+    document.getElementById('r-lv').innerHTML='–';
+    document.getElementById('comment-box').style.display='none';
+    document.getElementById('summary-panel').style.display='none';
+    document.getElementById('i3-detail-box').style.display='none';
+    return;
+  }
+
+  // ── I3 Score (0-10) ──
+  const avgMuc = scored.reduce((a,i)=>a+scores3[i.id],0)/scored.length;
+  const i3score = parseFloat(((avgMuc/5)*10).toFixed(2));
+
+  // ── I2 Score (0-10) ──
+  const i2vals = i2scored.map(i=>scores2[i.id]);
+  const i2score = i2vals.length ? parseFloat((i2vals.reduce((a,b)=>a+b,0)/i2vals.length).toFixed(2)) : 0;
+
+  // ── Project Score (0-10) ──
+  let projScore10 = 0;
+  let projStats = null;
+  if(currentPersonName && typeof calcPersonProjectScore==='function'){
+    projStats = calcPersonProjectScore(currentPersonName, currentLevel);
+    projScore10 = parseFloat(projStats.projScore10);
+  }
+
+  // ── Dominant project relation for weight selection ──
+  let dominantRelation = 'match';
+  if(projStats && projStats.breakdown.length){
+    const belowCount = projStats.breakdown.filter(p=>p.relation==='below').length;
+    const aboveCount = projStats.breakdown.filter(p=>p.relation==='above').length;
+    if(belowCount > projStats.breakdown.length/2) dominantRelation='below';
+    else if(aboveCount > 0) dominantRelation='above';
+  }
+
+  // ── Weights by level + project relation ──
+  const w = getWeights(currentLevel, dominantRelation);
+
+  // ── Total Score ──
+  let total;
+  if(currentLevel==='Leader'){
+    total = i2score * 0.2; // team score handled separately later
+  } else {
+    total = (projScore10 * w.proj) + (i3score * w.i3) + (i2score * (w.i2||0));
+  }
+  total = parseFloat(total.toFixed(2));
+
+  // ── Suggestion threshold ──
+  const SUGGEST_THRESHOLD = 8.0;
+  const LEVEL_ORDER = ['Staff','Senior','Key Member','Leader'];
+  const curIdx = LEVEL_ORDER.indexOf(currentLevel);
+  const nextLevel = curIdx < 3 ? LEVEL_ORDER[curIdx+1] : null;
+  const allComplete = scored.length===all.length;
+
+  // ── Update UI ──
+  document.getElementById('r-i3b').textContent = i3score.toFixed(1)+' / 10';
+  document.getElementById('r-i4b').textContent =
+    projStats ? projScore10.toFixed(1)+' / 10 ('+projStats.totalProjects+' dự án, raw: '+projStats.totalRaw+')' : '– (chưa có dữ liệu dự án)';
+  document.getElementById('r-i4b').style.color='var(--color-text-primary)';
+  document.getElementById('r-lv').innerHTML=`<span class="lvl-badge ${BADGE[currentLevel]}">${currentLevel}</span>`;
+
+  const joinDate = document.getElementById('person-joindate-input')?.value;
+  const seniority = joinDate ? calcSeniority(joinDate) : null;
+  const seniorityNote = seniority ? ` · Thâm niên: ${seniority}` : '';
+
+  if(allComplete){
+    document.getElementById('r-total').textContent = total.toFixed(1);
+    document.getElementById('r-sublabel').textContent =
+      `I3(${(w.i3*100).toFixed(0)}%): ${i3score.toFixed(1)} · Dự án(${(w.proj*100).toFixed(0)}%): ${projScore10.toFixed(1)} · I2(${((w.i2||0)*100).toFixed(0)}%): ${i2score.toFixed(1)}${seniorityNote}`;
+  } else {
+    document.getElementById('r-total').textContent = total.toFixed(1)+'*';
+    document.getElementById('r-sublabel').textContent =
+      `Tạm tính — còn ${all.length-scored.length} tiêu chí I3 chưa chấm`;
+  }
+
+  // ── Level suggestion ──
+  const sugEl = document.getElementById('sp-level-suggest');
+  if(sugEl){
+    sugEl.style.display='flex';
+    let sugClass, sugIcon, sugLabel, sugSub;
+    if(!allComplete){
+      sugClass='lp-warn'; sugIcon='⏳'; sugLabel='Chưa đủ dữ liệu';
+      sugSub=`Chấm đủ ${all.length} tiêu chí I3 để có đề xuất chính xác.`;
+    } else if(total >= SUGGEST_THRESHOLD && nextLevel){
+      sugClass='lp-suggest-up'; sugIcon='🚀'; sugLabel=`Đề xuất xem xét lên ${nextLevel}`;
+      sugSub=`Điểm tổng ${total.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Đủ điều kiện đề xuất lên ${nextLevel}.`;
+    } else if(total >= SUGGEST_THRESHOLD && !nextLevel){
+      sugClass='lp-suggest-up'; sugIcon='🏆'; sugLabel='Xuất sắc — Leader';
+      sugSub=`Điểm tổng ${total.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Năng lực Leader vững chắc.`;
+    } else {
+      const gap = (SUGGEST_THRESHOLD - total).toFixed(1);
+      sugClass='lp-suggest'; sugIcon='📌'; sugLabel=`Xác nhận ${currentLevel} · Cần +${gap} điểm để đề xuất thăng`;
+      sugSub=`Đạt level hiện tại. Cần cải thiện thêm ${gap} điểm để đủ ngưỡng ${SUGGEST_THRESHOLD}.`;
+    }
+    sugEl.className='level-proposal '+sugClass;
+    sugEl.innerHTML=`<div class="level-proposal-icon">${sugIcon}</div>
+      <div class="level-proposal-content">
+        <div class="level-proposal-label">Đề xuất level</div>
+        <div class="level-proposal-value">${sugLabel}</div>
+        <div class="level-proposal-sub">${sugSub}</div>
+      </div>`;
+  }
+
+  // ── Comments ──
+  const lv=currentLevel;
+  const posKw=KEYWORDS_POS[lv]||[];
+  const devKw=KEYWORDS_DEV[lv]||[];
+  const minMuc=LEVEL_MIN[lv];
+  const strongItems=scored.filter(i=>scores3[i.id]>=minMuc+1);
+  const weakItems=scored.filter(i=>scores3[i.id]<minMuc);
+  const posCount=strongItems.length>=3?posKw.length:Math.min(posKw.length,strongItems.length+2);
+  const devCount=weakItems.length>=2?Math.min(devKw.length,4):Math.min(devKw.length,3);
+
+  let posHtml=posKw.slice(0,posCount).map(k=>`<span class="tag tag-pos">${k}</span>`).join('');
+  if(projStats && projStats.totalProjects>0){
+    posHtml+=`<span class="tag tag-pos">Đã thực hiện ${projStats.totalProjects} dự án (Main: ${projStats.mainCount} · Backup: ${projStats.backupCount}) · Điểm dự án: ${projScore10.toFixed(1)}/10</span>`;
+  }
+
+  document.getElementById('tags-pos').innerHTML=posHtml;
+  document.getElementById('tags-dev').innerHTML=devKw.slice(0,devCount).map(k=>`<span class="tag tag-dev">${k}</span>`).join('');
+  document.getElementById('comment-box').style.display='block';
+  renderI3Detail();
+  renderSummary();
+}
+
+// Recommendation data per i2 item — gợi ý cải thiện cụ thể
+const I2_RECO={
+  i11:{
+    label:'Building Code — Occupancy & Construction Type',
+    weak:'Cần nắm chắc hơn cách phân loại Occupancy Group và Construction Type theo IBC. Thực hành tra cứu với các dự án thực tế để hiểu cách áp dụng.',
+    below:'Đã có nền tảng cơ bản nhưng cần luyện thêm khả năng áp dụng độc lập, đặc biệt với các mixed-use hoặc dự án phức tạp hơn.',
+  },
+  i12:{
+    label:'Building Code — Egress',
+    weak:'Egress là yêu cầu cốt lõi ảnh hưởng trực tiếp đến layout. Cần học kỹ cách tính travel distance, corridor width, exit capacity và số lượng exit tối thiểu.',
+    below:'Cần luyện thêm việc check egress compliance trực tiếp trên model Revit, không chỉ hiểu lý thuyết.',
+  },
+  i13:{
+    label:'Fire / Life Safety',
+    weak:'Nên bắt đầu với các khái niệm cơ bản: fire-rated assemblies, smoke compartments, sprinkler zones. Đây là kiến thức nền quan trọng khi phối hợp với MEP.',
+    below:'Có thể nâng lên bằng cách tham gia review các drawing fire protection và hỏi thêm leader về các yêu cầu AHJ.',
+  },
+  i21:{
+    label:'Accessibility — General',
+    weak:'ADA là yêu cầu bắt buộc. Cần nắm các tiêu chuẩn cơ bản: clear floor space, reach range, turning radius, và cách áp dụng vào layout.',
+    below:'Luyện thêm bằng cách check accessibility compliance trên các dự án đã thực hiện, so với checklist ADA/CBC.',
+  },
+  i22:{
+    label:'Accessibility — Apartment Unit',
+    weak:'Unit accessibility có nhiều chi tiết dễ bỏ sót: bathroom clearance, kitchen layout, door hardware. Nên đọc kỹ CBC Chapter 11A/11B.',
+    below:'Thực hành check unit accessibility trực tiếp trên model, đặc biệt các Type A/B unit requirement.',
+  },
+  i31:{
+    label:'Allowable Openings & Fire Separation',
+    weak:'Đây là kiến thức liên quan trực tiếp đến việc layout cửa sổ, cửa đi gần ranh giới. Cần hiểu cách tính unprotected/protected opening percentage.',
+    below:'Nâng cao bằng cách thực hành tính toán opening area trên các facade drawings thực tế của dự án.',
+  },
+  i41:{
+    label:'Wall / Floor / Roof Assemblies',
+    weak:'Đây là kỹ năng cốt lõi. Cần nắm rõ cách đọc UL assembly, fire-rating requirements và áp dụng đúng wall type vào model Revit theo yêu cầu dự án.',
+    below:'Tập trung vào việc verify assembly rating khi model wall type mới, cross-check với specs và IBC table.',
+  },
+  i42:{
+    label:'Envelope & Waterproofing',
+    weak:'Nên tìm hiểu các loại waterproofing membrane, flashing detail, và cách đọc envelope drawing. Thực tế dự án có nhiều detail cần model chính xác.',
+    below:'Luyện thêm bằng cách review envelope details với leader và hỏi về common failure points trong thi công.',
+  },
+  i51:{
+    label:'Structural Coordination',
+    weak:'Cần biết cách đọc structural drawings cơ bản, nhận diện beam/column/slab và check clearance với architectural elements.',
+    below:'Thực hành bằng cách overlay structural model vào architectural model và tự check conflict trước khi báo leader.',
+  },
+  i61:{
+    label:'MEP — Mechanical Principles',
+    weak:'Hiểu cơ bản về HVAC system giúp ích rất nhiều khi coordinate. Nên học về duct routing, equipment clearance và air flow path.',
+    below:'Tham gia các buổi MEP coordination meeting để hiểu thêm về các vấn đề thường gặp.',
+  },
+  i62:{
+    label:'MEP — Unit Mechanical Systems',
+    weak:'Nên nắm các thành phần cơ bản trong một residential unit: FCU, ERV/HRV, exhaust fan và cách routing duct trong unit.',
+    below:'Xem thêm unit MEP drawings của các dự án đã hoàn thành để hiểu pattern thường dùng.',
+  },
+  i63:{
+    label:'MEP — Corridor & BOH',
+    weak:'Corridor MEP thường phức tạp vì nhiều system chạy chung. Cần biết thứ tự ưu tiên coordination và cách đọc MEP RCP.',
+    below:'Luyện bằng cách tự kiểm tra plenum height và clearance trong corridor sections của dự án đang làm.',
+  },
+  i64:{
+    label:'MEP — Garage Coordination',
+    weak:'Garage có nhiều yêu cầu đặc thù: CO detection, ventilation, drainage, và overhead clearance. Cần nắm cơ bản để phát hiện conflict sớm.',
+    below:'Xem thêm garage MEP layout của dự án trước để hiểu pattern.',
+  },
+  i65:{
+    label:'Plumbing Coordination',
+    weak:'Hiểu cơ bản về stack routing, trap, cleanout location giúp ích khi layout bathroom và kitchen. Cần biết đủ để check clearance.',
+    below:'Thực hành check plumbing stub-out locations trong unit và verify với structural penetration.',
+  },
+  i66:{
+    label:'Electrical Coordination',
+    weak:'Nên nắm cơ bản: panel location, conduit routing, và clearance requirements. Đặc biệt quan trọng với electrical room sizing.',
+    below:'Tập trung vào việc verify electrical room clearance và switchgear access trong model.',
+  },
+  i71:{
+    label:'Revit Production & Model Management',
+    weak:'Đây là kỹ năng nền tảng. Cần nắm chắc workset discipline, linked model management, view template và naming convention theo BIM standard của team.',
+    below:'Ôn lại BIM manual và tự audit model của mình theo checklist trước khi submit.',
+  },
+  i72:{
+    label:'BIM QA/QC & Coordination',
+    weak:'Cần học cách tự QC model trước khi submit: check warning count, element naming, view organization, và sheet setup.',
+    below:'Xây dựng thói quen chạy QC checklist cuối mỗi milestone, không chờ leader nhắc.',
+  },
+  i81:{
+    label:'Project Delivery & Production Workflow',
+    weak:'Nên hiểu rõ hơn về milestone structure, deliverable checklist và cách prioritize task khi deadline gấp.',
+    below:'Tham gia kick-off meeting đầy đủ và chủ động hỏi leader về deliverable expectation từ sớm.',
+  },
+};
+
+// Next-level advice for items already passing
+const I2_NEXT={
+  i11:{label:'Building Code — Occupancy & Construction Type',next:'Đã vững Working Level. Hướng tiếp theo là nắm sâu hơn về mixed-use occupancy separation, area/height modification theo IBC Table 506 và các trường hợp phức tạp của high-rise.'},
+  i12:{label:'Building Code — Egress',next:'Đã đạt tốt. Có thể nâng lên bằng cách thực hành tính egress capacity cho các floor plan phức tạp, kết hợp với performance-based egress analysis khi cần.'},
+  i13:{label:'Fire / Life Safety',next:'Vượt yêu cầu Basic Awareness. Nên tiếp tục tìm hiểu về smoke control system, fire alarm zoning và cách phối hợp với MEP team trong các dự án high-rise.'},
+  i21:{label:'Accessibility — General',next:'Đạt tốt. Có thể phát triển thêm khả năng tự audit accessibility compliance trên toàn bộ dự án, không chỉ từng area riêng lẻ.'},
+  i22:{label:'Accessibility — Apartment Unit',next:'Đạt tốt. Hướng nâng cao là nắm sâu hơn Type A vs Type B unit requirement và cách document accessible features trong drawing set.'},
+  i31:{label:'Allowable Openings & Fire Separation',next:'Đạt tốt. Có thể luyện thêm cách tính opening percentage khi facade phức tạp (bay windows, recesses) và trường hợp sprinklered vs non-sprinklered.'},
+  i41:{label:'Wall / Floor / Roof Assemblies',next:'Đạt Advanced Level. Hướng tiếp theo là có thể tự research và propose assembly cho các trường hợp đặc biệt, không cần tìm assembly sẵn.'},
+  i42:{label:'Envelope & Waterproofing',next:'Vượt yêu cầu. Có thể phát triển thêm khả năng review envelope shop drawings và coordinate với contractor về installation sequence.'},
+  i51:{label:'Structural Coordination',next:'Vượt yêu cầu. Tiếp theo có thể tham gia sâu hơn vào structural RFI process và tự propose architectural solution khi có conflict với structure.'},
+  i61:{label:'MEP — Mechanical Principles',next:'Vượt yêu cầu Basic. Nên tiếp tục xây dựng hiểu biết về load calculation cơ bản và system sizing để phối hợp tốt hơn với MEP engineer.'},
+  i62:{label:'MEP — Unit Mechanical Systems',next:'Vượt yêu cầu. Có thể nâng lên bằng cách hiểu sâu hơn về noise/vibration isolation và cách layout tránh ảnh hưởng đến unit bên cạnh.'},
+  i63:{label:'MEP — Corridor & BOH',next:'Vượt yêu cầu. Tiếp theo là luyện kỹ năng phối hợp coordination meeting, đặt câu hỏi đúng để giải quyết conflict nhanh hơn.'},
+  i64:{label:'MEP — Garage Coordination',next:'Vượt yêu cầu. Có thể phát triển thêm hiểu biết về CO sensor zoning và ventilation calculation cơ bản cho garage.'},
+  i65:{label:'Plumbing Coordination',next:'Vượt yêu cầu. Nên luyện thêm cách check isometric plumbing diagram và verify fixture unit count với engineer.'},
+  i66:{label:'Electrical Coordination',next:'Đạt Basic Awareness. Tiếp theo nên tìm hiểu thêm về electrical room sizing requirement và cách tính conduit fill khi cần.'},
+  i71:{label:'Revit Production & Model Management',next:'Vượt yêu cầu Working Level. Có thể phát triển thêm kỹ năng Dynamo để tự động hóa các tác vụ lặp lại, và tham gia xây dựng BIM standard cho team.'},
+  i72:{label:'BIM QA/QC & Coordination',next:'Vượt yêu cầu. Hướng tiếp theo là xây dựng QC checklist riêng cho từng milestone, và dần dần hỗ trợ review model của các thành viên khác.'},
+  i81:{label:'Project Delivery & Production Workflow',next:'Vượt yêu cầu. Có thể phát triển thêm kỹ năng lập kế hoạch workload cho cả team và tham gia vào việc estimate effort cho dự án mới.'},
+};
+
+function renderI2Analysis(i2scored){
+  const box=document.getElementById('i2-analysis');
+  const grid=document.getElementById('i2a-grid');
+  const reco=document.getElementById('i2a-reco');
+  const recoList=document.getElementById('i2a-reco-list');
+  const sub=document.getElementById('i2a-sub');
+
+  if(!i2scored.length){box.style.display='none';return;}
+  box.style.display='block';
+
+  const total=i2scored.length;
+  const passing=i2scored.filter(i=>scores2[i.id]>=I2LEVELS[i.target]).length;
+  const exceeding=i2scored.filter(i=>scores2[i.id]>I2LEVELS[i.target]).length;
+  sub.textContent=`${passing}/${total} mục đạt yêu cầu · ${exceeding} mục vượt yêu cầu`;
+
+  // render grid
+  grid.innerHTML=i2scored.map(item=>{
+    const v=scores2[item.id];
+    const tv=I2LEVELS[item.target];
+    const diff=v-tv;
+    let gapClass,gapText;
+    if(diff>0){gapClass='gap-good';gapText='Vượt yêu cầu';}
+    else if(diff===0){gapClass='gap-good';gapText='Đạt';}
+    else if(diff>=-2.5){gapClass='gap-ok';gapText='Gần đạt';}
+    else{gapClass='gap-weak';gapText='Cần cải thiện';}
+    return `<div class="i2a-item">
+      <div class="i2a-item-name">${item.name}</div>
+      <div class="i2a-item-row">
+        <span class="i2a-score" style="color:${diff>=0?'#3B6D11':diff>=-2.5?'#BA7517':'#A32D2D'}">${v.toFixed(1)}</span>
+        <span class="i2a-target">/ ${tv.toFixed(1)}</span>
+        <span class="i2a-gap ${gapClass}">${gapText}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  reco.style.display='block';
+
+  // Weak items (below target)
+  const weakItems=[...i2scored].filter(i=>scores2[i.id]<I2LEVELS[i.target])
+    .sort((a,b)=>(I2LEVELS[b.target]-scores2[b.id])-(I2LEVELS[a.target]-scores2[a.id]));
+
+  // Just-passing items (exactly at target)
+  const justItems=i2scored.filter(i=>scores2[i.id]===I2LEVELS[i.target]);
+
+  // Exceeding items — top 3 by margin
+  const strongItems=[...i2scored].filter(i=>scores2[i.id]>I2LEVELS[i.target])
+    .sort((a,b)=>(scores2[b.id]-I2LEVELS[b.target])-(scores2[a.id]-I2LEVELS[a.target]))
+    .slice(0,4);
+
+  let html='';
+
+  // Section: Điểm mạnh nổi bật
+  if(strongItems.length||passing===total){
+    html+=`<div style="font-size:11px;font-weight:600;color:#3B6D11;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:10px 14px 0">✅ Điểm mạnh nổi bật</div>`;
+    const showStrong=strongItems.length?strongItems:i2scored.slice(0,3);
+    html+=showStrong.map(item=>{
+      const r=I2_NEXT[item.id];if(!r)return'';
+      const v=scores2[item.id];const tv=I2LEVELS[item.target];
+      return `<div class="reco-card" style="margin:0 14px 8px;border-left:3px solid #639922">
+        <div class="reco-card-name">${r.label} <span style="font-size:11px;font-weight:400;color:#3B6D11">(${v.toFixed(1)} / ${tv.toFixed(1)})</span></div>
+        <div class="reco-card-text">${r.next}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Section: Cần cải thiện
+  if(weakItems.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:#993C1D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:12px 14px 0">⚠️ Cần cải thiện</div>`;
+    html+=weakItems.map(item=>{
+      const v=scores2[item.id];const tv=I2LEVELS[item.target];
+      const gap=tv-v;const isPri1=gap>2.5;
+      const r=I2_RECO[item.id];if(!r)return'';
+      const text=isPri1?r.weak:r.below;
+      return `<div class="reco-card" style="margin:0 14px 8px;border-left:3px solid ${isPri1?'#D85A30':'#E8A420'}">
+        <span class="reco-badge ${isPri1?'reco-pri1':'reco-pri2'}">${isPri1?'Ưu tiên cao':'Cần theo dõi'}</span>
+        <div class="reco-card-name">${r.label} <span style="font-size:11px;font-weight:400;color:#A32D2D">(${v.toFixed(1)} / ${tv.toFixed(1)})</span></div>
+        <div class="reco-card-text">${text}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Section: Củng cố thêm (just passing)
+  if(justItems.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:#BA7517;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:12px 14px 0">📌 Nên củng cố thêm</div>`;
+    html+=justItems.map(item=>{
+      const r=I2_RECO[item.id];if(!r)return'';
+      const v=scores2[item.id];const tv=I2LEVELS[item.target];
+      return `<div class="reco-card" style="margin:0 14px 8px;border-left:3px solid #E8A420">
+        <div class="reco-card-name">${r.label} <span style="font-size:11px;font-weight:400;color:#BA7517">(${v.toFixed(1)} / ${tv.toFixed(1)} — vừa đạt)</span></div>
+        <div class="reco-card-text">${r.below}</div>
+      </div>`;
+    }).join('');
+  }
+
+  html+=`<div style="height:10px"></div>`;
+  recoList.innerHTML=html;
+}
+
+// I3 per-item detailed comments by score level
+const I3_COMMENTS={
+  j11:{
+    name:'1.1 Accuracy & Quality',
+    comments:{
+      1:'Sản phẩm còn nhiều lỗi cơ bản, cần leader soát sửa thường xuyên trước khi submit. Đây là giai đoạn học việc bình thường — quan trọng là tiếp thu feedback nhanh và không lặp lại lỗi cũ.',
+      2:'Nắm được tiêu chuẩn cơ bản, tuy nhiên đôi khi vẫn bỏ sót các lỗi nhỏ. Cần xây dựng thói quen tự check trước khi submit để giảm vòng review của leader.',
+      3:'Chất lượng bản vẽ ổn định, sản phẩm sạch và ít sai sót. Có thể tin tưởng giao task mà không cần theo dõi sát. Đây là mức hoạt động độc lập tốt.',
+      4:'Mức độ tin cậy cao — leader gần như không cần sửa lại sản phẩm. Khả năng tự QA/QC tốt và có ý thức kiểm soát chất lượng từ sớm trong quá trình làm việc.',
+      5:'Tiêu chuẩn cá nhân rất cao, có thể soát lỗi cho người khác và đề xuất thiết lập tiêu chuẩn chất lượng cho team. Đây là nền tảng quan trọng của một Leader hoặc Key Member thực sự.',
+    },
+    tips:{
+      1:'Gợi ý: Tạo checklist cá nhân cho từng loại drawing trước khi submit.',
+      2:'Gợi ý: Dành 10–15 phút cuối mỗi task để tự review theo checklist — sẽ giảm đáng kể số lần cần sửa.',
+      3:'Gợi ý: Bắt đầu tham gia backcheck drawing của thành viên khác để rèn thêm mắt nhìn lỗi.',
+      4:'Gợi ý: Có thể bắt đầu xây dựng QC checklist chuẩn hóa cho team.',
+      5:'',
+    }
+  },
+  j12:{
+    name:'1.2 Productivity / Deadline',
+    comments:{
+      1:'Thường cần thêm thời gian hoặc hỗ trợ để kịp deadline. Đây là giai đoạn quen việc — cần theo dõi sát và ưu tiên task rõ ràng hơn.',
+      2:'Hoàn thành đúng hạn khi được nhắc nhở hoặc theo dõi. Cần chủ động hơn trong việc tự quản lý tiến độ mà không phụ thuộc vào leader.',
+      3:'Tự sắp xếp và đảm bảo tiến độ tốt mà không cần hỗ trợ thường xuyên. Khả năng quản lý workload cá nhân đáng tin cậy.',
+      4:'Tốc độ xử lý tốt, luôn chủ động đẩy nhanh và chuẩn bị cho task tiếp theo. Ít khi để leader phải nhắc nhở về deadline.',
+      5:'Xử lý workload cao hiệu quả, có thể hỗ trợ team khi cần gấp. Năng suất cá nhân là điểm mạnh rõ ràng.',
+    },
+    tips:{
+      1:'Gợi ý: Thử dùng daily task list để tự theo dõi tiến độ mỗi ngày.',
+      2:'Gợi ý: Báo cáo chủ động khi thấy task có nguy cơ trễ — đừng chờ leader hỏi.',
+      3:'Gợi ý: Khi task nhẹ, chủ động hỏi leader để nhận thêm để tăng throughput.',
+      4:'',
+      5:'',
+    }
+  },
+  j13:{
+    name:'1.3 Kỹ thuật, Revit & Quy trình',
+    comments:{
+      1:'Đang trong giai đoạn học Revit và làm quen US Code, SOP. Cần thời gian và hướng dẫn chi tiết cho mỗi task mới — đây là quá trình bình thường với người mới.',
+      2:'Nắm được SDP căn bản và xử lý được các case thông thường. Khi gặp tình huống mới hoặc phức tạp vẫn cần hỗ trợ thêm từ leader.',
+      3:'Vững chuyên môn, model đúng logic, đúng SOP và file ngăn nắp. Có thể xử lý độc lập phần lớn các case trong dự án thông thường.',
+      4:'Xử lý tốt các case khó, tự giác QA/QC và hồ sơ luôn sạch, tuân thủ SOP. Chuyên môn kỹ thuật là điểm mạnh nổi bật.',
+      5:'Chuyên gia thực sự — nắm chắc bản chất kỹ thuật, có thể đề xuất cải tiến SOP và workflow cho cả team.',
+    },
+    tips:{
+      1:'Gợi ý: Đọc kỹ SOP trước khi bắt đầu mỗi task mới, đừng ngại hỏi sớm khi chưa rõ.',
+      2:'Gợi ý: Khi gặp case lạ, thử tìm trong SOP hoặc dự án cũ trước khi hỏi leader — sẽ học nhanh hơn.',
+      3:'Gợi ý: Bắt đầu note lại các case khó đã xử lý để chia sẻ với team.',
+      4:'Gợi ý: Có thể đề xuất update SOP nếu phát hiện chỗ có thể cải thiện.',
+      5:'',
+    }
+  },
+  j21:{
+    name:'2.1 Ownership',
+    comments:{
+      1:'Thực hiện theo hướng dẫn từng bước, chưa có sự chủ động trong việc tự theo dõi hoặc anticipate vấn đề. Cần được hướng dẫn rõ ràng trước mỗi bước.',
+      2:'Hoàn thành đủ task được giao nhưng cần nhắc nhở khi có thay đổi đột xuất. Chưa chủ động cập nhật tiến độ hoặc báo cáo khi gặp vướng mắc.',
+      3:'Chủ động theo dõi tiến độ cá nhân và báo cáo kịp thời. Không cần leader phải hỏi thăm thường xuyên — đây là mức ownership tốt của một Senior.',
+      4:'Tự chuẩn bị RFI/data, nắm rõ đầu việc tiếp theo mà không cần nhắc. Ownership mạnh — thể hiện rõ vai trò Key Member.',
+      5:'Tự kiểm soát rủi ro dự án, phát hiện sớm lỗi hệ thống và chịu trách nhiệm kết quả cuối cùng. Đây là mức ownership của người dẫn dắt.',
+    },
+    tips:{
+      1:'Gợi ý: Cuối mỗi ngày tự hỏi: "Task của mình đang ở đâu? Có cần báo leader gì không?"',
+      2:'Gợi ý: Khi có thay đổi scope hoặc vướng mắc, chủ động báo leader ngay — đừng chờ họ hỏi.',
+      3:'Gợi ý: Thử anticipate task tiếp theo và hỏi leader trước khi task hiện tại kết thúc.',
+      4:'',
+      5:'',
+    }
+  },
+  j22:{
+    name:'2.2 Problem Solving',
+    comments:{
+      1:'Khi gặp vấn đề, báo cáo ngay và chờ hướng dẫn chi tiết. Chưa có thói quen tự tìm hướng giải quyết trước khi hỏi.',
+      2:'Chỉ ra được điểm vướng nhưng chưa đưa ra được phương án giải quyết. Cần phát triển thêm khả năng tự tìm giải pháp.',
+      3:'Chủ động tìm thông tin, hỏi đúng trọng tâm và giải quyết được vấn đề thông thường nhanh chóng. Không làm mất thời gian của leader với những câu hỏi cơ bản.',
+      4:'Luôn đi kèm ít nhất một đề xuất khi báo cáo vấn đề với leader. Tư duy giải quyết vấn đề chủ động và có giá trị cao.',
+      5:'Tự xử lý tốt các tình huống phức tạp và đúc kết thành kinh nghiệm cho team. Problem solving là năng lực thực sự nổi trội.',
+    },
+    tips:{
+      1:'Gợi ý: Trước khi hỏi leader, thử tìm trong SOP, dự án cũ hoặc hỏi đồng nghiệp trước.',
+      2:'Gợi ý: Khi hỏi leader, cố gắng thêm câu "Tôi đang nghĩ có thể làm theo cách X, bạn thấy thế nào?" — dù chưa chắc chắn.',
+      3:'Gợi ý: Bắt đầu note lại các vấn đề đã giải quyết và cách xử lý để chia sẻ.',
+      4:'',
+      5:'',
+    }
+  },
+  j31:{
+    name:'3.1 Communication & Teamwork',
+    comments:{
+      1:'Đang làm quen với cách trao đổi thông tin trong môi trường làm việc. Phản hồi còn chậm và đôi khi thông tin chưa đầy đủ.',
+      2:'Giao tiếp ở mức cơ bản, đôi khi phản hồi chưa kịp thời hoặc thông tin còn thiếu context. Cần chú ý hơn đến chất lượng communication.',
+      3:'Trao đổi rõ ràng, đúng hạn và phối hợp tốt với đồng nghiệp. Communication không gây friction trong workflow của team.',
+      4:'Chủ động hỗ trợ đồng nghiệp và trình bày vấn đề kỹ thuật một cách dễ hiểu. Là người được team tin tưởng trao đổi khi có vướng mắc.',
+      5:'Có sức ảnh hưởng tích cực lên team, điều phối tốt trong nhóm nhỏ và hỗ trợ leader. Communication là một trong những điểm mạnh định hình vai trò leader.',
+    },
+    tips:{
+      1:'Gợi ý: Đặt rule cho bản thân: reply message trong vòng 2 giờ trong giờ làm việc.',
+      2:'Gợi ý: Khi update tiến độ, thêm context: không chỉ "xong rồi" mà "xong rồi, đã upload lên folder X".',
+      3:'Gợi ý: Khi thấy đồng nghiệp đang vướng, chủ động hỏi xem có cần hỗ trợ không.',
+      4:'',
+      5:'',
+    }
+  },
+  j32:{
+    name:'3.2 Learning New / Complex Tasks',
+    comments:{
+      1:'Cần nhiều thời gian và hướng dẫn chi tiết khi tiếp cận kiến thức hoặc task mới. Đây là giai đoạn xây nền — quan trọng là kiên trì và đặt câu hỏi đúng.',
+      2:'Cần hướng dẫn chi tiết khi gặp task khó hoặc kiến thức mới. Sau khi được hướng dẫn thì thực hiện được nhưng chưa tự tìm hiểu độc lập.',
+      3:'Học và ứng dụng kiến thức mới khá nhanh sau khi được hướng dẫn lần đầu. Khả năng adapt tốt, ít cần hướng dẫn lặp lại.',
+      4:'Tự học tốt — chủ động research tài liệu và giải quyết task khó mà không cần hướng dẫn từ đầu. Đây là năng lực quan trọng để scale up.',
+      5:'Học cực nhanh, tư duy hệ thống và có khả năng đóng gói kiến thức mới thành tài liệu training cho cả team.',
+    },
+    tips:{
+      1:'Gợi ý: Khi học điều mới, ghi chép lại ngay — vừa giúp nhớ tốt hơn vừa có tài liệu tham khảo sau này.',
+      2:'Gợi ý: Trước khi hỏi leader về task khó, dành 15 phút tự tìm trong SOP hoặc Google trước.',
+      3:'Gợi ý: Sau khi học điều mới, thử giải thích lại cho đồng nghiệp — cách học hiệu quả nhất.',
+      4:'Gợi ý: Có thể bắt đầu chia sẻ kiến thức qua các buổi team sharing ngắn.',
+      5:'',
+    }
+  },
+};
+
+function renderI3Detail(){
+  const box=document.getElementById('i3-detail-box');
+  const list=document.getElementById('i3-detail-list');
+  const all=i3data.flatMap(s=>s.items);
+  const scored=all.filter(i=>scores3[i.id]);
+  if(!scored.length||!currentLevel){box.style.display='none';return;}
+  box.style.display='block';
+  const minMuc=LEVEL_MIN[currentLevel];
+  list.innerHTML=scored.map(item=>{
+    const v=scores3[item.id];
+    const lv=MUC_TO_LEVEL[v];
+    const meet=v>=minMuc;
+    const c=I3_COMMENTS[item.id];
+    if(!c)return'';
+    const comment=c.comments[v]||'';
+    const tip=c.tips[v]||'';
+    const noteVal=notes3[item.id]||'';
+    const scoreColor=v>=minMuc+1?'#3B6D11':v===minMuc?'#3B6D11':v===minMuc-1?'#BA7517':'#A32D2D';
+    const scoreBg=v>=minMuc?'#EAF3DE':v===minMuc-1?'#FEF3DC':'#FAECE7';
+    return `<div class="i3d-item">
+      <div class="i3d-item-top">
+        <span class="i3d-item-name">${c.name}</span>
+        <span class="i3d-item-score" style="background:${scoreBg};color:${scoreColor};border:0.5px solid ${scoreColor}">Mức ${v} — ${lv}</span>
+        ${!meet?`<span style="font-size:10px;color:#993C1D;background:#FAECE7;border:0.5px solid #D85A30;padding:2px 7px;border-radius:20px">Chưa đạt yêu cầu ${currentLevel}</span>`:''}
+      </div>
+      <div class="i3d-comment">${comment}</div>
+      ${noteVal?`<div style="font-size:12px;color:var(--color-text-secondary);margin-top:6px;padding:7px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border-left:2px solid #378ADD;line-height:1.6">📝 <strong style="font-weight:500">Dẫn chứng:</strong> ${noteVal}</div>`:''}
+      ${tip?`<div class="i3d-extra">${tip}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderSummary(){
+  const panel=document.getElementById('summary-panel');
+  const all=i3data.flatMap(s=>s.items);
+  const scored=all.filter(i=>scores3[i.id]);
+  if(!scored.length||!currentLevel){panel.style.display='none';return;}
+  panel.style.display='block';
+
+  const minMuc=LEVEL_MIN[currentLevel];
+  const avgMuc=scored.reduce((a,i)=>a+scores3[i.id],0)/scored.length;
+  const weakItems=scored.filter(i=>scores3[i.id]<minMuc);
+  const meetItems=scored.filter(i=>scores3[i.id]>=minMuc);
+  const strongItems=scored.filter(i=>scores3[i.id]>=minMuc+1);
+  const allScored=scored.length===all.length;
+
+  // Current level display
+  const curEl=document.getElementById('sp-level-current');
+  curEl.style.display='flex';
+  document.getElementById('sp-lv-current-val').textContent=currentLevel;
+  document.getElementById('sp-lv-current-sub').textContent=
+    `Điểm trung bình: Mức ${avgMuc.toFixed(1)} / 5 · ${meetItems.length}/${scored.length} tiêu chí đạt yêu cầu${projCount>0?' · '+projCount+' dự án đã thực hiện':''}`;
+
+  // Level suggestion logic — dựa trên điểm tổng (I3+I4) >= 8.0
+  const sugEl=document.getElementById('sp-level-suggest');
+  sugEl.style.display='flex';
+  const LEVELS=['Staff','Senior','Key Member','Leader'];
+  const curIdx=LEVELS.indexOf(currentLevel);
+
+  // Tính điểm tổng
+  const i3score=allScored?((avgMuc/5)*8):null;
+  const i4score=I4_SCORES[currentLevel]||0;
+  const totalScore=i3score!==null?(i3score+i4score):null;
+
+  let suggestLevel, suggestClass, suggestIcon, suggestLabel, suggestSub;
+
+  if(!allScored){
+    suggestLevel='Chấm đủ để kết luận';
+    suggestClass='lp-warn';
+    suggestIcon='⏳';
+    suggestLabel='Cần thêm dữ liệu';
+    suggestSub=`Đã chấm ${scored.length}/${all.length} tiêu chí. Chấm đủ tất cả để có đề xuất chính xác.`;
+  } else if(weakItems.length>1){
+    // Nhiều tiêu chí chưa đạt — chưa vững level hiện tại
+    suggestLevel=curIdx>0?LEVELS[curIdx-1]:currentLevel;
+    suggestClass='lp-warn';
+    suggestIcon='📌';
+    suggestLabel='Chưa vững level hiện tại';
+    suggestSub=`${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${totalScore.toFixed(1)}/10. Cần cải thiện trước khi xác nhận level.`;
+  } else if(weakItems.length===1){
+    suggestLevel='Gần đạt — '+currentLevel;
+    suggestClass='lp-warn';
+    suggestIcon='⚠️';
+    suggestLabel='Cần cải thiện thêm 1 tiêu chí';
+    suggestSub=`Còn 1 tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${totalScore.toFixed(1)}/10. Tập trung cải thiện điểm yếu này để xác nhận level.`;
+  } else if(weakItems.length===0&&totalScore>=8.0&&curIdx<3){
+    // Đủ điều kiện đề xuất lên level cao hơn
+    suggestLevel=LEVELS[curIdx+1];
+    suggestClass='lp-suggest-up';
+    suggestIcon='🚀';
+    suggestLabel='Đề xuất xem xét thăng level';
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu và điểm tổng ${totalScore.toFixed(1)}/10 ≥ 8.0. Đủ điều kiện xem xét lên ${LEVELS[curIdx+1]}.`;
+  } else if(weakItems.length===0&&totalScore>=8.0&&curIdx===3){
+    // Leader đạt >= 8
+    suggestLevel='Duy trì — Leader';
+    suggestClass='lp-suggest-up';
+    suggestIcon='🏆';
+    suggestLabel='Xuất sắc ở level Leader';
+    suggestSub=`Điểm tổng ${totalScore.toFixed(1)}/10 ≥ 8.0. Năng lực Leader vững chắc — tiếp tục duy trì và phát triển đội ngũ.`;
+  } else {
+    // Tất cả đạt nhưng điểm tổng < 8.0 — xác nhận level hiện tại, chưa đề xuất lên
+    suggestLevel='Xác nhận — '+currentLevel;
+    suggestClass='lp-suggest';
+    suggestIcon='✅';
+    suggestLabel='Đạt level hiện tại · Chưa đủ điều kiện thăng';
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng 8.0 để đề xuất thăng level. Tiếp tục nâng cao để đạt ≥ 8.0.`;
+  }
+
+  sugEl.className='level-proposal '+suggestClass;
+  document.getElementById('sp-suggest-icon').textContent=suggestIcon;
+  document.getElementById('sp-suggest-label').textContent=suggestLabel;
+  document.getElementById('sp-suggest-val').textContent=suggestLevel;
+  document.getElementById('sp-suggest-sub').textContent=suggestSub;
+
+  // Summary text
+  const secScores=i3data.map(sec=>{
+    const vals=sec.items.map(i=>scores3[i.id]).filter(Boolean);
+    return vals.length?{s:sec.s,avg:vals.reduce((a,b)=>a+b,0)/vals.length,min:Math.min(...vals)}:null;
+  }).filter(Boolean);
+
+  const bestSec=secScores.sort((a,b)=>b.avg-a.avg)[0];
+  const worstSec=[...secScores].sort((a,b)=>a.avg-b.avg)[0];
+
+  let summaryText='';
+  if(!allScored){
+    summaryText=`Dữ liệu chưa đủ để đánh giá toàn diện. Đã chấm ${scored.length}/${all.length} tiêu chí.`;
+  } else if(weakItems.length===0&&totalScore>=8.0){
+    summaryText=`Nhìn tổng thể, đây là profile năng lực vững chắc. Điểm tổng ${totalScore.toFixed(1)}/10 đạt ngưỡng ≥ 8.0 — đủ điều kiện đề xuất thăng level${curIdx<3?' lên '+LEVELS[curIdx+1]:''}${strongItems.length>=3?', với nhiều tiêu chí nổi trội vượt yêu cầu':''}.`;
+  } else if(weakItems.length===0){
+    summaryText=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng 8.0 để đề xuất thăng level. Cần tiếp tục nâng cao chất lượng từng tiêu chí.`;
+  } else {
+    summaryText=`Profile có ${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng tạm tính: ${totalScore!==null?totalScore.toFixed(1)+'/ 10':'–'}. Cần cải thiện các điểm yếu trước khi xác nhận hoặc đề xuất thăng level.`;
+  }
+  document.getElementById('sp-summary-text').textContent=summaryText;
+
+  // Bullets
+  const bullets=[];
+  if(bestSec&&secScores.length>1) bullets.push(`Nhóm năng lực mạnh nhất: ${bestSec.s} (điểm tb Mức ${bestSec.avg.toFixed(1)})`);
+  if(worstSec&&secScores.length>1&&worstSec.s!==bestSec.s) bullets.push(`Nhóm cần chú ý: ${worstSec.s} (điểm tb Mức ${worstSec.avg.toFixed(1)})`);
+  if(strongItems.length) bullets.push(`${strongItems.length} tiêu chí vượt ngưỡng yêu cầu — thể hiện năng lực thực sự ở tầm cao hơn`);
+  if(weakItems.length) bullets.push(`${weakItems.length} tiêu chí cần cải thiện: ${weakItems.map(i=>I3_COMMENTS[i.id]?.name||i.name).join(', ')}`);
+  if(!allScored) bullets.push(`Còn ${all.length-scored.length} tiêu chí chưa được chấm — nên hoàn thành để có kết quả đầy đủ`);
+
+  document.getElementById('sp-bullets').innerHTML=bullets.map(b=>`<li>${b}</li>`).join('');
+}
+
+function renderI2(){
+  const c=document.getElementById('i2sections');c.innerHTML='';
+  const ptags=['','p1','p2','p3'];
+  i2data.forEach((sec,si)=>{
+    const card=document.createElement('div');card.className='section-card';
+    const rows=sec.items.map(item=>`
+      <div style="display:grid;grid-template-columns:1fr 160px 60px;align-items:center;gap:8px;padding:8px 14px;border-top:0.5px solid var(--color-border-tertiary)">
+        <div><div class="item-name">${item.name}</div><div class="item-note">Yêu cầu: ${item.target}</div></div>
+        <select class="score-select" id="s2-${item.id}" onchange="onI2('${item.id}','${item.target}')">
+          <option value="">— Chọn mức —</option>
+          <option value="Basic Awareness">Basic Awareness (2.5)</option>
+          <option value="Working Level">Working Level (5.0)</option>
+          <option value="Advanced Level">Advanced Level (7.5)</option>
+          <option value="Lead Level">Lead Level (10.0)</option>
+        </select>
+        <div style="font-size:13px;font-weight:500;text-align:right;color:var(--color-text-secondary)" id="s2d-${item.id}">–</div>
+      </div>`).join('');
+    card.innerHTML=`<div class="sec-header"><div style="display:flex;align-items:center;gap:8px"><span class="ptag ${ptags[sec.p]||''}">P${sec.p}</span><span class="sec-title">${sec.s}</span></div></div><div>${rows}</div>`;
+    c.appendChild(card);
+  });
+}
+
+function onI2(id,target){
+  const v=document.getElementById('s2-'+id).value;
+  if(v) scores2[id]=I2LEVELS[v]; else delete scores2[id];
+  const d=document.getElementById('s2d-'+id);
+  if(v){const tv=I2LEVELS[target];const s=I2LEVELS[v];d.textContent=s.toFixed(1);d.style.color=s>=tv?'#3B6D11':s>=tv*.6?'#BA7517':'#A32D2D';}
+  else{d.textContent='–';d.style.color='var(--color-text-secondary)';}
+  updateResult();
+}
+
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',['t3','t2','result'][i]===id)});
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function getResultText(){
+  const all=i3data.flatMap(s=>s.items);
+  const lines=all.filter(i=>scores3[i.id]).map(i=>{
+    const noteVal=notes3[i.id]?` [Dẫn chứng: ${notes3[i.id]}]`:'';
+    return `${i.name}: Mức ${scores3[i.id]} (${MUC_TO_LEVEL[scores3[i.id]]})${noteVal}`;
+  });
+  const projStr=projCount>0?` · ${projCount} dự án đã thực hiện`:'';
+  const i4str=i4Level?` · I4 (${i4Level}): +${I4_SCORES[i4Level].toFixed(1)}`:'';
+  return `Level: ${currentLevel||'–'}${projStr}${i4str}. ${lines.join(', ')}`;
+}
+
+renderI2();renderI3();updateResult();renderPersonList();
+</script>
+  </div>
+  <!-- ═══════════ /PANEL 2 ═══════════ -->
+</div>
+
+<script>
+// ═══════════ APP SHELL: TAB SWITCHING ═══════════
+function switchMainTab(id){
+  document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.main-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('maintab-'+id).classList.add('active');
+  document.getElementById('mainpanel-'+id).classList.add('active');
+}
+
+
+// ═══════════ GOOGLE SHEETS SYNC ═══════════
+// Kiến trúc: Apps Script làm API trung gian, Sheet là database trung tâm
+// Admin: full quyền đọc/ghi | User: chỉ xem data của mình + gửi góp ý
+
+const SHEETS_CONFIG_KEY = 'teamhub_sheets_config';
+
+function getSheetsConfig(){
+  try{ return JSON.parse(localStorage.getItem(SHEETS_CONFIG_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+function saveSheetsConfig(cfg){
+  localStorage.setItem(SHEETS_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+// ── State ──
+let sheetsConnected = false;
+let sheetsRole = null; // 'admin' | 'user'
+let sheetsScriptUrl = '';
+let sheetsSyncing = false;
+
+// ── Badge ──
+function updateSheetsBadge(state){
+  const badge = document.getElementById('sheets-status-badge');
+  if(!badge) return;
+  const S = {
+    connected_admin: ['📊 Sheets: Admin ✓', '#3B6D11','#EAF3DE','#639922','solid'],
+    connected_user:  ['📊 Sheets: Đã kết nối ✓', '#185FA5','#E6F1FB','#378ADD','solid'],
+    syncing:         ['📊 Sheets: Đang lưu...', '#BA7517','#FEF3DC','#BA7517','solid'],
+    error:           ['📊 Sheets: Lỗi — thử lại', '#993C1D','#FAECE7','#D85A30','solid'],
+    connecting:      ['📊 Sheets: Đang kết nối...', '#BA7517','#FEF3DC','#BA7517','solid'],
+  };
+  const s = S[state] || ['📊 Sheets: Chưa kết nối', 'var(--color-text-tertiary)','var(--color-background-secondary)','var(--color-border-secondary)','dashed'];
+  badge.textContent = s[0];
+  badge.style.color = s[1]; badge.style.background = s[2];
+  badge.style.borderColor = s[3]; badge.style.borderStyle = s[4];
+}
+
+// ── Setup Modal ──
+function openSheetsSetup(){
+  if(sheetsConnected){
+    openSheetsConnectedMenu(); return;
+  }
+  let overlay = document.getElementById('sheets-setup-overlay');
+  if(!overlay){ overlay = buildSheetsModal(); document.body.appendChild(overlay); }
+  const cfg = getSheetsConfig();
+  const urlInp = document.getElementById('sheets-script-url-input');
+  const pwInp  = document.getElementById('sheets-admin-pw-input');
+  if(urlInp && cfg.scriptUrl) urlInp.value = cfg.scriptUrl;
+  overlay.style.display = 'flex';
+}
+
+function closeSheetsModal(){
+  const o = document.getElementById('sheets-setup-overlay');
+  if(o) o.style.display = 'none';
+}
+
+function buildSheetsModal(){
+  const el = document.createElement('div');
+  el.id = 'sheets-setup-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML = `
+  <div style="background:var(--color-background-primary);border-radius:12px;padding:28px;max-width:540px;width:93%;box-shadow:0 8px 40px rgba(0,0,0,0.2);position:relative;max-height:90vh;overflow-y:auto">
+    <button onclick="closeSheetsModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:18px;cursor:pointer;color:var(--color-text-secondary)">✕</button>
+    <div style="font-size:16px;font-weight:600;margin-bottom:3px">📊 Kết nối Google Sheets</div>
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:18px">Đồng bộ dữ liệu qua mọi thiết bị — làm 1 lần duy nhất</div>
+
+    <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:12px;line-height:2;color:var(--color-text-primary)">
+      <b>Bước 1:</b> Tạo Google Sheet mới → <b>Extensions → Apps Script</b><br>
+      <b>Bước 2:</b> Xóa code mặc định, dán code Apps Script (xem bên dưới) → <b>Save → Deploy → New deployment</b><br>
+      <b>Bước 3:</b> Type: <b>Web app</b> · Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy<br>
+      <b>Bước 4:</b> Copy <b>Web app URL</b> dán vào ô bên dưới<br>
+      <b>Bước 5:</b> Nhập Admin password để cấp quyền quản trị
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Apps Script URL</div>
+      <input id="sheets-script-url-input" type="text" placeholder="https://script.google.com/macros/s/.../exec"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;font-family:monospace" />
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Admin Password <span style="font-weight:400;text-transform:none">(để trống nếu kết nối dạng User xem)</span></div>
+      <input id="sheets-admin-pw-input" type="password" placeholder="Nhập password để đăng nhập Admin"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px" />
+    </div>
+
+    <details style="margin-bottom:16px">
+      <summary style="font-size:12px;font-weight:600;cursor:pointer;color:#185FA5;margin-bottom:8px">📋 Code Apps Script (click để xem)</summary>
+      <textarea readonly style="width:100%;box-sizing:border-box;height:180px;font-size:10px;font-family:monospace;padding:10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:#1a1a18;color:#e8e6df;resize:vertical" id="apps-script-code-box"></textarea>
+      <button onclick="copyAppsScript()" style="margin-top:6px;font-size:11px;padding:4px 12px;border-radius:5px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer">Copy code</button>
+    </details>
+
+    <div id="sheets-modal-error" style="display:none;background:#FAECE7;color:#993C1D;font-size:12px;padding:8px 12px;border-radius:6px;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeSheetsModal()" style="padding:7px 18px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:13px;color:var(--color-text-secondary)">Hủy</button>
+      <button onclick="connectSheets()" style="padding:7px 20px;border-radius:6px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500">Kết nối →</button>
+    </div>
+  </div>`;
+
+  // Populate Apps Script code
+  const codeBox = el.querySelector('#apps-script-code-box');
+  if(codeBox) codeBox.value = getAppsScriptCode();
+  return el;
+}
+
+function openSheetsConnectedMenu(){
+  const role = sheetsRole === 'admin' ? 'Admin' : 'User (xem)';
+  if(confirm(`Google Sheets đang kết nối ✓\nVai trò: ${role}\n\nBấm OK để ngắt kết nối.`)){
+    sheetsConnected = false; sheetsRole = null;
+    updateSheetsBadge();
+  }
+}
+
+function copyAppsScript(){
+  const box = document.getElementById('apps-script-code-box');
+  if(box){ navigator.clipboard.writeText(box.value).then(()=>alert('Đã copy!')); }
+}
+
+async function connectSheets(){
+  const urlInp = document.getElementById('sheets-script-url-input');
+  const pwInp  = document.getElementById('sheets-admin-pw-input');
+  const err    = document.getElementById('sheets-modal-error');
+  const url = (urlInp ? urlInp.value.trim() : '');
+  const pw  = (pwInp  ? pwInp.value.trim()  : '');
+
+  if(!url || !url.startsWith('https://script.google.com')){
+    if(err){ err.style.display='block'; err.textContent='URL không hợp lệ. Phải bắt đầu bằng https://script.google.com'; }
+    return;
+  }
+  if(err) err.style.display='none';
+  updateSheetsBadge('connecting');
+
+  try{
+    const res = await sheetsRequest(url, { action:'ping', password: pw });
+    if(res.ok){
+      sheetsScriptUrl = url;
+      sheetsRole = res.role || 'user';
+      sheetsConnected = true;
+      saveSheetsConfig({ scriptUrl: url });
+      localStorage.setItem('teamhub_sheets_hint','1');
+      closeSheetsModal();
+      updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : 'connected_user');
+      if(typeof applyRoleUI==='function') applyRoleUI();
+      // Load data from Sheet
+      await sheetsLoadAll();
+    } else {
+      updateSheetsBadge('error');
+      if(err){ err.style.display='block'; err.textContent = res.error || 'Kết nối thất bại. Kiểm tra lại URL và password.'; }
+    }
+  } catch(e){
+    updateSheetsBadge('error');
+    if(err){ err.style.display='block'; err.textContent='Không thể kết nối: '+e.message; }
+  }
+}
+
+// ── Core request helper ──
+async function sheetsRequest(url, payload){
+  const scriptUrl = url || sheetsScriptUrl;
+  if(!scriptUrl) return {ok:false, error:'Chưa cấu hình Script URL'};
+  const res = await fetch(scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: {'Content-Type':'text/plain'} // avoid CORS preflight
+  });
+  return await res.json();
+}
+
+// ── Load all data from Sheet ──
+async function sheetsLoadAll(){
+  try{
+    const cfg = getSheetsConfig();
+    const pw = sheetsRole==='admin' ? (localStorage.getItem('teamhub_sheets_adminpw')||'') : '';
+    const res = await sheetsRequest(null, { action:'loadAll', password: pw });
+    if(res.ok && res.data){
+      if(res.data.projects){
+        projects = res.data.projects;
+        localStorage.setItem('teamhub_projects', JSON.stringify(projects));
+        renderProjects();
+      }
+      if(res.data.eval_persons){
+        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(res.data.eval_persons)); } catch(e){}
+      }
+      if(res.data.eval_data){
+        Object.entries(res.data.eval_data).forEach(([key,val])=>{
+          try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+        });
+      }
+      if(typeof renderPersonList==='function') renderPersonList();
+    }
+  } catch(e){ console.error('Sheets load error', e); }
+}
+
+// ── Sync to Sheet (admin only) ──
+async function syncToSheets(type){
+  if(!sheetsConnected || sheetsRole !== 'admin') return;
+  if(sheetsSyncing) return;
+  sheetsSyncing = true;
+  updateSheetsBadge('syncing');
+  try{
+    const pw = localStorage.getItem('teamhub_sheets_adminpw') || '';
+    const snapshot = { projects, ts: Date.now() };
+    try{
+      const personList = JSON.parse(localStorage.getItem('eval_v7_persons'))||[];
+      snapshot.eval_persons = personList;
+      snapshot.eval_data = {};
+      personList.forEach(name=>{
+        const key='eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+        const raw=localStorage.getItem(key);
+        if(raw) snapshot.eval_data[key]=JSON.parse(raw);
+      });
+    } catch(e){}
+    const res = await sheetsRequest(null, { action:'saveAll', password: pw, data: snapshot });
+    if(!res.ok) throw new Error(res.error || 'Save failed');
+    updateSheetsBadge('connected_admin');
+  } catch(e){
+    console.error('Sheets sync error', e);
+    updateSheetsBadge('error');
+  } finally {
+    sheetsSyncing = false;
+  }
+}
+
+// ── Send feedback (user) ──
+async function sendFeedback(personName, message){
+  if(!sheetsConnected || !message.trim()) return false;
+  try{
+    const res = await sheetsRequest(null, { action:'feedback', name: personName, message, ts: Date.now() });
+    return res.ok;
+  } catch(e){ return false; }
+}
+
+// ── Auto-reconnect on page load ──
+(function tryAutoReconnectSheets(){
+  const hint = localStorage.getItem('teamhub_sheets_hint');
+  const cfg  = getSheetsConfig();
+  if(hint && cfg.scriptUrl){
+    sheetsScriptUrl = cfg.scriptUrl;
+    setTimeout(async ()=>{
+      try{
+        const pw = localStorage.getItem('teamhub_sheets_adminpw') || '';
+        const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pw });
+        if(res.ok){
+          sheetsRole = res.role || 'user';
+          sheetsConnected = true;
+          updateSheetsBadge(sheetsRole==='admin' ? 'connected_admin' : 'connected_user');
+          if(typeof applyRoleUI==='function') applyRoleUI();
+          await sheetsLoadAll();
+        }
+      } catch(e){}
+    }, 1200);
+  }
+})();
+
+// ── Apps Script code template ──
+function getAppsScriptCode(){
+  return `// Team Hub — Apps Script Backend
+// Deploy as Web App: Execute as Me, Anyone can access
+
+const ADMIN_PASSWORD = 'YOUR_PASSWORD_HERE'; // <-- đổi thành password của bạn
+const SHEET_NAME_PROJECTS = 'Projects';
+const SHEET_NAME_EVAL     = 'Evaluation';
+const SHEET_NAME_FEEDBACK = 'Feedback';
+
+function doPost(e){
+  try{
+    const payload = JSON.parse(e.postData.contents);
+    const action  = payload.action;
+    const pw      = payload.password || '';
+    const isAdmin = pw === ADMIN_PASSWORD;
+
+    if(action === 'ping'){
+      return ok({ role: isAdmin ? 'admin' : 'user' });
+    }
+    if(action === 'loadAll'){
+      return ok(loadAll());
+    }
+    if(action === 'saveAll'){
+      if(!isAdmin) return err('Unauthorized');
+      saveAll(payload.data);
+      return ok({saved: true});
+    }
+    if(action === 'feedback'){
+      saveFeedback(payload.name, payload.message, payload.ts);
+      return ok({saved: true});
+    }
+    return err('Unknown action');
+  } catch(ex){
+    return err(ex.toString());
+  }
+}
+
+function ok(data){ return ContentService.createTextOutput(JSON.stringify({ok:true,...data})).setMimeType(ContentService.MimeType.JSON); }
+function err(msg){ return ContentService.createTextOutput(JSON.stringify({ok:false,error:msg})).setMimeType(ContentService.MimeType.JSON); }
+
+function getOrCreateSheet(name){
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+
+function loadAll(){
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const pSheet = ss.getSheetByName(SHEET_NAME_PROJECTS);
+  const eSheet = ss.getSheetByName(SHEET_NAME_EVAL);
+  let projects=[], eval_persons=[], eval_data={};
+  if(pSheet){
+    const raw = pSheet.getRange(1,1).getValue();
+    if(raw) try{ projects = JSON.parse(raw); }catch(e){}
+  }
+  if(eSheet){
+    const r1 = eSheet.getRange(1,1).getValue();
+    const r2 = eSheet.getRange(1,2).getValue();
+    if(r1) try{ eval_persons = JSON.parse(r1); }catch(e){}
+    if(r2) try{ eval_data = JSON.parse(r2); }catch(e){}
+  }
+  return { projects, eval_persons, eval_data };
+}
+
+function saveAll(data){
+  const pSheet = getOrCreateSheet(SHEET_NAME_PROJECTS);
+  const eSheet = getOrCreateSheet(SHEET_NAME_EVAL);
+  if(data.projects) pSheet.getRange(1,1).setValue(JSON.stringify(data.projects));
+  if(data.eval_persons) eSheet.getRange(1,1).setValue(JSON.stringify(data.eval_persons));
+  if(data.eval_data)    eSheet.getRange(1,2).setValue(JSON.stringify(data.eval_data));
+}
+
+function saveFeedback(name, message, ts){
+  const sheet = getOrCreateSheet(SHEET_NAME_FEEDBACK);
+  if(sheet.getLastRow()===0) sheet.appendRow(['Thời gian','Tên','Góp ý']);
+  sheet.appendRow([new Date(ts||Date.now()), name||'(ẩn danh)', message]);
+}`;
+}
+
+// ── Hook: auto-sync after admin saves person eval ──
+const _origSavePerson = typeof savePerson !== 'undefined' ? savePerson : null;
+
+// ═══════════ /GOOGLE SHEETS SYNC ═══════════
+
+
+// ═══════════ USER PORTAL ═══════════
+
+const USER_STATUS_COLOR = {
+  'Complete':   {bg:'#EAF3DE', color:'#3B6D11'},
+  'Hold':       {bg:'#F1EFE8', color:'#5F5E5A'},
+  'Priorities': {bg:'#FAECE7', color:'#993C1D'},
+  'Deadline':   {bg:'#FDE8F1', color:'#A02A6B'},
+  'Non-Urgent': {bg:'#E6F1FB', color:'#185FA5'},
+};
+const USER_LEVEL_COLOR = {
+  'Staff':      {bg:'#E6F1FB', color:'#185FA5'},
+  'Senior':     {bg:'#EAF3DE', color:'#3B6D11'},
+  'Key Member': {bg:'#FDE8F1', color:'#A02A6B'},
+  'Leader':     {bg:'#FAECE7', color:'#993C1D'},
+};
+
+function userPortalSearch(){
+  const name = (document.getElementById('user-search-name').value || '').trim();
+  if(!name) return;
+  const lower = name.toLowerCase();
+
+  // Find projects
+  const myProjects = (projects||[]).filter(p =>
+    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) ||
+    (p.membersBackup||[]).some(m=>m.toLowerCase()===lower)
+  );
+
+  // Find eval data
+  const evalKey = 'eval_v7_person_' + lower.replace(/\s+/g,'_');
+  let evalData = null;
+  try{ evalData = JSON.parse(localStorage.getItem(evalKey)); } catch(e){}
+
+  const resultEl = document.getElementById('user-portal-result');
+  const emptyEl  = document.getElementById('user-portal-empty');
+
+  if(!myProjects.length && !evalData){
+    resultEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  resultEl.style.display = 'block';
+
+  // Render projects
+  const projList = document.getElementById('user-proj-list');
+  const projCount = document.getElementById('user-proj-count');
+  projCount.textContent = `(${myProjects.length} dự án)`;
+
+  if(myProjects.length){
+    projList.innerHTML = myProjects.map(p => {
+      const isMain = (p.membersMain||[]).some(m=>m.toLowerCase()===lower);
+      const role = isMain ? 'Main' : 'Backup';
+      const roleStyle = isMain
+        ? 'background:#1A1A18;color:#fff'
+        : 'background:var(--color-background-secondary);color:var(--color-text-secondary)';
+      const st = USER_STATUS_COLOR[p.status] || {bg:'#F1EFE8',color:'#5F5E5A'};
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);margin-bottom:6px;background:var(--color-background-primary)">
+        <div style="flex:1;font-size:13px;font-weight:500;color:var(--color-text-primary)">${p.name}</div>
+        <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${roleStyle.split(';')[0].split(':')[1]};color:${roleStyle.split(';')[1].split(':')[1]};font-weight:500;${roleStyle}">${role}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${st.bg};color:${st.color};font-weight:500">${p.status||'–'}</span>
+        <span style="font-size:11px;color:var(--color-text-tertiary)">${p.size||''}</span>
+      </div>`;
+    }).join('');
+  } else {
+    projList.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);padding:8px 0">Chưa có dự án nào.</div>';
+  }
+
+  // Render eval
+  const evalSection = document.getElementById('user-eval-section');
+  const evalCard    = document.getElementById('user-eval-card');
+  if(evalData && evalData.currentLevel){
+    evalSection.style.display = 'block';
+    const lv = evalData.currentLevel;
+    const lc = USER_LEVEL_COLOR[lv] || LEVEL_COLOR['Staff'];
+
+    // Calc I3 score
+    let i3score = 0;
+    if(evalData.scores3){
+      const allItems = (typeof i3data !== 'undefined') ? i3data.flatMap(s=>s.items) : [];
+      const scored = allItems.filter(i=>evalData.scores3[i.id]);
+      if(scored.length){
+        const avg = scored.reduce((a,i)=>a+evalData.scores3[i.id],0)/scored.length;
+        i3score = (avg/5)*10;
+      }
+    }
+
+    evalCard.innerHTML = `
+      <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);overflow:hidden">
+        <div style="padding:14px 16px;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;color:var(--color-text-secondary)">Level hiện tại</div>
+            <span style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:8px;background:${lc.bg};color:${lc.color};display:inline-block;margin-top:4px">${lv}</span>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--color-text-secondary)">Điểm I3</div>
+            <div style="font-size:20px;font-weight:700;color:var(--color-text-primary)">${i3score.toFixed(1)}<span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary)">/10</span></div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;font-size:12px;color:var(--color-text-secondary)">
+          Số dự án: <b style="color:var(--color-text-primary)">${evalData.projCount||myProjects.length}</b>
+          ${evalData.joinDate ? ' · Ngày vào: <b style="color:var(--color-text-primary)">'+evalData.joinDate+'</b>' : ''}
+        </div>
+      </div>`;
+  } else {
+    evalSection.style.display = 'none';
+  }
+}
+
+async function userSendFeedback(){
+  const name = (document.getElementById('user-search-name').value||'').trim();
+  const msg  = (document.getElementById('user-feedback-text').value||'').trim();
+  if(!msg){ alert('Vui lòng nhập nội dung góp ý.'); return; }
+  if(!sheetsConnected){ alert('Chưa kết nối Sheets.'); return; }
+
+  const ok = await sendFeedback(name||'(ẩn danh)', msg);
+  const toast = document.getElementById('user-feedback-toast');
+  if(ok){
+    document.getElementById('user-feedback-text').value = '';
+    if(toast){ toast.style.display='block'; setTimeout(()=>toast.style.display='none',3000); }
+  } else {
+    alert('Gửi thất bại, thử lại sau.');
+  }
+}
+
+// Show/hide User tab based on role
+function applyRoleUI(){
+  const userTab = document.getElementById('maintab-user');
+  const projTab = document.getElementById('maintab-projects');
+  const evalTab = document.getElementById('maintab-eval');
+  if(!userTab) return;
+  if(sheetsRole === 'user'){
+    // User: show only User Portal tab, hide Admin tabs
+    userTab.style.display = 'flex';
+    projTab.style.display = 'none';
+    evalTab.style.display = 'none';
+    switchMainTab('user');
+  } else {
+    // Admin: show all tabs, hide User Portal
+    userTab.style.display = 'none';
+    projTab.style.display = 'flex';
+    evalTab.style.display = 'flex';
+  }
+}
+
+// ═══════════ /USER PORTAL ═══════════
+
+// ═══════════ LINK: auto-fill project count in Evaluation tab from Project data ═══════════
+function getProjectCountForCurrentPerson(){
+  if(typeof currentPersonName==='undefined' || !currentPersonName) return null;
+  if(typeof getPersonProjectStats!=='function') return null;
+  return getPersonProjectStats(currentPersonName);
+}
+
+</script>
+</body>
+</html>
