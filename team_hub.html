@@ -2843,18 +2843,21 @@ async function sheetsRequest(url, payload){
 // Fresh version: luôn lấy từ Sheets, không dùng cache localStorage
 async function sheetsLoadAllFresh(){
   try{
-    const res = await sheetsRequest(null, { action:'loadAll', password: getRolePw() });
-    if(res.ok && res.data){
-      if(res.data.projects){
-        projects = res.data.projects;
+    const pw = getRolePw() || getAdminPw() || getLeaderPw() || getUserPw() || '';
+    const res = await sheetsRequest(null, { action:'loadAll', password: pw });
+    // Handle both res.data.projects and res.projects (direct)
+    const data = res.data || res;
+    if(res.ok && data){
+      if(data.projects && data.projects.length){
+        projects = data.projects;
         localStorage.setItem('teamhub_projects', JSON.stringify(projects));
         renderProjects();
       }
-      if(res.data.eval_persons){
-        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(res.data.eval_persons)); } catch(e){}
+      if(data.eval_persons){
+        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data.eval_persons)); } catch(e){}
       }
-      if(res.data.eval_data){
-        Object.entries(res.data.eval_data).forEach(([key,val])=>{
+      if(data.eval_data){
+        Object.entries(data.eval_data).forEach(([key,val])=>{
           try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
         });
       }
@@ -2868,17 +2871,18 @@ async function sheetsLoadAll(){
     const cfg = getSheetsConfig();
     const pw = getAdminPw();
     const res = await sheetsRequest(null, { action:'loadAll', password: pw });
-    if(res.ok && res.data){
-      if(res.data.projects){
-        projects = res.data.projects;
+    const data2 = res.data || res;
+    if(res.ok && data2){
+      if(data2.projects && data2.projects.length){
+        projects = data2.projects;
         localStorage.setItem('teamhub_projects', JSON.stringify(projects));
         renderProjects();
       }
-      if(res.data.eval_persons){
-        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(res.data.eval_persons)); } catch(e){}
+      if(data2.eval_persons){
+        try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data2.eval_persons)); } catch(e){}
       }
-      if(res.data.eval_data){
-        Object.entries(res.data.eval_data).forEach(([key,val])=>{
+      if(data2.eval_data){
+        Object.entries(data2.eval_data).forEach(([key,val])=>{
           try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
         });
       }
