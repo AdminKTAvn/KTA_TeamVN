@@ -1964,7 +1964,10 @@ function loadPerson(name){
   else { renderI3(); updateI3Summary(); }
 
   // BƯỚC 6: Auto-sync project SAU KHI có currentPersonName + level đúng
-  autoFillProjectCount(false, name); // pass name trực tiếp tránh lỗi
+  // Nếu projects đã có data thì hiện ngay (silent=false), 
+  // nếu chưa có thì ẩn nhẹ nhàng (silent=true) để sheetsLoadAll refresh sau
+  const _hasProjects = (typeof projects !== 'undefined') && projects && projects.length > 0;
+  autoFillProjectCount(!_hasProjects, name); // silent chỉ khi projects chưa load
 
   // Auto-calculate doneCycles từ project data
   const autoDoneCycles = projects.filter(function(p){
@@ -3206,6 +3209,17 @@ async function sheetsLoadAllFresh(){
       // Chỉ render person list nếu không đang trong quá trình edit
       if(typeof renderPersonList==='function' && !currentPersonName) renderPersonList();
       if(typeof populatePersonDropdown==='function') populatePersonDropdown();
+      // Refresh project display cho người đang được xem
+      if(typeof currentPersonName !== 'undefined' && currentPersonName && typeof autoFillProjectCount === 'function'){
+        autoFillProjectCount(false, currentPersonName);
+        const autoDoneCycles = projects.filter(function(p){
+          return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
+        }).length;
+        const dcInp = document.getElementById('done-cycles-input');
+        if(dcInp) dcInp.value = autoDoneCycles;
+        const dcDisplay = document.getElementById('done-cycles-display');
+        if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
+      }
     }
   } catch(e){ console.error('Sheets fresh load error', e); }
 }
@@ -3231,6 +3245,20 @@ async function sheetsLoadAll(){
         });
       }
       if(typeof renderPersonList==='function') renderPersonList();
+      // Sau khi có projects mới, refresh project display cho người đang được xem trong Eval tab
+      if(typeof currentPersonName !== 'undefined' && currentPersonName && typeof autoFillProjectCount === 'function'){
+        autoFillProjectCount(false, currentPersonName);
+        // Cập nhật lại doneCycles
+        const autoDoneCycles = projects.filter(function(p){
+          return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
+        }).length;
+        const dcInp = document.getElementById('done-cycles-input');
+        if(dcInp) dcInp.value = autoDoneCycles;
+        const dcDisplay = document.getElementById('done-cycles-display');
+        if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
+        // Populate lại dropdown nhân viên
+        if(typeof populatePersonDropdown === 'function') populatePersonDropdown();
+      }
     }
   } catch(e){ console.error('Sheets load error', e); }
 }
