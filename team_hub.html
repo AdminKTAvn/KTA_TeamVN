@@ -271,12 +271,17 @@ button{font-family:var(--font-sans)}
 
       <div class="pm-field">
         <label>Nhân sự Main (phụ trách chính — cách nhau bởi dấu phẩy)</label>
-        <input type="text" id="pm-f-members-main" placeholder="VD: An, Bình">
+        <input type="text" id="pm-f-members-main" placeholder="VD: An, Bình" oninput="renderDoneCyclesCheckboxes(this.value.split(',').map(s=>s.trim()).filter(Boolean))">
       </div>
 
       <div class="pm-field">
         <label>Nhân sự Backup / Support (hỗ trợ, luân chuyển — cách nhau bởi dấu phẩy)</label>
         <input type="text" id="pm-f-members-backup" placeholder="VD: Chi, Dũng">
+      </div>
+
+      <div class="pm-field" id="pm-done-cycles-field" style="display:none">
+        <label>✅ Nhân sự Main đã hoàn thành chu kỳ dự án này</label>
+        <div id="pm-done-cycles-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
       </div>
 
       <div class="pm-field">
@@ -433,6 +438,8 @@ function openProjectModal(editId){
     const cx = p.complexity||{};
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked = !!cx[k]; });
     updateComplexityPreview();
+    // Populate done-cycles checkboxes for existing project
+    renderDoneCyclesCheckboxes(p.membersMain||[], p.doneCycleMembers||[]);
   } else {
     document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
     document.getElementById('pm-edit-id').value='';
@@ -443,6 +450,7 @@ function openProjectModal(editId){
     document.getElementById('pm-f-status').value='Priorities';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
+    renderDoneCyclesCheckboxes([], []);
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked=false; });
     updateComplexityPreview();
   }
@@ -473,6 +481,12 @@ function saveProject(){
   const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
   const complexityLevel = calcComplexityLevel(cxCount);
 
+  // Get done cycle members from checkboxes
+  const doneCycleMembers = membersMain.filter(m=>{
+    const cb = document.getElementById('dcm-'+m.toLowerCase().replace(/\s+/g,'_'));
+    return cb && cb.checked;
+  });
+
   if(editId){
     const p = projects.find(x=>x.id===editId);
     if(p){
@@ -481,7 +495,7 @@ function saveProject(){
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes;
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
-      // cxTotal preserved from original creation — don't update on edit
+      p.doneCycleMembers = doneCycleMembers;
     }
   } else {
     projects.push({
@@ -490,7 +504,8 @@ function saveProject(){
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
       status, notes, createdAt: Date.now(),
       complexity, complexityLevel, complexityCount: cxCount,
-      cxTotal: CX_KEYS.length // snapshot of total criteria at time of creation
+      cxTotal: CX_KEYS.length,
+      doneCycleMembers
     });
   }
 
@@ -3386,6 +3401,26 @@ function applyRoleUI(){
 // ═══════════ /USER PORTAL ═══════════
 
 
+
+// ── Render done-cycles checkboxes in project modal ──
+function renderDoneCyclesCheckboxes(members, checked=[]){
+  const field = document.getElementById('pm-done-cycles-field');
+  const box   = document.getElementById('pm-done-cycles-checkboxes');
+  if(!field || !box) return;
+  // Accept string (from oninput) or array
+  if(typeof members === 'string') members = members.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!members.length){ field.style.display='none'; box.innerHTML=''; return; }
+  field.style.display='block';
+  const checkedLower = checked.map(c=>c.toLowerCase());
+  box.innerHTML = members.map(m=>{
+    const id = 'dcm-'+m.toLowerCase().replace(/\s+/g,'_');
+    const isChecked = checkedLower.includes(m.toLowerCase());
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
+      <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${m}
+    </label>`;
+  }).join('');
+}
+
 // ═══════════ LEADERBOARD ═══════════
 
 function renderLeaderboard(){
@@ -3395,20 +3430,36 @@ function renderLeaderboard(){
   // Get all persons with eval data
   const personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
 
-  // Build project ranking (all members)
+  // Build project ranking directly from project data (no eval needed)
+  // 3 Leaders excluded: Liam, Stuart, Nina
+  const LEADERS_EXCLUDE = ['liam','stuart','nina'];
+
+  // Collect all unique members from projects (excluding leaders)
+  const allMembers = new Set();
+  projects.forEach(p=>{
+    (p.membersMain||[]).forEach(m=>{ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
+    (p.membersBackup||[]).forEach(m=>{ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
+  });
+
   const projData = [];
-  personList.forEach(name=>{
-    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
-    let d = null;
-    try{ d = JSON.parse(localStorage.getItem(key)); } catch(e){}
-    const lv = d?.currentLevel || 'Staff';
+  allMembers.forEach(name=>{
+    // Get level from eval data if available
+    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/[\s]+/g,'_');
+    let lv = 'Staff';
+    try{ const d=JSON.parse(localStorage.getItem(key)); if(d?.currentLevel) lv=d.currentLevel; } catch(e){}
+
     const ps = calcPersonProjectScore(name, lv);
-    const dc = d?.doneCycles || 0;
+
+    // Count done cycles from projects
+    const doneCycles = projects.filter(p=>
+      (p.doneCycleMembers||[]).some(m=>m.toLowerCase()===name.toLowerCase())
+    ).length;
+
     projData.push({
       name, level: lv,
       raw: parseFloat(ps.totalRaw),
       score: parseFloat(ps.projScore10),
-      doneCycles: dc,
+      doneCycles,
       mainCount: ps.mainCount,
       backupCount: ps.backupCount
     });
