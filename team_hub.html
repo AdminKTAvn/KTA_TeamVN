@@ -512,6 +512,16 @@ function saveProject(){
   persistProjects();
   closeProjectModal();
   renderProjects();
+  // Cập nhật hiển thị Chu kỳ Done nếu đang xem nhân viên trong tab Đánh giá
+  if(currentPersonName){
+    const autoDoneCycles = projects.filter(function(p){
+      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
+    }).length;
+    const dcInp = document.getElementById('done-cycles-input');
+    if(dcInp) dcInp.value = autoDoneCycles;
+    const dcDisplay = document.getElementById('done-cycles-display');
+    if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
+  }
 }
 
 function deleteProject(id){
@@ -1682,8 +1692,8 @@ function autoFillProjectCount(silent=false, forceName=null){
     return;
   }
   // Đảm bảo name khớp với currentPersonName để tránh lấy dự án sai
-  if(forceName && currentPersonName && forceName.toLowerCase() !== currentPersonName.toLowerCase()){
-    // Tên không khớp — có thể đang switch người, bỏ qua
+  // Chỉ skip nếu KHÔNG có forceName và currentPersonName khác nhau
+  if(!forceName && currentPersonName && name.toLowerCase() !== currentPersonName.toLowerCase()){
     return;
   }
   if(typeof getPersonProjectStats!=='function') return;
@@ -1817,29 +1827,33 @@ function populatePersonDropdown(){
   const sel = document.getElementById('person-name-input');
   if(!sel || sel.tagName !== 'SELECT') return;
   const currentVal = sel.value;
-  // Get all unique names from projects (excluding leaders)
+  // Lấy tên từ projects HIỆN TẠI (loại bỏ leaders) — KHÔNG lấy từ localStorage cũ
+  // để tránh hiện tên thừa (VD: Dale) không còn trong projects
   const LEADERS = ['liam','stuart','nina'];
-  const names = new Set();
-  projects.forEach(function(p){
-    (p.membersMain||[]).forEach(function(m){ if(!LEADERS.includes(m.toLowerCase())) names.add(m); });
-    (p.membersBackup||[]).forEach(function(m){ if(!LEADERS.includes(m.toLowerCase())) names.add(m); });
-  });
-  // Also add from saved person list
-  getPersonList().forEach(function(n){ names.add(n); });
-  // Deduplicate tên không phân biệt hoa thường — giữ version có chữ hoa đầu
   const nameMap = {};
-  Array.from(names).forEach(function(n){
-    const key = n.trim().toLowerCase();
-    if(!nameMap[key]){
-      nameMap[key] = n;
-    } else {
-      // Giữ version có chữ hoa đầu hơn
-      const existing = nameMap[key];
-      if(n[0] === n[0].toUpperCase() && existing[0] !== existing[0].toUpperCase()){
-        nameMap[key] = n;
+  projects.forEach(function(p){
+    (p.membersMain||[]).forEach(function(m){
+      if(!LEADERS.includes(m.toLowerCase())){
+        const key = m.trim().toLowerCase();
+        if(!nameMap[key]) nameMap[key] = m;
+        else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
       }
-    }
+    });
+    (p.membersBackup||[]).forEach(function(m){
+      if(!LEADERS.includes(m.toLowerCase())){
+        const key = m.trim().toLowerCase();
+        if(!nameMap[key]) nameMap[key] = m;
+        else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
+      }
+    });
   });
+  // Nếu chưa có dự án nào, fallback về saved list
+  if(!Object.keys(nameMap).length){
+    getPersonList().forEach(function(n){
+      const key = n.trim().toLowerCase();
+      if(!nameMap[key]) nameMap[key] = n;
+    });
+  }
   const sorted = Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
   sel.innerHTML = '<option value="">— Chọn nhân viên —</option>'
     + sorted.map(function(n){ return '<option value="'+n+'"'+(n===currentVal?' selected':'')+'>'+n+'</option>'; }).join('');
@@ -3708,8 +3722,10 @@ function updateKeyPlusRoadmap(total, projRaw){
 
   // Lấy điểm nếu không truyền vào
   if(total === null){
-    const totalEl = document.querySelector('.sum-score');
-    total = totalEl ? parseFloat(totalEl.textContent) : 0;
+    const totalEl = document.getElementById('r-total');
+    const rawVal = totalEl ? totalEl.textContent.replace('*','').trim() : '';
+    total = rawVal && rawVal !== '–' ? parseFloat(rawVal) : 0;
+    if(isNaN(total)) total = 0;
   }
   if(projRaw === null){
     const ps = calcPersonProjectScore(currentPersonName||'', 'Key Member');
@@ -3926,7 +3942,7 @@ function renderLeaderboard(){
         return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+'">'
           +'<td style="padding:5px 8px;text-align:center">'+medal+'</td>'
           +'<td style="padding:5px 8px">'+displayName+'</td>'
-          +'<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">'+p.score+'/10</td>'
+          +'<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">'+p.score.toFixed(1)+'/10</td>'
           +'<td style="padding:5px 8px;text-align:center;color:var(--color-text-secondary)">'+p.raw.toFixed(1)+'</td>'
           +'<td style="padding:5px 8px;text-align:center">'+(p.doneCycles>0?('<b>'+p.doneCycles+'</b>'):'–')+'</td>'
           +'</tr>';
