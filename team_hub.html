@@ -2644,6 +2644,11 @@ function switchMainTab(id){
   document.querySelectorAll('.main-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('maintab-'+id).classList.add('active');
   document.getElementById('mainpanel-'+id).classList.add('active');
+  // Populate dropdown khi vào tab đánh giá
+  if(id === 'eval' && typeof populatePersonDropdown === 'function'){
+    populatePersonDropdown();
+    renderPersonList();
+  }
 }
 
 
