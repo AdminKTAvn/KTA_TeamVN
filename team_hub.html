@@ -1171,7 +1171,8 @@ renderProjects();
     <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">📅 Ngày vào team:</span>
     <input id="person-joindate-input" type="date" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)" />
     <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">✅ Chu kỳ Done:</span>
-    <input id="done-cycles-input" type="number" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:60px" />
+    <span id="done-cycles-display" style="font-size:12px;font-weight:600;color:var(--color-text-primary);padding:4px 8px;background:var(--color-background-secondary);border-radius:6px">0</span>
+    <input id="done-cycles-input" type="hidden" value="0" />
     <button class="btn-save" onclick="savePerson()">💾 Lưu</button>
     <button class="btn-reset" onclick="resetAll()" style="margin-left:auto">↺ Reset form</button>
     <span class="save-toast" id="save-toast">✓ Đã lưu!</span>
@@ -1461,9 +1462,36 @@ function renderI3(){
   });
 }
 
+
+// Auto-save person data silently
+function _autoSavePerson(name){
+  if(!name) return;
+  const joinDate = (document.getElementById('person-joindate-input')||{}).value||'';
+  const doneCycles = projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
+  }).length;
+  const data = {
+    name: name,
+    joinDate: joinDate,
+    currentLevel: currentLevel,
+    projCount: projCount,
+    doneCycles: doneCycles,
+    scores3: Object.assign({}, scores3),
+    scores2: Object.assign({}, scores2),
+    notes3: Object.assign({}, notes3),
+    ts: Date.now()
+  };
+  try{ localStorage.setItem(getStorageKey(name), JSON.stringify(data)); } catch(e){}
+  const list = getPersonList();
+  if(!list.includes(name)){ list.push(name); savePersonList(list); }
+  renderPersonList();
+}
+
 function onI3(id){
   const v=parseInt(document.getElementById('s3-'+id).value);
   if(v) scores3[id]=v; else delete scores3[id];
+  // Auto-save ngay khi chọn mức
+  if(currentPersonName) _autoSavePerson(currentPersonName);
   const item=i3data.flatMap(s=>s.items).find(i=>i.id===id);
   const lvEl=document.getElementById('lv3-'+id);
   const noteEl=document.getElementById('note3-'+id);
@@ -1683,7 +1711,9 @@ function savePerson(){
   const data = {
     name, joinDate, currentLevel,
     projCount,
-    doneCycles: parseInt(document.getElementById('done-cycles-input')?.value||0)||0,
+    doneCycles: projects.filter(function(p){
+      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
+    }).length,
     scores3:{...scores3}, scores2:{...scores2}, notes3:{...notes3},
     ts: Date.now()
   };
@@ -1720,33 +1750,55 @@ function loadPerson(name){
   if(jd) jd.value = data.joinDate||'';
   onPersonNameInput();
 
+  // Load scores3 và scores2 TRƯỚC khi render
+  // (đã load ở trên qua Object.assign)
+
+  // Set level - sẽ trigger renderI3 với scores3 đã có sẵn
   if(data.currentLevel) setLevel(data.currentLevel);
+  else { renderI3(); updateI3Summary(); }
+
+  // Auto-calculate doneCycles từ project data
+  const autoDoneCycles = projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
+  }).length;
   const dcInp = document.getElementById('done-cycles-input');
-  if(dcInp) dcInp.value = data.doneCycles||0;
-  else { currentLevel=null; renderI3(); updateI3Summary(); }
+  if(dcInp) dcInp.value = autoDoneCycles;
+  const dcDisplay = document.getElementById('done-cycles-display');
+  if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
 
   // Restore proj count UI
-  const pc=document.getElementById('proj-count');
-  if(pc){ pc.value=projCount||''; onProjCount(); }
+  const pc = document.getElementById('proj-count');
+  if(pc){ pc.value = projCount||''; onProjCount(); }
 
-  // Auto-sync project count from project data
-  autoFillProjectCount(true); // silent mode
+  // Auto-sync project count
+  autoFillProjectCount(true);
 
-  // Restore i2
-  i2data.flatMap(s=>s.items).forEach(item=>{
-    if(scores2[item.id]!==undefined){
-      const sel=document.getElementById('s2-'+item.id);
+  // Restore I2 selectors
+  i2data.flatMap(function(s){ return s.items; }).forEach(function(item){
+    if(scores2[item.id] !== undefined){
+      const sel = document.getElementById('s2-'+item.id);
       if(sel){
-        const entry=Object.entries(I2LEVELS).find(([k,v])=>v===scores2[item.id]);
-        if(entry) sel.value=entry[0];
-        const d=document.getElementById('s2d-'+item.id);
-        if(d){const tv=I2LEVELS[item.target];const s=scores2[item.id];d.textContent=s.toFixed(1);d.style.color=s>=tv?'#3B6D11':s>=tv*.6?'#BA7517':'#A32D2D';}
+        const entry = Object.entries(I2LEVELS).find(function(e){ return e[1]===scores2[item.id]; });
+        if(entry) sel.value = entry[0];
+        const d = document.getElementById('s2d-'+item.id);
+        if(d){
+          const tv = I2LEVELS[item.target];
+          const sc = scores2[item.id];
+          d.textContent = sc.toFixed(1);
+          d.style.color = sc>=tv ? '#3B6D11' : sc>=tv*.6 ? '#BA7517' : '#A32D2D';
+        }
       }
+    } else {
+      // Reset I2 selector nếu không có data
+      const sel = document.getElementById('s2-'+item.id);
+      if(sel) sel.value = '';
+      const d = document.getElementById('s2d-'+item.id);
+      if(d){ d.textContent = '–'; d.style.color = 'var(--color-text-tertiary)'; }
     }
   });
 
   updateResult();
-  renderPersonList(); // re-render to update active chip highlight
+  renderPersonList();
 
   const t=document.getElementById('save-toast');
   t.textContent='✓ Đã tải '+name+'!'; t.style.display='inline-block';
@@ -2511,6 +2563,8 @@ function onI2(id,target){
   if(v){const tv=I2LEVELS[target];const s=I2LEVELS[v];d.textContent=s.toFixed(1);d.style.color=s>=tv?'#3B6D11':s>=tv*.6?'#BA7517':'#A32D2D';}
   else{d.textContent='–';d.style.color='var(--color-text-secondary)';}
   updateResult();
+
+  if(currentPersonName) _autoSavePerson(currentPersonName);
 }
 
 function switchTab(id){
