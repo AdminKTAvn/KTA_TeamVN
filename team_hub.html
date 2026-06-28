@@ -1791,15 +1791,15 @@ function getPersonListKey(){ return 'eval_v7_persons'; }
 
 function getPersonList(){
   // Lấy từ project data (source of truth) + merge với saved list
-  const LEADERS = ['liam','stuart','nina'];
+  // Leaders (Liam/Stuart/Nina) được include để có thể đánh giá, nhưng ẩn ở BXH user
   const nameMap = {};
   // From projects
   (projects||[]).forEach(function(p){
     (p.membersMain||[]).forEach(function(m){
-      if(!LEADERS.includes(m.toLowerCase())) nameMap[m.toLowerCase()] = m;
+      nameMap[m.toLowerCase()] = m;
     });
     (p.membersBackup||[]).forEach(function(m){
-      if(!LEADERS.includes(m.toLowerCase())) nameMap[m.toLowerCase()] = m;
+      nameMap[m.toLowerCase()] = m;
     });
   });
   // Merge with saved list (preserve names even if removed from project)
@@ -1847,24 +1847,18 @@ function populatePersonDropdown(){
   const sel = document.getElementById('person-name-input');
   if(!sel || sel.tagName !== 'SELECT') return;
   const currentVal = sel.value;
-  // Lấy tên từ projects HIỆN TẠI (loại bỏ leaders) — KHÔNG lấy từ localStorage cũ
-  // để tránh hiện tên thừa (VD: Dale) không còn trong projects
-  const LEADERS = ['liam','stuart','nina'];
+  // Lấy tên từ projects HIỆN TẠI — bao gồm leaders để có thể đánh giá
   const nameMap = {};
   projects.forEach(function(p){
     (p.membersMain||[]).forEach(function(m){
-      if(!LEADERS.includes(m.toLowerCase())){
-        const key = m.trim().toLowerCase();
-        if(!nameMap[key]) nameMap[key] = m;
-        else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
-      }
+      const key = m.trim().toLowerCase();
+      if(!nameMap[key]) nameMap[key] = m;
+      else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
     });
     (p.membersBackup||[]).forEach(function(m){
-      if(!LEADERS.includes(m.toLowerCase())){
-        const key = m.trim().toLowerCase();
-        if(!nameMap[key]) nameMap[key] = m;
-        else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
-      }
+      const key = m.trim().toLowerCase();
+      if(!nameMap[key]) nameMap[key] = m;
+      else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
     });
   });
   // Nếu chưa có dự án nào, fallback về saved list
@@ -2110,16 +2104,38 @@ function renderPersonList(){
     container.innerHTML='<span style="font-size:12px;color:var(--color-text-tertiary)">Chưa có dữ liệu nào được lưu</span>';
     return;
   }
-  // Level → chip color map
+
+  const LEVEL_ORDER = ['Leader','Key Member','Senior','Staff'];
+  const LEVEL_LABEL = {Leader:'Leader','Key Member':'Key Member',Senior:'Senior',Staff:'Staff'};
   const CHIP_LEVEL_COLOR = {
     'Staff':      'background:#E6F1FB;border-color:#378ADD;color:#185FA5',
     'Senior':     'background:#EAF3DE;border-color:#639922;color:#3B6D11',
     'Key Member': 'background:#FDE8F1;border-color:#D85AA0;color:#A02A6B',
     'Leader':     'background:#FAECE7;border-color:#D85A30;color:#993C1D',
   };
-  container.innerHTML = list.map(name=>{
-    let scoreTag='';
-    let chipLevelStyle='';
+  const HEADER_COLOR = {
+    'Staff':      'color:#185FA5',
+    'Senior':     'color:#3B6D11',
+    'Key Member': 'color:#A02A6B',
+    'Leader':     'color:#993C1D',
+  };
+  const levelClassMap = {Staff:"active-staff",Senior:"active-senior","Key Member":"active-key",Leader:"active-leader"};
+
+  // Group people by level
+  const groups = {Leader:[],'Key Member':[],Senior:[],Staff:[],'—':[]};
+  list.forEach(name=>{
+    let lv = '—';
+    try{
+      const d=JSON.parse(localStorage.getItem(getStorageKey(name)));
+      if(d&&d.currentLevel) lv=d.currentLevel;
+    }catch(e){}
+    if(!groups[lv]) groups[lv]=[];
+    groups[lv].push(name);
+  });
+
+  // Build chip HTML for one person
+  function buildChip(name){
+    let scoreTag='', chipLevelStyle='', chipLevel='';
     try{
       const d=JSON.parse(localStorage.getItem(getStorageKey(name)));
       if(d&&d.scores3&&d.currentLevel){
@@ -2130,27 +2146,47 @@ function renderPersonList(){
           const i3s=((avgMuc/5)*10);
           const w=getWeights(d.currentLevel,'match');
           const preview=(i3s*(w.i3||0.7)).toFixed(1);
-          const lv=d.currentLevel?` ${d.currentLevel}`:'';
-          scoreTag=`<span class="person-chip-score">${preview}${lv}</span>`;
+          scoreTag=`<span class="person-chip-score">${preview}</span>`;
         }
-        chipLevelStyle = CHIP_LEVEL_COLOR[d.currentLevel] || '';
+        chipLevelStyle = CHIP_LEVEL_COLOR[d.currentLevel]||'';
+        chipLevel = d.currentLevel||'';
       }
-    } catch(e){}
-    const isActive = name === currentPersonName;
-    const levelClassMap = {Staff:"active-staff",Senior:"active-senior","Key Member":"active-key",Leader:"active-leader"};
-    // Đọc lại d an toàn (có thể undefined ngoài try block)
-    let _chipData = null;
-    try{ _chipData = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
-    const lvClass = _chipData&&_chipData.currentLevel ? (levelClassMap[_chipData.currentLevel]||"") : "";
-    const activeClass = isActive ? ("active-chip " + lvClass) : "";
-    const inactiveStyle = (!isActive && chipLevelStyle) ? 'style="' + chipLevelStyle + ';opacity:0.75"' : "";
-    return `<div class="person-chip ${activeClass}"
-      ${inactiveStyle}
-      onclick="switchToPerson('${name.replace(/'/g,"\'")}')"> 
+    }catch(e){}
+    const isActive = name===currentPersonName;
+    const lvClass = chipLevel ? (levelClassMap[chipLevel]||'') : '';
+    const activeClass = isActive ? ('active-chip '+lvClass) : '';
+    const inactiveStyle = (!isActive&&chipLevelStyle) ? 'style="'+chipLevelStyle+';opacity:0.75"' : '';
+    return `<div class="person-chip ${activeClass}" ${inactiveStyle} onclick="switchToPerson('${name.replace(/'/g,"\'")}')">
       ${name}${scoreTag}
       <span class="person-chip-del" onclick="deletePerson('${name.replace(/'/g,"\'")}', event)">×</span>
     </div>`;
-  }).join('');
+  }
+
+  // Render grouped
+  let html = '';
+  LEVEL_ORDER.forEach(lv=>{
+    const members = groups[lv]||[];
+    if(!members.length) return;
+    const hColor = HEADER_COLOR[lv]||'color:var(--color-text-tertiary)';
+    html += `<div style="width:100%;display:flex;align-items:center;gap:8px;margin-bottom:4px;margin-top:6px">
+      <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;${hColor}">${lv}</span>
+      <div style="flex:1;height:0.5px;background:var(--color-border-tertiary)"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px">
+      ${members.map(buildChip).join('')}
+    </div>`;
+  });
+  // Người chưa có level
+  if(groups['—']&&groups['—'].length){
+    html += `<div style="width:100%;display:flex;align-items:center;gap:8px;margin-bottom:4px;margin-top:6px">
+      <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;color:var(--color-text-tertiary)">Chưa phân loại</span>
+      <div style="flex:1;height:0.5px;background:var(--color-border-tertiary)"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px">
+      ${groups['—'].map(buildChip).join('')}
+    </div>`;
+  }
+  container.innerHTML = html;
 }
 
 function resetAll(){
