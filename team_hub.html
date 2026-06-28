@@ -3427,198 +3427,149 @@ function renderLeaderboard(){
   const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
   const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
 
-  // Get all persons with eval data
-  const personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
-
-  // Build project ranking directly from project data (no eval needed)
-  // 3 Leaders excluded: Liam, Stuart, Nina
   const LEADERS_EXCLUDE = ['liam','stuart','nina'];
+  const LEVEL_COLOR_BG = {'Staff':'#E6F1FB','Senior':'#EAF3DE','Key Member':'#FDE8F1','Leader':'#FAECE7'};
+  const LEVEL_COLOR_TEXT = {'Staff':'#185FA5','Senior':'#3B6D11','Key Member':'#A02A6B','Leader':'#993C1D'};
+  const BENCH = {'Staff':8,'Senior':12,'Key Member':20,'Leader':35};
 
   // Collect all unique members from projects (excluding leaders)
   const allMembers = new Set();
-  projects.forEach(p=>{
-    (p.membersMain||[]).forEach(m=>{ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
-    (p.membersBackup||[]).forEach(m=>{ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
+  projects.forEach(function(p){
+    (p.membersMain||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
+    (p.membersBackup||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
   });
 
+  // Build project data
   const projData = [];
-  allMembers.forEach(name=>{
-    // Get level from eval data if available
-    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/[\s]+/g,'_');
-    let lv = 'Staff';
-    try{ const d=JSON.parse(localStorage.getItem(key)); if(d?.currentLevel) lv=d.currentLevel; } catch(e){}
-
-    const ps = calcPersonProjectScore(name, lv);
-
-    // Count done cycles from projects
-    const doneCycles = projects.filter(p=>
-      (p.doneCycleMembers||[]).some(m=>m.toLowerCase()===name.toLowerCase())
-    ).length;
-
-    projData.push({
-      name, level: lv,
-      raw: parseFloat(ps.totalRaw),
-      score: parseFloat(ps.projScore10),
-      doneCycles,
-      mainCount: ps.mainCount,
-      backupCount: ps.backupCount
-    });
+  allMembers.forEach(function(name){
+    var key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+    var lv = 'Staff';
+    try{ var d=JSON.parse(localStorage.getItem(key)); if(d&&d.currentLevel) lv=d.currentLevel; } catch(e){}
+    var ps = calcPersonProjectScore(name, lv);
+    var doneCycles = projects.filter(function(p){
+      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
+    }).length;
+    projData.push({name:name, level:lv, raw:parseFloat(ps.totalRaw), score:parseFloat(ps.projScore10), doneCycles:doneCycles, mainCount:ps.mainCount, backupCount:ps.backupCount});
   });
+  projData.sort(function(a,b){ return b.raw-a.raw || b.doneCycles-a.doneCycles; });
 
-  // Sort by raw desc, then doneCycles desc
-  projData.sort((a,b)=> b.raw-a.raw || b.doneCycles-a.doneCycles);
-
-  const LEVEL_COLOR_BG = {
-    'Staff': '#E6F1FB', 'Senior': '#EAF3DE',
-    'Key Member': '#FDE8F1', 'Leader': '#FAECE7'
-  };
-  const LEVEL_COLOR_TEXT = {
-    'Staff': '#185FA5', 'Senior': '#3B6D11',
-    'Key Member': '#A02A6B', 'Leader': '#993C1D'
-  };
-
-  const lbProj = document.getElementById('lb-projects');
+  // Render Bảng 1 - liên level
+  var lbProj = document.getElementById('lb-projects');
   if(lbProj){
-    lbProj.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead>
-        <tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
-          <th style="padding:6px 8px;text-align:center;width:36px">#</th>
-          <th style="padding:6px 8px;text-align:left">Thành viên</th>
-          <th style="padding:6px 8px;text-align:center">Điểm tích lũy</th>
-          <th style="padding:6px 8px;text-align:center">✅ Chu kỳ</th>
-          <th style="padding:6px 8px;text-align:center">Main</th>
-          <th style="padding:6px 8px;text-align:center">Backup</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${projData.map((p,i)=>{
-          const isMe = p.name.toLowerCase() === myName;
-          const displayName = isAdmin ? p.name : (isMe ? \`⭐ \${p.name}\` : 'KTA VN');
-          const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
-          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':\`\${i+1}\`;
-          return \`<tr style="border-bottom:0.5px solid var(--color-border-tertiary);\${rowBg}\${isMe?';font-weight:600':''}">
-            <td style="padding:6px 8px;text-align:center;font-size:13px">\${medal}</td>
-            <td style="padding:6px 8px">\${displayName}</td>
-            <td style="padding:6px 8px;text-align:center;font-weight:600;color:var(--color-text-primary)">\${p.raw.toFixed(1)}</td>
-            <td style="padding:6px 8px;text-align:center">\${p.doneCycles>0?\`<b>\${p.doneCycles}</b>\`:'–'}</td>
-            <td style="padding:6px 8px;text-align:center">\${p.mainCount}</td>
-            <td style="padding:6px 8px;text-align:center;color:var(--color-text-tertiary)">\${p.backupCount}</td>
-          </tr>\`;
-        }).join('')}
-      </tbody>
-    </table>
-    <div style="margin-top:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px;font-size:11px;color:var(--color-text-tertiary);line-height:1.8">
-      <b style="color:var(--color-text-secondary)">📐 Công thức tính điểm tích lũy:</b><br>
-      Điểm 1 dự án = <b>(Base + CxBonus) × LevelMult × RoleMult</b><br>
-      • Base: Small=2 · Medium=3 · Large=5<br>
-      • CxBonus = (số tick phức tạp / tổng mục) × 5 — tối đa 5đ<br>
-      • LevelMult: Staff(S:1.0 M:1.3 L:0) · Senior(S:0.5 M:1.0 L:1.3) · Key(S:0.3 M:0.7 L:1.0)<br>
-      • RoleMult: Main solo=1.0 · Main+backup=0.7 · Backup=0.3<br>
-      <b>Ví dụ</b> — Liam: dự án Large, 3/6 tick phức tạp, Key Member, Main solo:<br>
-      → (5 + 2.5) × 1.0 × 1.0 = <b>7.5 điểm</b>
-    </div>`;
+    var rows1 = projData.map(function(p,i){
+      var isMe = p.name.toLowerCase() === myName;
+      var displayName = isAdmin ? p.name : (isMe ? ('⭐ '+p.name) : 'KTA VN');
+      var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
+      var bold = isMe ? ';font-weight:600' : '';
+      var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'';
+      return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+'">'
+        +'<td style="padding:6px 8px;text-align:center;font-size:13px">'+medal+'</td>'
+        +'<td style="padding:6px 8px">'+displayName+'</td>'
+        +'<td style="padding:6px 8px;text-align:center;font-weight:600;color:var(--color-text-primary)">'+p.raw.toFixed(1)+'</td>'
+        +'<td style="padding:6px 8px;text-align:center">'+(p.doneCycles>0?('<b>'+p.doneCycles+'</b>'):'–')+'</td>'
+        +'<td style="padding:6px 8px;text-align:center">'+p.mainCount+'</td>'
+        +'<td style="padding:6px 8px;text-align:center;color:var(--color-text-tertiary)">'+p.backupCount+'</td>'
+        +'</tr>';
+    }).join('');
+
+    lbProj.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">'
+      +'<th style="padding:6px 8px;text-align:center;width:36px">#</th>'
+      +'<th style="padding:6px 8px;text-align:left">Thành viên</th>'
+      +'<th style="padding:6px 8px;text-align:center">Điểm tích lũy</th>'
+      +'<th style="padding:6px 8px;text-align:center">✅ Chu kỳ</th>'
+      +'<th style="padding:6px 8px;text-align:center">Main</th>'
+      +'<th style="padding:6px 8px;text-align:center">Backup</th>'
+      +'</tr></thead>'
+      +'<tbody>'+rows1+'</tbody>'
+      +'</table>'
+      +'<div style="margin-top:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px;font-size:11px;color:var(--color-text-tertiary);line-height:1.8">'
+      +'<b style="color:var(--color-text-secondary)">📐 Công thức điểm tích lũy:</b><br>'
+      +'Điểm 1 dự án = <b>(Base + CxBonus) × LevelMult × RoleMult</b><br>'
+      +'• Base: Small=2 · Medium=3 · Large=5<br>'
+      +'• CxBonus = (số tick phức tạp / tổng mục) × 5 — tối đa 5đ<br>'
+      +'• LevelMult: Staff(S:1.0 M:1.3 L:0) · Senior(S:0.5 M:1.0 L:1.3) · Key(S:0.3 M:0.7 L:1.0)<br>'
+      +'• RoleMult: Main solo=1.0 · Main+backup=0.7 · Backup=0.3<br>'
+      +'<b>Ví dụ</b> — Liam: dự án Large, 3/6 tick, Key Member, Main solo: (5+2.5)×1.0×1.0 = <b>7.5đ</b>'
+      +'</div>';
   }
 
-  // Score ranking by level
-  const lbScoresSection = document.getElementById('lb-scores-section');
-  const lbScores = document.getElementById('lb-scores');
-  const lbLevelLabel = document.getElementById('lb-level-label');
-
-  // Determine which level to show
-  let targetLevel = null;
-  if(isAdmin){
-    targetLevel = null; // Admin sees all levels
-  } else {
-    // User sees their own level
-    const myKey = 'eval_v7_person_'+myName.replace(/\s+/g,'_');
-    try{
-      const myData = JSON.parse(localStorage.getItem(myKey));
-      targetLevel = myData?.currentLevel || null;
-    } catch(e){}
+  // Build score data for Bảng 2
+  var targetLevel = null;
+  if(!isAdmin){
+    var myKey = 'eval_v7_person_'+myName.replace(/\s+/g,'_');
+    try{ var myData=JSON.parse(localStorage.getItem(myKey)); targetLevel=myData&&myData.currentLevel?myData.currentLevel:null; } catch(e){}
+    // Fallback: find level from projData
+    if(!targetLevel){
+      var myEntry = projData.find(function(p){ return p.name.toLowerCase()===myName; });
+      if(myEntry) targetLevel = myEntry.level;
+    }
   }
 
-  // Build score data from project data (no I3/I2 needed)
-  // Use allMembers already built above
-  const scoreData = [];
-  allMembers.forEach(name=>{
-    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/[\s]+/g,'_');
-    let lv = 'Staff';
-    try{ const d=JSON.parse(localStorage.getItem(key)); if(d?.currentLevel) lv=d.currentLevel; } catch(e){}
-    if(targetLevel && lv !== targetLevel) return;
+  var lbScoresSection = document.getElementById('lb-scores-section');
+  var lbScores = document.getElementById('lb-scores');
+  var lbLevelLabel = document.getElementById('lb-level-label');
 
-    const ps = calcPersonProjectScore(name, lv);
-    const proj = parseFloat(ps.projScore10);
-    const raw = parseFloat(ps.totalRaw);
-    const doneCycles = projects.filter(p=>
-      (p.doneCycleMembers||[]).some(m=>m.toLowerCase()===name.toLowerCase())
-    ).length;
+  var scoreData = projData.filter(function(p){ return !targetLevel || p.level===targetLevel; });
+  scoreData.sort(function(a,b){ return b.score-a.score || b.doneCycles-a.doneCycles; });
 
-    scoreData.push({ name, level: lv, proj, raw, doneCycles });
-  });
-
-  if(!scoreData.length){
-    if(lbScoresSection) lbScoresSection.style.display='none';
-    return;
-  }
-
-  scoreData.sort((a,b)=>b.proj-a.proj || b.doneCycles-a.doneCycles);
+  if(!scoreData.length){ if(lbScoresSection) lbScoresSection.style.display='none'; return; }
   if(lbScoresSection) lbScoresSection.style.display='block';
-  if(lbLevelLabel) lbLevelLabel.textContent = targetLevel ? `(${targetLevel})` : '(tất cả level)';
+  if(lbLevelLabel) lbLevelLabel.textContent = targetLevel ? '('+targetLevel+')' : '(tất cả level)';
+
+  var levels = isAdmin ? ['Staff','Senior','Key Member','Leader'] : (targetLevel?[targetLevel]:[]);
 
   if(lbScores){
-    // Group by level if admin
-    const levels = isAdmin
-      ? ['Staff','Senior','Key Member','Leader']
-      : [targetLevel];
-
-    const BENCH = {Staff:8, Senior:12, 'Key Member':20, Leader:35};
-    lbScores.innerHTML = levels.map(lv=>{
-      const lvData = scoreData.filter(p=>p.level===lv);
+    lbScores.innerHTML = levels.map(function(lv){
+      var lvData = scoreData.filter(function(p){ return p.level===lv; });
       if(!lvData.length) return '';
-      const lvBg = LEVEL_COLOR_BG[lv]||'#eee';
-      const lvTx = LEVEL_COLOR_TEXT[lv]||'#333';
-      const bench = BENCH[lv]||20;
-      const rows = lvData.map((p,i)=>{
-        const isMe = p.name.toLowerCase() === myName;
-        const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
-        const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
-        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-        return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
-          <td style="padding:5px 8px;text-align:center">${medal}</td>
-          <td style="padding:5px 8px">${displayName}</td>
-          <td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">${p.proj}/10</td>
-          <td style="padding:5px 8px;text-align:center;color:var(--color-text-secondary)">${p.raw.toFixed(1)}</td>
-          <td style="padding:5px 8px;text-align:center">${p.doneCycles>0?`<b>${p.doneCycles}</b>`:'–'}</td>
-        </tr>`;
+      var lvBg = LEVEL_COLOR_BG[lv]||'#eee';
+      var lvTx = LEVEL_COLOR_TEXT[lv]||'#333';
+      var bench = BENCH[lv]||20;
+
+      var rows2 = lvData.map(function(p,i){
+        var isMe = p.name.toLowerCase() === myName;
+        var displayName = isAdmin ? p.name : (isMe ? ('⭐ '+p.name) : 'KTA VN');
+        var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
+        var bold = isMe ? ';font-weight:600' : '';
+        var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'';
+        return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+'">'
+          +'<td style="padding:5px 8px;text-align:center">'+medal+'</td>'
+          +'<td style="padding:5px 8px">'+displayName+'</td>'
+          +'<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">'+p.score+'/10</td>'
+          +'<td style="padding:5px 8px;text-align:center;color:var(--color-text-secondary)">'+p.raw.toFixed(1)+'</td>'
+          +'<td style="padding:5px 8px;text-align:center">'+(p.doneCycles>0?('<b>'+p.doneCycles+'</b>'):'–')+'</td>'
+          +'</tr>';
       }).join('');
-      const lvHeader = isAdmin
-        ? `<div style="font-size:11px;font-weight:600;padding:6px 10px;background:${lvBg};color:${lvTx};border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between"><span>${lv}</span><span style="font-weight:400;font-size:10px">Benchmark: ${bench}</span></div>`
-        : `<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Benchmark: <b>${bench}</b> · Điểm = Tích lũy / ${bench} × 10</div>`;
-      return lvHeader + `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px">
-        <thead><tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
-          <th style="padding:5px 8px;text-align:center;width:36px">#</th>
-          <th style="padding:5px 8px;text-align:left">Thành viên</th>
-          <th style="padding:5px 8px;text-align:center;font-weight:600">Điểm /10</th>
-          <th style="padding:5px 8px;text-align:center">Tích lũy</th>
-          <th style="padding:5px 8px;text-align:center">✅ Chu kỳ</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <div style="margin-bottom:${isAdmin?'20px':'0'};padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">
-        <b style="color:var(--color-text-secondary)">📐 Công thức:</b>
-        Điểm dự án /10 = min(10, Điểm tích lũy / ${bench} × 10)<br>
-        Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br><br>
-        <b style="color:var(--color-text-secondary)">📌 Benchmark ${bench} là gì?</b><br>
-        Là mức điểm tích lũy dự án cần đạt để được 10/10 ở level ${lv}.<br>
-        Benchmark tăng dần theo level vì dự án quy mô lớn hơn cần nhiều thời gian hơn — số lượng dự án ít hơn nhưng chất lượng cao hơn.<br>
-        Staff=8 · Senior=12 · Key Member=20 · Leader=35
-      </div>`;
+
+      var header = isAdmin
+        ? '<div style="font-size:11px;font-weight:600;padding:6px 10px;background:'+lvBg+';color:'+lvTx+';border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between"><span>'+lv+'</span><span style="font-weight:400;font-size:10px">Benchmark: '+bench+'</span></div>'
+        : '<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Benchmark: <b>'+bench+'</b> · Điểm = Tích lũy / '+bench+' × 10</div>';
+
+      return header
+        +'<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px">'
+        +'<thead><tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">'
+        +'<th style="padding:5px 8px;text-align:center;width:36px">#</th>'
+        +'<th style="padding:5px 8px;text-align:left">Thành viên</th>'
+        +'<th style="padding:5px 8px;text-align:center;font-weight:600">Điểm /10</th>'
+        +'<th style="padding:5px 8px;text-align:center">Tích lũy</th>'
+        +'<th style="padding:5px 8px;text-align:center">✅ Chu kỳ</th>'
+        +'</tr></thead>'
+        +'<tbody>'+rows2+'</tbody>'
+        +'</table>'
+        +'<div style="margin-bottom:'+(isAdmin?'20px':'0')+';padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">'
+        +'<b style="color:var(--color-text-secondary)">📐 Công thức:</b> Điểm /10 = min(10, Tích lũy / '+bench+' × 10)<br>'
+        +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br>'
+        +'<b style="color:var(--color-text-secondary)">📌 Benchmark '+bench+'</b> = mức tích lũy cần đạt để được 10/10 ở '+lv+'.<br>'
+        +'Benchmark tăng dần vì dự án lớn hơn cần nhiều thời gian hơn — ít dự án hơn nhưng chất lượng cao hơn.<br>'
+        +'Staff=8 · Senior=12 · Key Member=20 · Leader=35'
+        +'</div>';
     }).join('');
   }
 }
 
 // ═══════════ /LEADERBOARD ═══════════
+
 
 // ═══════════ LINK: auto-fill project count in Evaluation tab from Project data ═══════════
 function getProjectCountForCurrentPerson(){
