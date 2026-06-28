@@ -1673,7 +1673,26 @@ function getStorageKey(name){ return 'eval_v7_person_'+name.trim().toLowerCase()
 function getPersonListKey(){ return 'eval_v7_persons'; }
 
 function getPersonList(){
-  try{ return JSON.parse(localStorage.getItem(getPersonListKey()))||[]; } catch(e){ return []; }
+  // Lấy từ project data (source of truth) + merge với saved list
+  const LEADERS = ['liam','stuart','nina'];
+  const nameMap = {};
+  // From projects
+  (projects||[]).forEach(function(p){
+    (p.membersMain||[]).forEach(function(m){
+      if(!LEADERS.includes(m.toLowerCase())) nameMap[m.toLowerCase()] = m;
+    });
+    (p.membersBackup||[]).forEach(function(m){
+      if(!LEADERS.includes(m.toLowerCase())) nameMap[m.toLowerCase()] = m;
+    });
+  });
+  // Merge with saved list (preserve names even if removed from project)
+  try{
+    const saved = JSON.parse(localStorage.getItem(getPersonListKey()))||[];
+    saved.forEach(function(n){
+      if(!nameMap[n.toLowerCase()]) nameMap[n.toLowerCase()] = n;
+    });
+  } catch(e){}
+  return Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
 }
 function savePersonList(list){
   try{ localStorage.setItem(getPersonListKey(), JSON.stringify(list)); } catch(e){}
@@ -1712,7 +1731,21 @@ function populatePersonDropdown(){
   });
   // Also add from saved person list
   getPersonList().forEach(function(n){ names.add(n); });
-  const sorted = Array.from(names).sort();
+  // Deduplicate tên không phân biệt hoa thường — giữ version có chữ hoa đầu
+  const nameMap = {};
+  Array.from(names).forEach(function(n){
+    const key = n.trim().toLowerCase();
+    if(!nameMap[key]){
+      nameMap[key] = n;
+    } else {
+      // Giữ version có chữ hoa đầu hơn
+      const existing = nameMap[key];
+      if(n[0] === n[0].toUpperCase() && existing[0] !== existing[0].toUpperCase()){
+        nameMap[key] = n;
+      }
+    }
+  });
+  const sorted = Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
   sel.innerHTML = '<option value="">— Chọn nhân viên —</option>'
     + sorted.map(function(n){ return '<option value="'+n+'"'+(n===currentVal?' selected':'')+'>'+n+'</option>'; }).join('');
 }
