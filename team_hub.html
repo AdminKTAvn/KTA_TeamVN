@@ -1942,6 +1942,8 @@ function savePerson(){
   savePersonList(list);
   if(typeof syncToSheets === 'function') syncToSheets('eval');
   renderPersonList();
+  // Restore proj display sau khi lưu (renderPersonList không ảnh hưởng proj UI)
+  autoFillProjectCount(true, name);
   const t=document.getElementById('save-toast');
   t.textContent='✓ Đã lưu '+name+'!'; t.style.display='inline-block';
   setTimeout(()=>t.style.display='none', 2000);
@@ -2051,9 +2053,18 @@ function loadPerson(name){
   if(typeof loadKeyPlusConditions==='function') loadKeyPlusConditions(data);
   renderPersonList();
 
-  // BƯỚC 8: Auto-sync dự án — LUÔN là bước CUỐI CÙNG để không bị override
-  const _hasProjects = (typeof projects !== 'undefined') && projects && projects.length > 0;
+  // BƯỚC 8: Auto-sync dự án — chạy ngay VÀ sau 300ms để đảm bảo không bị override
+  const _localProj = (function(){ try{ return JSON.parse(localStorage.getItem('teamhub_projects')||'[]'); }catch(e){ return []; } })();
+  const _allProj = (projects && projects.length) ? projects : _localProj;
+  const _hasProjects = _allProj.length > 0;
   autoFillProjectCount(!_hasProjects, name);
+  // Chạy lại sau 300ms phòng trường hợp bị override bởi async callbacks (Sheets, etc.)
+  const _snapName8 = name;
+  setTimeout(function(){
+    if(currentPersonName && currentPersonName.toLowerCase() === _snapName8.toLowerCase()){
+      autoFillProjectCount(false, _snapName8);
+    }
+  }, 300);
 
   // BƯỚC 9: doneCycles
   const autoDoneCycles = projects.filter(function(p){
