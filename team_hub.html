@@ -1572,9 +1572,7 @@ function _autoSavePerson(name){
     ts: Date.now()
   };
   try{ localStorage.setItem(getStorageKey(name), JSON.stringify(data)); } catch(e){}
-  const list = getPersonList();
-  if(!list.includes(name)){ list.push(name); savePersonList(list); }
-  renderPersonList();
+  // Không gọi renderPersonList() ở đây để tránh conflict khi đang nhập
 }
 
 function onI3(id){
@@ -1677,10 +1675,15 @@ function renderProjListTable(breakdown, totalRaw){
   </tr>`;
 }
 
-function autoFillProjectCount(silent=false){
-  const name = currentPersonName || document.getElementById('person-name-input').value.trim();
+function autoFillProjectCount(silent=false, forceName=null){
+  const name = forceName || currentPersonName || document.getElementById('person-name-input').value.trim();
   if(!name){
     if(!silent) alert('Vui lòng nhập tên nhân viên trước.');
+    return;
+  }
+  // Đảm bảo name khớp với currentPersonName để tránh lấy dự án sai
+  if(forceName && currentPersonName && forceName.toLowerCase() !== currentPersonName.toLowerCase()){
+    // Tên không khớp — có thể đang switch người, bỏ qua
     return;
   }
   if(typeof getPersonProjectStats!=='function') return;
@@ -1804,7 +1807,7 @@ function onPersonNameSelect(name){
     const nameEl = document.getElementById('person-name-input');
     if(nameEl) nameEl.value = name;
     renderI3(); updateI3Summary(); updateResult();
-    autoFillProjectCount(false);
+    autoFillProjectCount(false, name);
     updateKeyPlusRoadmap(0, 0);
   }
 }
@@ -1924,7 +1927,8 @@ function loadPerson(name){
   Object.assign(scores3, data.scores3||{});
   Object.assign(scores2, data.scores2||{});
   Object.assign(notes3, data.notes3||{});
-  projCount = data.projCount||0;
+  // KHÔNG dùng data.projCount — luôn tính lại từ project data
+  projCount = 0;
   currentPersonName = name;
 
   // BƯỚC 3: Cập nhật UI
@@ -1932,14 +1936,21 @@ function loadPerson(name){
   if(nameEl) nameEl.value = name;
   const jd = document.getElementById('person-joindate-input');
   if(jd) jd.value = data.joinDate||'';
-  onPersonNameInput();
+  // Hiện thâm niên nếu có ngày vào
+  if(data.joinDate){
+    const senEl = document.getElementById('person-seniority');
+    if(senEl){ const s=calcSeniority(data.joinDate); senEl.style.display='block'; senEl.textContent='📅 Thâm niên: '+s; }
+  }
 
-  // BƯỚC 4: Set level → trigger renderI3 với scores3 đúng của người này
+  // BƯỚC 4: Đảm bảo currentPersonName đúng trước mọi thứ
+  currentPersonName = name;
+
+  // BƯỚC 5: Set level → trigger renderI3 với scores3 đúng của người này
   if(data.currentLevel) setLevel(data.currentLevel);
   else { renderI3(); updateI3Summary(); }
 
-  // BƯỚC 5: Auto-sync project SAU KHI có level đúng
-  autoFillProjectCount(false);
+  // BƯỚC 6: Auto-sync project SAU KHI có currentPersonName + level đúng
+  autoFillProjectCount(false, name); // pass name trực tiếp tránh lỗi
 
   // Auto-calculate doneCycles từ project data
   const autoDoneCycles = projects.filter(function(p){
@@ -3178,7 +3189,8 @@ async function sheetsLoadAllFresh(){
           try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
         });
       }
-      if(typeof renderPersonList==='function') renderPersonList();
+      // Chỉ render person list nếu không đang trong quá trình edit
+      if(typeof renderPersonList==='function' && !currentPersonName) renderPersonList();
       if(typeof populatePersonDropdown==='function') populatePersonDropdown();
     }
   } catch(e){ console.error('Sheets fresh load error', e); }
