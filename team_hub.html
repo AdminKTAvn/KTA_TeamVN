@@ -1697,11 +1697,15 @@ function autoFillProjectCount(silent=false, forceName=null){
     return;
   }
   if(typeof getPersonProjectStats!=='function') return;
+  // Snapshot name tại thời điểm bắt đầu để verify sau khi async ops
+  const _lockedName = name;
   // Use scoring engine for full breakdown (requires level)
   const lv = currentLevel || 'Staff';
-  const pStats = getPersonProjectStats(name);           // basic totals + bySize/byComplexity
+  const pStats = getPersonProjectStats(_lockedName);           // basic totals + bySize/byComplexity
   const scoreStats = (typeof calcPersonProjectScore==='function')
-    ? calcPersonProjectScore(name, lv) : null;
+    ? calcPersonProjectScore(_lockedName, lv) : null;
+  // Verify người chưa thay đổi trong quá trình tính toán
+  if(currentPersonName && _lockedName.toLowerCase() !== currentPersonName.toLowerCase()) return;
   const stats = {
     total: pStats.total,
     mainCount: scoreStats ? scoreStats.mainCount : pStats.mainCount,
@@ -1880,18 +1884,20 @@ function savePerson(){
   const joinDate = document.getElementById('person-joindate-input').value;
   currentPersonName = name;
 
-  // Auto-sync project count from project data before saving
+  // Auto-sync project count — chỉ lấy số, KHÔNG trigger onProjCount() để tránh side effects
   if(typeof getPersonProjectStats==='function'){
     const stats = getPersonProjectStats(name);
     projCount = stats.total;
     const pc = document.getElementById('proj-count');
     if(pc) pc.value = projCount||'';
-    onProjCount();
-    // Update detail display
-    const detail = document.getElementById('proj-link-detail');
-    if(detail && stats.total>0){
-      detail.style.display='block';
-      detail.innerHTML = `<b>${stats.total}</b> dự án (Main: <b>${stats.mainCount}</b> · Backup: <b>${stats.backupCount}</b>) · S:${stats.bySize.Small} M:${stats.bySize.Medium} L:${stats.bySize.Large}`;
+    // Cập nhật badge
+    const badge = document.getElementById('proj-count-badge');
+    if(badge){
+      if(projCount>0){
+        badge.style.display='inline-block';
+        const label=projCount>=20?'Nhiều kinh nghiệm':projCount>=10?'Kinh nghiệm tốt':projCount>=5?'Đang tích lũy':'Mới bắt đầu';
+        badge.textContent=projCount+' dự án · '+label;
+      } else { badge.style.display='none'; }
     }
   }
 
@@ -3231,6 +3237,29 @@ async function sheetsRequest(url, payload){
 }
 
 // ── Load all data from Sheet ──
+
+// Refresh project display sau khi projects được load từ Sheets
+// Chỉ chạy nếu người đang xem trên UI khớp với currentPersonName
+function _refreshProjectDisplayIfNeeded(){
+  if(!currentPersonName) return;
+  // Double-check: dropdown value phải trùng currentPersonName
+  const sel = document.getElementById('person-name-input');
+  const dropdownName = sel ? sel.value : '';
+  if(!dropdownName || dropdownName.toLowerCase() !== currentPersonName.toLowerCase()) return;
+  // Gọi autoFill với forceName để không bị guard chặn
+  if(typeof autoFillProjectCount === 'function'){
+    autoFillProjectCount(false, currentPersonName);
+  }
+  // Cập nhật doneCycles
+  const dc = projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
+  }).length;
+  const dcInp = document.getElementById('done-cycles-input');
+  if(dcInp) dcInp.value = dc;
+  const dcDisp = document.getElementById('done-cycles-display');
+  if(dcDisp) dcDisp.textContent = dc;
+}
+
 // Fresh version: luôn lấy từ Sheets, không dùng cache localStorage
 async function sheetsLoadAllFresh(){
   try{
@@ -3249,23 +3278,20 @@ async function sheetsLoadAllFresh(){
       }
       if(data.eval_data){
         Object.entries(data.eval_data).forEach(([key,val])=>{
-          try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+          try{
+            const existing = JSON.parse(localStorage.getItem(key)||'null');
+            const existingTs = existing && existing.ts ? existing.ts : 0;
+            const incomingTs = val && val.ts ? val.ts : 0;
+            if(incomingTs >= existingTs){
+              localStorage.setItem(key, JSON.stringify(val));
+            }
+          } catch(e){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e2){} }
         });
       }
       // Chỉ render person list nếu không đang trong quá trình edit
       if(typeof renderPersonList==='function' && !currentPersonName) renderPersonList();
       if(typeof populatePersonDropdown==='function') populatePersonDropdown();
-      // Refresh project display cho người đang được xem
-      if(typeof currentPersonName !== 'undefined' && currentPersonName && typeof autoFillProjectCount === 'function'){
-        autoFillProjectCount(false, currentPersonName);
-        const autoDoneCycles = projects.filter(function(p){
-          return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
-        }).length;
-        const dcInp = document.getElementById('done-cycles-input');
-        if(dcInp) dcInp.value = autoDoneCycles;
-        const dcDisplay = document.getElementById('done-cycles-display');
-        if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
-      }
+      _refreshProjectDisplayIfNeeded();
     }
   } catch(e){ console.error('Sheets fresh load error', e); }
 }
@@ -3287,24 +3313,20 @@ async function sheetsLoadAll(){
       }
       if(data2.eval_data){
         Object.entries(data2.eval_data).forEach(([key,val])=>{
-          try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+          try{
+            // Chỉ ghi nếu data từ Sheets mới hơn data local (tránh ghi đè data vừa lưu)
+            const existing = JSON.parse(localStorage.getItem(key)||'null');
+            const existingTs = existing && existing.ts ? existing.ts : 0;
+            const incomingTs = val && val.ts ? val.ts : 0;
+            if(incomingTs >= existingTs){
+              localStorage.setItem(key, JSON.stringify(val));
+            }
+          } catch(e){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e2){} }
         });
       }
       if(typeof renderPersonList==='function') renderPersonList();
-      // Sau khi có projects mới, refresh project display cho người đang được xem trong Eval tab
-      if(typeof currentPersonName !== 'undefined' && currentPersonName && typeof autoFillProjectCount === 'function'){
-        autoFillProjectCount(false, currentPersonName);
-        // Cập nhật lại doneCycles
-        const autoDoneCycles = projects.filter(function(p){
-          return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
-        }).length;
-        const dcInp = document.getElementById('done-cycles-input');
-        if(dcInp) dcInp.value = autoDoneCycles;
-        const dcDisplay = document.getElementById('done-cycles-display');
-        if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
-        // Populate lại dropdown nhân viên
-        if(typeof populatePersonDropdown === 'function') populatePersonDropdown();
-      }
+      if(typeof populatePersonDropdown==='function') populatePersonDropdown();
+      _refreshProjectDisplayIfNeeded();
     }
   } catch(e){ console.error('Sheets load error', e); }
 }
