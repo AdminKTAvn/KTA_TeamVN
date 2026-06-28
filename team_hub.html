@@ -2730,9 +2730,12 @@ function renderSummary(){
 
   // Current level display
   const curEl=document.getElementById('sp-level-current');
+  if(!curEl){panel.style.display='none';return;}
   curEl.style.display='flex';
-  document.getElementById('sp-lv-current-val').textContent=currentLevel;
-  document.getElementById('sp-lv-current-sub').textContent=
+  const _curValEl=document.getElementById('sp-lv-current-val');
+  const _curSubEl=document.getElementById('sp-lv-current-sub');
+  if(_curValEl) _curValEl.textContent=currentLevel;
+  if(_curSubEl) _curSubEl.textContent=
     `Điểm trung bình: Mức ${avgMuc.toFixed(1)} / 5 · ${meetItems.length}/${scored.length} tiêu chí đạt yêu cầu${projCount>0?' · '+projCount+' dự án đã thực hiện':''}`;
 
   // Level suggestion logic — dựa trên điểm tổng (I3+I4) >= 8.0
@@ -2791,10 +2794,13 @@ function renderSummary(){
   }
 
   sugEl.className='level-proposal '+suggestClass;
-  document.getElementById('sp-suggest-icon').textContent=suggestIcon;
-  document.getElementById('sp-suggest-label').textContent=suggestLabel;
-  document.getElementById('sp-suggest-val').textContent=suggestLevel;
-  document.getElementById('sp-suggest-sub').textContent=suggestSub;
+  // Rebuild innerHTML vì updateResult đã override sugEl.innerHTML (xóa các ID con)
+  sugEl.innerHTML=`<div class="level-proposal-icon" id="sp-suggest-icon">${suggestIcon}</div>
+    <div class="level-proposal-content">
+      <div class="level-proposal-label" id="sp-suggest-label">Đề xuất</div>
+      <div class="level-proposal-value" id="sp-suggest-val">${suggestLevel}</div>
+      <div class="level-proposal-sub" id="sp-suggest-sub">${suggestSub}</div>
+    </div>`;
 
   // Summary text
   const secScores=i3data.map(sec=>{
@@ -2815,7 +2821,7 @@ function renderSummary(){
   } else {
     summaryText=`Profile có ${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng tạm tính: ${totalScore!==null?totalScore.toFixed(1)+'/ 10':'–'}. Cần cải thiện các điểm yếu trước khi xác nhận hoặc đề xuất thăng level.`;
   }
-  document.getElementById('sp-summary-text').textContent=summaryText;
+  const _sumTextEl=document.getElementById('sp-summary-text'); if(_sumTextEl) _sumTextEl.textContent=summaryText;
 
   // Bullets
   const bullets=[];
@@ -2825,7 +2831,7 @@ function renderSummary(){
   if(weakItems.length) bullets.push(`${weakItems.length} tiêu chí cần cải thiện: ${weakItems.map(i=>I3_COMMENTS[i.id]?.name||i.name).join(', ')}`);
   if(!allScored) bullets.push(`Còn ${all.length-scored.length} tiêu chí chưa được chấm — nên hoàn thành để có kết quả đầy đủ`);
 
-  document.getElementById('sp-bullets').innerHTML=bullets.map(b=>`<li>${b}</li>`).join('');
+  const _bEl=document.getElementById('sp-bullets'); if(_bEl) _bEl.innerHTML=bullets.map(b=>`<li>${b}</li>`).join('');
 }
 
 function renderI2(){
