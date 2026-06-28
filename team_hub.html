@@ -1154,7 +1154,11 @@ renderProjects();
 .ev-wrap .save-toast{font-size:12px;color:#3B6D11;background:#EAF3DE;padding:5px 12px;border-radius:var(--border-radius-md);display:none}
 .ev-wrap .person-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px 4px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;transition:all .15s}
 .ev-wrap .person-chip:hover{background:var(--color-background-secondary)}
-.ev-wrap .person-chip.active-chip{background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:500}
+.ev-wrap .person-chip.active-chip{border-width:1.5px;font-weight:600}
+.ev-wrap .person-chip.active-staff{background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:600}
+.ev-wrap .person-chip.active-senior{background:#EAF3DE;border-color:#639922;color:#3B6D11;font-weight:600}
+.ev-wrap .person-chip.active-key{background:#FDE8F1;border-color:#D85AA0;color:#A02A6B;font-weight:600}
+.ev-wrap .person-chip.active-leader{background:#FAECE7;border-color:#D85A30;color:#993C1D;font-weight:600}
 .ev-wrap .person-chip-del{font-size:13px;color:var(--color-text-tertiary);line-height:1;padding:0 2px;cursor:pointer}
 .ev-wrap .person-chip-del:hover{color:#A32D2D}
 .ev-wrap .person-chip-score{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--color-background-secondary);color:var(--color-text-secondary);margin-left:2px}
@@ -1417,12 +1421,12 @@ const I4_NOTES={
 function setLevel(lv){
   currentLevel=lv;
   const btnIdMap={Staff:'btn-Staff',Senior:'btn-Senior','Key Member':'btn-KeyMember',Leader:'btn-Leader'};
+  const classMap={Staff:'active-staff',Senior:'active-senior','Key Member':'active-key',Leader:'active-leader'};
   document.querySelectorAll('.lv-btn').forEach(b=>b.className='lv-btn');
   const btnEl=document.getElementById(btnIdMap[lv]);
-  if(btnEl) btnEl.classList.add(USER_LEVEL_COLOR[lv]);
+  if(btnEl) btnEl.classList.add(classMap[lv]);
   document.getElementById('level-info').textContent=LEVEL_INFO[lv];
-  document.getElementById('i3lv').innerHTML=`<span class="lvl-badge ${BADGE[lv]}">${lv}</span>`;
-  // Auto-set i4 score based on level
+  document.getElementById('i3lv').innerHTML='<span class="lvl-badge '+BADGE[lv]+'">'+lv+'</span>';
   i4Level=lv;
   renderI3();updateI3Summary();updateResult();
 }
@@ -1770,8 +1774,8 @@ function loadPerson(name){
   const pc = document.getElementById('proj-count');
   if(pc){ pc.value = projCount||''; onProjCount(); }
 
-  // Auto-sync project count
-  autoFillProjectCount(true);
+  // Auto-sync project count từ danh sách dự án
+  autoFillProjectCount(false); // false = không silent, tự cập nhật UI
 
   // Restore I2 selectors
   i2data.flatMap(function(s){ return s.items; }).forEach(function(item){
@@ -1852,14 +1856,15 @@ function renderPersonList(){
       }
     } catch(e){}
     const isActive = name === currentPersonName;
-    const styleAttr = isActive
-      ? `style="${chipLevelStyle || 'background:#E6F1FB;border-color:#378ADD;color:#185FA5'};font-weight:500"`
-      : (chipLevelStyle ? `style="${chipLevelStyle};opacity:0.7"` : '');
-    return `<div class="person-chip ${isActive?'active-chip':''}"
-      ${styleAttr}
-      onclick="loadPerson('${name.replace(/'/g,"\\'")}')">
+    const levelClassMap = {Staff:"active-staff",Senior:"active-senior","Key Member":"active-key",Leader:"active-leader"};
+    const lvClass = d&&d.currentLevel ? (levelClassMap[d.currentLevel]||"") : "";
+    const activeClass = isActive ? ("active-chip " + lvClass) : "";
+    const inactiveStyle = (!isActive && chipLevelStyle) ? 'style="' + chipLevelStyle + ';opacity:0.75"' : "";
+    return `<div class="person-chip ${activeClass}"
+      ${inactiveStyle}
+      onclick="loadPerson('${name.replace(/'/g,"\'")}')"> 
       ${name}${scoreTag}
-      <span class="person-chip-del" onclick="deletePerson('${name.replace(/'/g,"\\'")}', event)">×</span>
+      <span class="person-chip-del" onclick="deletePerson('${name.replace(/'/g,"\'")}', event)">×</span>
     </div>`;
   }).join('');
 }
