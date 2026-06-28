@@ -1171,7 +1171,9 @@ renderProjects();
 <div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:1rem;background:var(--color-background-secondary)">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <span style="font-size:12px;font-weight:500;color:var(--color-text-secondary);white-space:nowrap">👤 Nhân viên:</span>
-    <input id="person-name-input" type="text" placeholder="Nhập tên nhân viên..." style="font-size:13px;padding:5px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:180px" oninput="onPersonNameInput()" />
+    <select id="person-name-input" onchange="onPersonNameSelect(this.value)" style="font-size:13px;padding:5px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:180px;cursor:pointer">
+      <option value="">— Chọn nhân viên —</option>
+    </select>
     <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">📅 Ngày vào team:</span>
     <input id="person-joindate-input" type="date" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)" />
     <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">✅ Chu kỳ Done:</span>
@@ -1677,6 +1679,44 @@ function savePersonList(list){
   try{ localStorage.setItem(getPersonListKey(), JSON.stringify(list)); } catch(e){}
 }
 
+function onPersonNameSelect(name){
+  if(!name) return;
+  // Check if person has saved data
+  const list = getPersonList();
+  if(list.includes(name)){
+    loadPerson(name);
+  } else {
+    // New person - reset form
+    currentPersonName = name;
+    Object.keys(scores3).forEach(k=>delete scores3[k]);
+    Object.keys(scores2).forEach(k=>delete scores2[k]);
+    Object.keys(notes3).forEach(k=>delete notes3[k]);
+    currentLevel = null;
+    projCount = 0;
+    renderI3(); updateI3Summary(); updateResult();
+    autoFillProjectCount(true);
+  }
+}
+
+// Populate person dropdown from all members in projects
+function populatePersonDropdown(){
+  const sel = document.getElementById('person-name-input');
+  if(!sel || sel.tagName !== 'SELECT') return;
+  const currentVal = sel.value;
+  // Get all unique names from projects (excluding leaders)
+  const LEADERS = ['liam','stuart','nina'];
+  const names = new Set();
+  projects.forEach(function(p){
+    (p.membersMain||[]).forEach(function(m){ if(!LEADERS.includes(m.toLowerCase())) names.add(m); });
+    (p.membersBackup||[]).forEach(function(m){ if(!LEADERS.includes(m.toLowerCase())) names.add(m); });
+  });
+  // Also add from saved person list
+  getPersonList().forEach(function(n){ names.add(n); });
+  const sorted = Array.from(names).sort();
+  sel.innerHTML = '<option value="">— Chọn nhân viên —</option>'
+    + sorted.map(function(n){ return '<option value="'+n+'"'+(n===currentVal?' selected':'')+'>'+n+'</option>'; }).join('');
+}
+
 function onPersonNameInput(){
   currentPersonName = document.getElementById('person-name-input').value.trim();
   // Show seniority if join date already set
@@ -1692,8 +1732,9 @@ function onPersonNameInput(){
 }
 
 function savePerson(){
-  const name = document.getElementById('person-name-input').value.trim();
-  if(!name){ alert('Vui lòng nhập tên nhân viên trước khi lưu.'); return; }
+  const nameEl = document.getElementById('person-name-input');
+  const name = (nameEl.value||'').trim();
+  if(!name){ alert('Vui lòng chọn nhân viên trước khi lưu.'); return; }
   const joinDate = document.getElementById('person-joindate-input').value;
   currentPersonName = name;
 
@@ -1737,27 +1778,28 @@ function loadPerson(name){
   try{ data = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
   if(!data){ alert('Không tìm thấy dữ liệu của '+name); return; }
 
+  // BƯỚC 1: Clear toàn bộ data cũ
   Object.keys(scores3).forEach(k=>delete scores3[k]);
   Object.keys(scores2).forEach(k=>delete scores2[k]);
   Object.keys(notes3).forEach(k=>delete notes3[k]);
+  currentLevel = null;
+  projCount = 0;
 
+  // BƯỚC 2: Load data mới của người này
   Object.assign(scores3, data.scores3||{});
   Object.assign(scores2, data.scores2||{});
   Object.assign(notes3, data.notes3||{});
   projCount = data.projCount||0;
   currentPersonName = name;
 
-  document.getElementById('person-name-input').value = name;
-
-  // Restore join date
+  // BƯỚC 3: Cập nhật UI
+  const nameEl = document.getElementById('person-name-input');
+  if(nameEl) nameEl.value = name;
   const jd = document.getElementById('person-joindate-input');
   if(jd) jd.value = data.joinDate||'';
   onPersonNameInput();
 
-  // Load scores3 và scores2 TRƯỚC khi render
-  // (đã load ở trên qua Object.assign)
-
-  // Set level - sẽ trigger renderI3 với scores3 đã có sẵn
+  // BƯỚC 4: Set level → trigger renderI3 với scores3 đúng của người này
   if(data.currentLevel) setLevel(data.currentLevel);
   else { renderI3(); updateI3Summary(); }
 
@@ -2993,6 +3035,7 @@ async function sheetsLoadAllFresh(){
         });
       }
       if(typeof renderPersonList==='function') renderPersonList();
+      if(typeof populatePersonDropdown==='function') populatePersonDropdown();
     }
   } catch(e){ console.error('Sheets fresh load error', e); }
 }
