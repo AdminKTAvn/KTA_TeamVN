@@ -1327,6 +1327,85 @@ renderProjects();
     </div>
   </div>
 
+  <!-- KEY++ ROADMAP -->
+  <div id="keyplus-roadmap" style="display:none;margin-top:16px">
+    <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">🗺️ Lộ trình lên <span style="background:#FDE8F1;color:#A02A6B;padding:2px 8px;border-radius:6px">Key++</span></div>
+
+    <!-- Điểm tích lũy dự án -->
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;margin-bottom:10px;background:var(--color-background-primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">📁 Điểm tích lũy dự án</div>
+        <div id="kp-proj-status" style="font-size:11px;padding:2px 8px;border-radius:6px"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="flex:1;height:6px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden">
+          <div id="kp-proj-bar" style="height:100%;background:#A02A6B;border-radius:3px;transition:width .3s"></div>
+        </div>
+        <div id="kp-proj-nums" style="font-size:11px;color:var(--color-text-secondary);white-space:nowrap"></div>
+      </div>
+      <div id="kp-proj-hint" style="font-size:11px;color:var(--color-text-tertiary);line-height:1.6"></div>
+    </div>
+
+    <!-- Điểm tổng -->
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;margin-bottom:10px;background:var(--color-background-primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">🎯 Điểm tổng</div>
+        <div id="kp-total-status" style="font-size:11px;padding:2px 8px;border-radius:6px"></div>
+      </div>
+      <div id="kp-total-hint" style="font-size:11px;color:var(--color-text-tertiary)"></div>
+    </div>
+
+    <!-- 3 điều kiện Training/Backcheck/Setup -->
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;background:var(--color-background-primary)">
+      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📋 Điều kiện bổ sung <span style="font-size:10px;font-weight:400;color:var(--color-text-tertiary)">(Leader xác nhận)</span></div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <!-- Training -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">🎓 Training</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã đào tạo / hướng dẫn nhân sự cấp dưới</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-training" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer">
+            <span id="kp-training-label" style="font-size:11px;color:var(--color-text-tertiary)">Chờ</span>
+          </label>
+        </div>
+
+        <!-- Backcheck -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">🔍 Backcheck</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã thực hiện kiểm tra chất lượng / review công việc</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-backcheck" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer">
+            <span id="kp-backcheck-label" style="font-size:11px;color:var(--color-text-tertiary)">Chờ</span>
+          </label>
+        </div>
+
+        <!-- Setup -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">⚙️ Setup dự án</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã tự khởi động / setup dự án độc lập</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-setup" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer">
+            <span id="kp-setup-label" style="font-size:11px;color:var(--color-text-tertiary)">Chờ</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Tổng kết -->
+      <div id="kp-summary" style="margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center"></div>
+    </div>
+  </div>
+  <!-- /KEY++ ROADMAP -->
+
   <!-- I3 DETAIL COMMENTS -->
   <div class="i3-detail-box" id="i3-detail-box" style="display:none">
     <div class="i3d-header">
@@ -1482,6 +1561,11 @@ function _autoSavePerson(name){
     currentLevel: currentLevel,
     projCount: projCount,
     doneCycles: doneCycles,
+    keyPlusConditions: {
+      training: document.getElementById('kp-training')?.checked || false,
+      backcheck: document.getElementById('kp-backcheck')?.checked || false,
+      setup: document.getElementById('kp-setup')?.checked || false,
+    },
     scores3: Object.assign({}, scores3),
     scores2: Object.assign({}, scores2),
     notes3: Object.assign({}, notes3),
@@ -1700,20 +1784,28 @@ function savePersonList(list){
 
 function onPersonNameSelect(name){
   if(!name) return;
-  // Check if person has saved data
-  const list = getPersonList();
-  if(list.includes(name)){
+  // Check localStorage trực tiếp xem có data không
+  let savedData = null;
+  try{ savedData = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
+
+  // Clear data người trước
+  Object.keys(scores3).forEach(k=>delete scores3[k]);
+  Object.keys(scores2).forEach(k=>delete scores2[k]);
+  Object.keys(notes3).forEach(k=>delete notes3[k]);
+  currentLevel = null;
+  projCount = 0;
+  currentPersonName = name;
+
+  if(savedData){
+    // Có data → load
     loadPerson(name);
   } else {
-    // New person - reset form
-    currentPersonName = name;
-    Object.keys(scores3).forEach(k=>delete scores3[k]);
-    Object.keys(scores2).forEach(k=>delete scores2[k]);
-    Object.keys(notes3).forEach(k=>delete notes3[k]);
-    currentLevel = null;
-    projCount = 0;
+    // Chưa có data → reset form, auto-fill project
+    const nameEl = document.getElementById('person-name-input');
+    if(nameEl) nameEl.value = name;
     renderI3(); updateI3Summary(); updateResult();
-    autoFillProjectCount(true);
+    autoFillProjectCount(false);
+    updateKeyPlusRoadmap(0, 0);
   }
 }
 
@@ -1792,6 +1884,11 @@ function savePerson(){
     doneCycles: projects.filter(function(p){
       return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
     }).length,
+    keyPlusConditions: {
+      training: document.getElementById('kp-training')?.checked || false,
+      backcheck: document.getElementById('kp-backcheck')?.checked || false,
+      setup: document.getElementById('kp-setup')?.checked || false,
+    },
     scores3:{...scores3}, scores2:{...scores2}, notes3:{...notes3},
     ts: Date.now()
   };
@@ -1809,7 +1906,12 @@ function savePerson(){
 function loadPerson(name){
   let data = null;
   try{ data = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
-  if(!data){ alert('Không tìm thấy dữ liệu của '+name); return; }
+  if(!data){ 
+    // Không có data → dùng onPersonNameSelect để xử lý
+    currentPersonName = name;
+    autoFillProjectCount(false);
+    return; 
+  }
 
   // BƯỚC 1: Clear toàn bộ data cũ
   Object.keys(scores3).forEach(k=>delete scores3[k]);
@@ -1836,6 +1938,9 @@ function loadPerson(name){
   if(data.currentLevel) setLevel(data.currentLevel);
   else { renderI3(); updateI3Summary(); }
 
+  // BƯỚC 5: Auto-sync project SAU KHI có level đúng
+  autoFillProjectCount(false);
+
   // Auto-calculate doneCycles từ project data
   const autoDoneCycles = projects.filter(function(p){
     return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
@@ -1845,12 +1950,6 @@ function loadPerson(name){
   const dcDisplay = document.getElementById('done-cycles-display');
   if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
 
-  // Restore proj count UI
-  const pc = document.getElementById('proj-count');
-  if(pc){ pc.value = projCount||''; onProjCount(); }
-
-  // Auto-sync project count từ danh sách dự án
-  autoFillProjectCount(false); // false = không silent, tự cập nhật UI
 
   // Restore I2 selectors
   i2data.flatMap(function(s){ return s.items; }).forEach(function(item){
@@ -1877,6 +1976,8 @@ function loadPerson(name){
   });
 
   updateResult();
+  // Load Key++ conditions
+  if(typeof loadKeyPlusConditions==='function') loadKeyPlusConditions(data);
   renderPersonList();
 
   const t=document.getElementById('save-toast');
@@ -2129,6 +2230,11 @@ function updateResult(){
   document.getElementById('comment-box').style.display='block';
   renderI3Detail();
   renderSummary();
+  // Update Key++ roadmap
+  if(typeof updateKeyPlusRoadmap==='function'){
+    const ps = currentPersonName ? calcPersonProjectScore(currentPersonName, currentLevel||'Key Member') : null;
+    updateKeyPlusRoadmap(total, ps ? parseFloat(ps.totalRaw) : 0);
+  }
 }
 
 // Recommendation data per i2 item — gợi ý cải thiện cụ thể
@@ -3560,6 +3666,138 @@ function renderDoneCyclesCheckboxes(members, checked=[]){
     </label>`;
   }).join('');
 }
+
+
+// ═══════════ KEY++ ROADMAP ═══════════
+
+function onKeyPlusConditionChange(){
+  if(currentPersonName) _autoSavePerson(currentPersonName);
+  updateKeyPlusRoadmap(null, null);
+}
+
+function loadKeyPlusConditions(data){
+  const kpc = data?.keyPlusConditions || {};
+  const ids = ['training','backcheck','setup'];
+  ids.forEach(function(id){
+    const cb = document.getElementById('kp-'+id);
+    if(cb) cb.checked = kpc[id] || false;
+    const lbl = document.getElementById('kp-'+id+'-label');
+    if(lbl){ lbl.textContent = kpc[id] ? '✓ Đã duyệt' : 'Chờ'; lbl.style.color = kpc[id] ? '#3B6D11' : 'var(--color-text-tertiary)'; }
+  });
+}
+
+function updateKeyPlusRoadmap(total, projRaw){
+  const roadmap = document.getElementById('keyplus-roadmap');
+  if(!roadmap) return;
+
+  // Chỉ hiện cho Key Member
+  if(currentLevel !== 'Key Member'){ roadmap.style.display='none'; return; }
+  roadmap.style.display='block';
+
+  // Lấy điểm nếu không truyền vào
+  if(total === null){
+    const totalEl = document.querySelector('.sum-score');
+    total = totalEl ? parseFloat(totalEl.textContent) : 0;
+  }
+  if(projRaw === null){
+    const ps = calcPersonProjectScore(currentPersonName||'', 'Key Member');
+    projRaw = ps ? parseFloat(ps.totalRaw) : 0;
+  }
+
+  const PROJ_TARGET = 20;
+  const TOTAL_TARGET = 9.0;
+
+  // -- Điểm tích lũy dự án --
+  const projPct = Math.min(100, (projRaw/PROJ_TARGET)*100);
+  const projBar = document.getElementById('kp-proj-bar');
+  const projNums = document.getElementById('kp-proj-nums');
+  const projStatus = document.getElementById('kp-proj-status');
+  const projHint = document.getElementById('kp-proj-hint');
+
+  if(projBar) projBar.style.width = projPct.toFixed(0)+'%';
+  if(projNums) projNums.textContent = projRaw.toFixed(1)+' / '+PROJ_TARGET;
+
+  const projDone = projRaw >= PROJ_TARGET;
+  if(projStatus){
+    projStatus.textContent = projDone ? '✓ Đạt' : 'Chưa đạt';
+    projStatus.style.background = projDone ? '#EAF3DE' : '#FAECE7';
+    projStatus.style.color = projDone ? '#3B6D11' : '#993C1D';
+  }
+
+  if(projHint && !projDone){
+    const need = PROJ_TARGET - projRaw;
+    // Estimate dự án cần thêm (Medium Main Key = 2.1, Large Main Key = 5.0)
+    const nLarge = Math.ceil(need / 5.0);
+    const nMed = Math.ceil(need / 2.1);
+    projHint.innerHTML = 'Còn thiếu <b>'+need.toFixed(1)+'đ</b> · Gợi ý: thêm ~<b>'+nLarge+' dự án Large Main</b> hoặc ~<b>'+nMed+' dự án Medium Main</b>';
+  } else if(projHint){
+    projHint.innerHTML = '✓ Đã tích lũy đủ điểm dự án';
+    projHint.style.color = '#3B6D11';
+  }
+
+  // -- Điểm tổng --
+  const totalStatus = document.getElementById('kp-total-status');
+  const totalHint = document.getElementById('kp-total-hint');
+  const totalDone = total >= TOTAL_TARGET;
+  if(totalStatus){
+    totalStatus.textContent = totalDone ? '✓ Đạt' : 'Chưa đạt';
+    totalStatus.style.background = totalDone ? '#EAF3DE' : '#FAECE7';
+    totalStatus.style.color = totalDone ? '#3B6D11' : '#993C1D';
+  }
+  if(totalHint){
+    if(totalDone){
+      totalHint.innerHTML = '✓ Điểm tổng <b>'+total.toFixed(1)+'/10</b> ≥ 9.0';
+      totalHint.style.color = '#3B6D11';
+    } else {
+      totalHint.innerHTML = 'Hiện tại <b>'+total.toFixed(1)+'/10</b> · Cần thêm <b>'+(TOTAL_TARGET-total).toFixed(1)+'đ</b> để đạt ngưỡng 9.0';
+      totalHint.style.color = 'var(--color-text-tertiary)';
+    }
+  }
+
+  // -- 3 điều kiện --
+  const ids = ['training','backcheck','setup'];
+  ids.forEach(function(id){
+    const cb = document.getElementById('kp-'+id);
+    const lbl = document.getElementById('kp-'+id+'-label');
+    const checked = cb && cb.checked;
+    if(lbl){ lbl.textContent = checked ? '✓ Đã duyệt' : 'Chờ'; lbl.style.color = checked ? '#3B6D11' : 'var(--color-text-tertiary)'; }
+  });
+
+  const conds = ids.map(function(id){ const cb = document.getElementById('kp-'+id); return cb && cb.checked; });
+  const allConds = conds.every(Boolean);
+  const allDone = projDone && totalDone && allConds;
+
+  const summary = document.getElementById('kp-summary');
+  if(summary){
+    const doneCount = [projDone, totalDone, allConds].filter(Boolean).length;
+    if(allDone){
+      summary.style.background = '#EAF3DE';
+      summary.style.color = '#3B6D11';
+      summary.innerHTML = '🎉 Đủ tất cả điều kiện! Đề xuất lên <b>Key++</b>';
+    } else {
+      summary.style.background = '#F1EFE8';
+      summary.style.color = 'var(--color-text-secondary)';
+      summary.innerHTML = 'Hoàn thiện <b>'+doneCount+'/3</b> nhóm điều kiện · Cần đạt hết để lên Key++';
+    }
+  }
+
+  // Cập nhật level suggest nếu đủ điều kiện
+  const sugVal = document.getElementById('sp-suggest-val');
+  const sugSub = document.getElementById('sp-suggest-sub');
+  const sugIcon = document.getElementById('sp-suggest-icon');
+  const sugEl = document.getElementById('sp-level-suggest');
+  if(allDone && sugEl && sugVal){
+    sugEl.style.display='flex';
+    sugEl.className='level-proposal lp-suggest-up';
+    if(sugIcon) sugIcon.textContent='🚀';
+    const sugLabel = document.getElementById('sp-suggest-label');
+    if(sugLabel) sugLabel.textContent='Đề xuất';
+    sugVal.textContent='Đề xuất xem xét lên Key++';
+    if(sugSub) sugSub.textContent='Đã đạt đủ 5 điều kiện: Điểm tổng ≥9.0 · Tích lũy ≥20 · Training · Backcheck · Setup';
+  }
+}
+
+// ═══════════ /KEY++ ROADMAP ═══════════
 
 // ═══════════ LEADERBOARD ═══════════
 
