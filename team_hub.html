@@ -641,8 +641,16 @@ function escapeHtml(str){
 // Get project stats for a given person — used by Evaluation module (Input 3 linkage)
 function getPersonProjectStats(personName){
   const lower = personName.trim().toLowerCase();
-  const asMain = projects.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
-  const asBackup = projects.filter(p=>(p.membersBackup||[]).some(m=>m.toLowerCase()===lower) && !(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  // Dùng global projects, fallback localStorage nếu rỗng hoặc không tìm thấy người
+  let _proj = projects && projects.length ? projects : [];
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower)||(p.membersBackup||[]).some(m=>m.toLowerCase()===lower))){
+    try{
+      const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
+      if(local.length > _proj.length) _proj = local;
+    }catch(e){}
+  }
+  const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  const asBackup = _proj.filter(p=>(p.membersBackup||[]).some(m=>m.toLowerCase()===lower) && !(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
   const involved = [...asMain, ...asBackup];
 
   const bySize = {Small:0,Medium:0,Large:0};
@@ -883,15 +891,23 @@ function calcSeniority(joinDateStr){
 // Get full project score profile for a person
 function calcPersonProjectScore(personName, personLevel){
   const lower = personName.trim().toLowerCase();
-  const mainSolo = projects.filter(p=>
+  // Fallback localStorage nếu global projects không có người này
+  let _proj = projects && projects.length ? projects : [];
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower)||(p.membersBackup||[]).some(m=>m.toLowerCase()===lower))){
+    try{
+      const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
+      if(local.length > _proj.length) _proj = local;
+    }catch(e){}
+  }
+  const mainSolo = _proj.filter(p=>
     (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
     (p.membersBackup||[]).length===0
   );
-  const mainWithSupport = projects.filter(p=>
+  const mainWithSupport = _proj.filter(p=>
     (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
     (p.membersBackup||[]).length>0
   );
-  const supportOnly = projects.filter(p=>
+  const supportOnly = _proj.filter(p=>
     !(p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
     (p.membersBackup||[]).some(m=>m.toLowerCase()===lower)
   );
@@ -1858,6 +1874,11 @@ function populatePersonDropdown(){
       if(!nameMap[key]) nameMap[key] = n;
     });
   }
+  // Đảm bảo người đang được xem vẫn có trong dropdown dù không có trong projects
+  if(typeof currentPersonName !== 'undefined' && currentPersonName){
+    const cpKey = currentPersonName.trim().toLowerCase();
+    if(!nameMap[cpKey]) nameMap[cpKey] = currentPersonName;
+  }
   const sorted = Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
   sel.innerHTML = '<option value="">— Chọn nhân viên —</option>'
     + sorted.map(function(n){ return '<option value="'+n+'"'+(n===currentVal?' selected':'')+'>'+n+'</option>'; }).join('');
@@ -2002,23 +2023,7 @@ function loadPerson(name){
   if(data.currentLevel) setLevel(data.currentLevel);
   else { renderI3(); updateI3Summary(); }
 
-  // BƯỚC 6: Auto-sync project SAU KHI có currentPersonName + level đúng
-  // Nếu projects đã có data thì hiện ngay (silent=false), 
-  // nếu chưa có thì ẩn nhẹ nhàng (silent=true) để sheetsLoadAll refresh sau
-  const _hasProjects = (typeof projects !== 'undefined') && projects && projects.length > 0;
-  autoFillProjectCount(!_hasProjects, name); // silent chỉ khi projects chưa load
-
-  // Auto-calculate doneCycles từ project data
-  const autoDoneCycles = projects.filter(function(p){
-    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
-  }).length;
-  const dcInp = document.getElementById('done-cycles-input');
-  if(dcInp) dcInp.value = autoDoneCycles;
-  const dcDisplay = document.getElementById('done-cycles-display');
-  if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
-
-
-  // Restore I2 selectors
+  // BƯỚC 6: Restore I2 selectors
   i2data.flatMap(function(s){ return s.items; }).forEach(function(item){
     if(scores2[item.id] !== undefined){
       const sel = document.getElementById('s2-'+item.id);
@@ -2034,7 +2039,6 @@ function loadPerson(name){
         }
       }
     } else {
-      // Reset I2 selector nếu không có data
       const sel = document.getElementById('s2-'+item.id);
       if(sel) sel.value = '';
       const d = document.getElementById('s2d-'+item.id);
@@ -2042,10 +2046,23 @@ function loadPerson(name){
     }
   });
 
+  // BƯỚC 7: Update kết quả & điều kiện
   updateResult();
-  // Load Key++ conditions
   if(typeof loadKeyPlusConditions==='function') loadKeyPlusConditions(data);
   renderPersonList();
+
+  // BƯỚC 8: Auto-sync dự án — LUÔN là bước CUỐI CÙNG để không bị override
+  const _hasProjects = (typeof projects !== 'undefined') && projects && projects.length > 0;
+  autoFillProjectCount(!_hasProjects, name);
+
+  // BƯỚC 9: doneCycles
+  const autoDoneCycles = projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
+  }).length;
+  const dcInp = document.getElementById('done-cycles-input');
+  if(dcInp) dcInp.value = autoDoneCycles;
+  const dcDisplay = document.getElementById('done-cycles-display');
+  if(dcDisplay) dcDisplay.textContent = autoDoneCycles;
 
   const t=document.getElementById('save-toast');
   t.textContent='✓ Đã tải '+name+'!'; t.style.display='inline-block';
@@ -3242,11 +3259,22 @@ async function sheetsRequest(url, payload){
 // Chỉ chạy nếu người đang xem trên UI khớp với currentPersonName
 function _refreshProjectDisplayIfNeeded(){
   if(!currentPersonName) return;
-  // Double-check: dropdown value phải trùng currentPersonName
+  // Sync dropdown về đúng người đang xem (phòng trường hợp populatePersonDropdown reset)
   const sel = document.getElementById('person-name-input');
-  const dropdownName = sel ? sel.value : '';
-  if(!dropdownName || dropdownName.toLowerCase() !== currentPersonName.toLowerCase()) return;
-  // Gọi autoFill với forceName để không bị guard chặn
+  if(sel && sel.value.toLowerCase() !== currentPersonName.toLowerCase()){
+    // Tìm option khớp
+    const opt = Array.from(sel.options).find(o => o.value.toLowerCase() === currentPersonName.toLowerCase());
+    if(opt) sel.value = opt.value;
+    // Nếu không có trong dropdown, thêm tạm vào để UI không bị reset
+    else {
+      const newOpt = document.createElement('option');
+      newOpt.value = currentPersonName;
+      newOpt.textContent = currentPersonName;
+      sel.appendChild(newOpt);
+      sel.value = currentPersonName;
+    }
+  }
+  // Refresh project display
   if(typeof autoFillProjectCount === 'function'){
     autoFillProjectCount(false, currentPersonName);
   }
@@ -3291,7 +3319,7 @@ async function sheetsLoadAllFresh(){
       // Chỉ render person list nếu không đang trong quá trình edit
       if(typeof renderPersonList==='function' && !currentPersonName) renderPersonList();
       if(typeof populatePersonDropdown==='function') populatePersonDropdown();
-      _refreshProjectDisplayIfNeeded();
+      setTimeout(function(){ _refreshProjectDisplayIfNeeded(); }, 50);
     }
   } catch(e){ console.error('Sheets fresh load error', e); }
 }
@@ -3326,7 +3354,8 @@ async function sheetsLoadAll(){
       }
       if(typeof renderPersonList==='function') renderPersonList();
       if(typeof populatePersonDropdown==='function') populatePersonDropdown();
-      _refreshProjectDisplayIfNeeded();
+      // Delay nhỏ để DOM ổn định rồi mới refresh
+      setTimeout(function(){ _refreshProjectDisplayIfNeeded(); }, 50);
     }
   } catch(e){ console.error('Sheets load error', e); }
 }
