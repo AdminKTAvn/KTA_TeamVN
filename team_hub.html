@@ -1924,18 +1924,51 @@ function loadPerson(name){
   let data = null;
   try{ data = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
   if(!data){ 
-    // Không có data → dùng onPersonNameSelect để xử lý
+    // Không có data → clear UI và auto-fill project
+    Object.keys(scores3).forEach(k=>delete scores3[k]);
+    Object.keys(scores2).forEach(k=>delete scores2[k]);
+    Object.keys(notes3).forEach(k=>delete notes3[k]);
+    currentLevel = null; projCount = 0;
+    const _pcR = document.getElementById('proj-count'); if(_pcR) _pcR.value='';
+    const _detR = document.getElementById('proj-link-detail'); if(_detR){_detR.style.display='none';_detR.innerHTML='';}
+    const _togR = document.getElementById('proj-list-toggle'); if(_togR) _togR.style.display='none';
+    const _panR = document.getElementById('proj-list-panel'); if(_panR) _panR.style.display='none';
+    projListOpen=false;
+    const _badR = document.getElementById('proj-count-badge'); if(_badR) _badR.style.display='none';
+    const _dcR = document.getElementById('done-cycles-display'); if(_dcR) _dcR.textContent='0';
+    const _dcIR = document.getElementById('done-cycles-input'); if(_dcIR) _dcIR.value='0';
+    document.querySelectorAll('.lv-btn').forEach(b=>b.className='lv-btn');
     currentPersonName = name;
-    autoFillProjectCount(false);
+    const _ne = document.getElementById('person-name-input'); if(_ne) _ne.value = name;
+    renderI3(); updateI3Summary(); updateResult();
+    autoFillProjectCount(false, name);
+    updateKeyPlusRoadmap(0, 0);
     return; 
   }
 
-  // BƯỚC 1: Clear toàn bộ data cũ
+  // BƯỚC 1: Clear toàn bộ data cũ — bao gồm cả UI để không dính data người trước
   Object.keys(scores3).forEach(k=>delete scores3[k]);
   Object.keys(scores2).forEach(k=>delete scores2[k]);
   Object.keys(notes3).forEach(k=>delete notes3[k]);
   currentLevel = null;
   projCount = 0;
+  // Reset project UI
+  const _pcReset = document.getElementById('proj-count');
+  if(_pcReset) _pcReset.value = '';
+  const _detailReset = document.getElementById('proj-link-detail');
+  if(_detailReset){ _detailReset.style.display='none'; _detailReset.innerHTML=''; }
+  const _toggleReset = document.getElementById('proj-list-toggle');
+  if(_toggleReset) _toggleReset.style.display='none';
+  const _panelReset = document.getElementById('proj-list-panel');
+  if(_panelReset) _panelReset.style.display='none';
+  projListOpen = false;
+  const _badgeReset = document.getElementById('proj-count-badge');
+  if(_badgeReset) _badgeReset.style.display='none';
+  // Reset done cycles UI
+  const _dcReset = document.getElementById('done-cycles-display');
+  if(_dcReset) _dcReset.textContent = '0';
+  const _dcInpReset = document.getElementById('done-cycles-input');
+  if(_dcInpReset) _dcInpReset.value = '0';
 
   // BƯỚC 2: Load data mới của người này
   Object.assign(scores3, data.scores3||{});
@@ -2026,6 +2059,16 @@ function deletePerson(name, e){
   renderPersonList();
 }
 
+// Wrapper để switch người từ chip — đảm bảo clear đúng trước khi load
+function switchToPerson(name){
+  if(!name || name === currentPersonName) return;
+  // Sync dropdown value
+  const sel = document.getElementById('person-name-input');
+  if(sel) sel.value = name;
+  // Dùng onPersonNameSelect để đảm bảo clear + load đúng flow
+  onPersonNameSelect(name);
+}
+
 function renderPersonList(){
   const list = getPersonList();
   const container = document.getElementById('person-list');
@@ -2061,12 +2104,15 @@ function renderPersonList(){
     } catch(e){}
     const isActive = name === currentPersonName;
     const levelClassMap = {Staff:"active-staff",Senior:"active-senior","Key Member":"active-key",Leader:"active-leader"};
-    const lvClass = d&&d.currentLevel ? (levelClassMap[d.currentLevel]||"") : "";
+    // Đọc lại d an toàn (có thể undefined ngoài try block)
+    let _chipData = null;
+    try{ _chipData = JSON.parse(localStorage.getItem(getStorageKey(name))); } catch(e){}
+    const lvClass = _chipData&&_chipData.currentLevel ? (levelClassMap[_chipData.currentLevel]||"") : "";
     const activeClass = isActive ? ("active-chip " + lvClass) : "";
     const inactiveStyle = (!isActive && chipLevelStyle) ? 'style="' + chipLevelStyle + ';opacity:0.75"' : "";
     return `<div class="person-chip ${activeClass}"
       ${inactiveStyle}
-      onclick="loadPerson('${name.replace(/'/g,"\'")}')"> 
+      onclick="switchToPerson('${name.replace(/'/g,"\'")}')"> 
       ${name}${scoreTag}
       <span class="person-chip-del" onclick="deletePerson('${name.replace(/'/g,"\'")}', event)">×</span>
     </div>`;
