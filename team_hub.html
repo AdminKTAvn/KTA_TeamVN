@@ -91,6 +91,7 @@ button{font-family:var(--font-sans)}
     <div class="main-tab active" id="maintab-projects" onclick="switchMainTab('projects')">📁 Quản lý dự án</div>
     <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')">📊 Đánh giá năng lực</div>
     <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none">👤 Tra cứu của tôi</div>
+    <div class="main-tab" id="maintab-lb" onclick="switchMainTab('lb');renderLeaderboard()" style="display:none">🏆 Xếp hạng</div>
   </div>
 
   <!-- ═══════════ PANEL 1: PROJECT MANAGEMENT ═══════════ -->
@@ -776,12 +777,11 @@ function confirmCsvImport(){
 // Size base scores
 const SIZE_BASE = {Small:2, Medium:3, Large:5};
 
-// Complexity multiplier by tick count (using cxTotal for fairness)
-function getCxMultiplier(cxCount, cxTotal){
-  const ratio = cxTotal > 0 ? cxCount/cxTotal : 0;
-  if(ratio === 0) return 1.0;
-  if(ratio <= 0.33) return 1.2; // 1-2 ticks out of 6
-  return 1.4; // 3+ ticks
+// Complexity bonus: max 5 điểm, chia đều theo số mục
+// CxBonus = (số tick / tổng số mục) × 5
+function getCxBonus(cxCount, cxTotal){
+  if(!cxTotal || cxTotal === 0) return 0;
+  return (cxCount / cxTotal) * 5;
 }
 
 // Level fit multiplier — how well project size matches person's level
@@ -818,25 +818,27 @@ function getRoleMultiplier(role){
 function calcProjectScore(proj, personLevel, role){
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
-  const cxMult = getCxMultiplier(proj.complexityCount||0, cxTotal);
+  const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
   const roleMult = getRoleMultiplier(role);
-  return base * cxMult * levelMult * roleMult;
+  // Điểm = (Base + CxBonus) × LevelMult × RoleMult
+  return (base + cxBonus) * levelMult * roleMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
-const LEVEL_BENCHMARK = {Staff:15, Senior:25, 'Key Member':40, Leader:50};
+const LEVEL_BENCHMARK = {Staff:8, Senior:12, 'Key Member':20, Leader:35};
 
 // Tỷ trọng I2/I3/Dự án by level + project relation
 function getWeights(personLevel, projectRelation){
-  if(personLevel==='Staff') return {proj:0.3, i3:0.7, i2:0.0};
-  if(personLevel==='Leader') return {proj:0, i3:0, i2:0.2, team:0.8};
-  const below = projectRelation==='below';
-  const weights = {
-    Senior:      below ? {proj:0.15,i3:0.70,i2:0.15} : {proj:0.30,i3:0.55,i2:0.15},
-    'Key Member':below ? {proj:0.15,i3:0.65,i2:0.20} : {proj:0.30,i3:0.50,i2:0.20},
+  // Trọng số cố định theo level
+  // Dự án giảm dần khi lên cao vì dự án lớn cần nhiều thời gian hơn
+  const WEIGHTS = {
+    'Staff':      {proj:0.30, i3:0.70, i2:0.00},
+    'Senior':     {proj:0.30, i3:0.55, i2:0.15},
+    'Key Member': {proj:0.20, i3:0.60, i2:0.20},
+    'Leader':     {proj:0.20, i3:0.00, i2:0.80},
   };
-  return weights[personLevel] || {proj:0.30,i3:0.55,i2:0.15};
+  return WEIGHTS[personLevel] || {proj:0.30, i3:0.55, i2:0.15};
 }
 
 // Thâm niên calculation
@@ -992,6 +994,29 @@ renderProjects();
       </div>
     </div>
   </div>
+  <!-- ═══════════ PANEL 4: LEADERBOARD ═══════════ -->
+  <div class="main-panel" id="mainpanel-lb">
+    <div style="max-width:800px;margin:0 auto">
+      <div style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">🏆 Bảng xếp hạng</div>
+
+      <!-- Project ranking - visible to all -->
+      <div class="app-card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📁 Xếp hạng Dự án & Chu kỳ <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(tất cả thành viên)</span></div>
+        <div id="lb-projects"></div>
+      </div>
+
+      <!-- I3/I2/Total ranking - by level -->
+      <div id="lb-scores-section" style="display:none">
+        <div class="app-card">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px">📊 Xếp hạng Điểm <span id="lb-level-label" style="font-size:11px;font-weight:400;color:var(--color-text-secondary)"></span></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Xếp hạng trong cùng level</div>
+          <div id="lb-scores"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ═══════════ /PANEL 4 ═══════════ -->
+
   <!-- ═══════════ /PANEL 3 ═══════════ -->
 
   <!-- ═══════════ /PANEL 1 ═══════════ -->
@@ -1130,6 +1155,8 @@ renderProjects();
     <input id="person-name-input" type="text" placeholder="Nhập tên nhân viên..." style="font-size:13px;padding:5px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:180px" oninput="onPersonNameInput()" />
     <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">📅 Ngày vào team:</span>
     <input id="person-joindate-input" type="date" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)" />
+    <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap">✅ Chu kỳ Done:</span>
+    <input id="done-cycles-input" type="number" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:60px" />
     <button class="btn-save" onclick="savePerson()">💾 Lưu</button>
     <button class="btn-reset" onclick="resetAll()" style="margin-left:auto">↺ Reset form</button>
     <span class="save-toast" id="save-toast">✓ Đã lưu!</span>
@@ -1640,7 +1667,8 @@ function savePerson(){
 
   const data = {
     name, joinDate, currentLevel,
-    projCount, // saved per person separately
+    projCount,
+    doneCycles: parseInt(document.getElementById('done-cycles-input')?.value||0)||0,
     scores3:{...scores3}, scores2:{...scores2}, notes3:{...notes3},
     ts: Date.now()
   };
@@ -1678,6 +1706,8 @@ function loadPerson(name){
   onPersonNameInput();
 
   if(data.currentLevel) setLevel(data.currentLevel);
+  const dcInp = document.getElementById('done-cycles-input');
+  if(dcInp) dcInp.value = data.doneCycles||0;
   else { currentLevel=null; renderI3(); updateI3Summary(); }
 
   // Restore proj count UI
@@ -1863,7 +1893,7 @@ function updateResult(){
   total = parseFloat(total.toFixed(2));
 
   // ── Suggestion threshold ──
-  const SUGGEST_THRESHOLD = 8.0;
+  const SUGGEST_THRESHOLD = 8.0; // Staff→Senior và Senior→Key đều 8/10; Key→level mới sẽ set riêng sau
   const LEVEL_ORDER = ['Staff','Senior','Key Member','Leader'];
   const curIdx = LEVEL_ORDER.indexOf(currentLevel);
   const nextLevel = curIdx < 3 ? LEVEL_ORDER[curIdx+1] : null;
@@ -1890,6 +1920,11 @@ function updateResult(){
       `Tạm tính — còn ${all.length-scored.length} tiêu chí I3 chưa chấm`;
   }
 
+  // ── Done cycles check ──
+  const doneCycles = parseInt(document.getElementById('done-cycles-input')?.value||0)||0;
+  const needDoneCycle = currentLevel === 'Staff'; // Staff->Senior cần ít nhất 1 chu kỳ done
+  const hasDoneCycle = doneCycles >= 1;
+
   // ── Level suggestion ──
   const sugEl = document.getElementById('sp-level-suggest');
   if(sugEl){
@@ -1899,15 +1934,24 @@ function updateResult(){
       sugClass='lp-warn'; sugIcon='⏳'; sugLabel='Chưa đủ dữ liệu';
       sugSub=`Chấm đủ ${all.length} tiêu chí I3 để có đề xuất chính xác.`;
     } else if(total >= SUGGEST_THRESHOLD && nextLevel){
-      sugClass='lp-suggest-up'; sugIcon='🚀'; sugLabel=`Đề xuất xem xét lên ${nextLevel}`;
-      sugSub=`Điểm tổng ${total.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Đủ điều kiện đề xuất lên ${nextLevel}.`;
+      // Kiểm tra điều kiện bổ sung
+      if(needDoneCycle && !hasDoneCycle){
+        // Staff đủ điểm nhưng chưa có chu kỳ done
+        sugClass='lp-warn'; sugIcon='⚠️'; sugLabel=`Đủ điểm nhưng chưa đủ điều kiện lên ${nextLevel}`;
+        sugSub=`Điểm tổng ${total.toFixed(1)}/10 ✓ · Cần ít nhất 1 chu kỳ Main hoàn thành để lên ${nextLevel}.`;
+      } else {
+        sugClass='lp-suggest-up'; sugIcon='🚀'; sugLabel=`Đề xuất xem xét lên ${nextLevel}`;
+        const cycleNote = doneCycles > 0 ? ` · ${doneCycles} chu kỳ Done ✓` : '';
+        sugSub=`Điểm tổng ${total.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}${cycleNote}. Đủ điều kiện đề xuất lên ${nextLevel}.`;
+      }
     } else if(total >= SUGGEST_THRESHOLD && !nextLevel){
       sugClass='lp-suggest-up'; sugIcon='🏆'; sugLabel='Xuất sắc — Leader';
       sugSub=`Điểm tổng ${total.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Năng lực Leader vững chắc.`;
     } else {
       const gap = (SUGGEST_THRESHOLD - total).toFixed(1);
+      const cycleWarn = needDoneCycle && !hasDoneCycle ? ' · ⚠️ Chưa có chu kỳ Done' : '';
       sugClass='lp-suggest'; sugIcon='📌'; sugLabel=`Xác nhận ${currentLevel} · Cần +${gap} điểm để đề xuất thăng`;
-      sugSub=`Đạt level hiện tại. Cần cải thiện thêm ${gap} điểm để đủ ngưỡng ${SUGGEST_THRESHOLD}.`;
+      sugSub=`Đạt level hiện tại. Cần cải thiện thêm ${gap} điểm để đủ ngưỡng ${SUGGEST_THRESHOLD}${cycleWarn}.`;
     }
     sugEl.className='level-proposal '+sugClass;
     sugEl.innerHTML=`<div class="level-proposal-icon">${sugIcon}</div>
@@ -3258,23 +3302,26 @@ function applyRoleUI(){
   const projTab = document.getElementById('maintab-projects');
   const evalTab = document.getElementById('maintab-eval');
   if(!userTab) return;
+  const lbTab = document.getElementById('maintab-lb');
   if(sheetsRole === 'user'){
-    // User: chỉ thấy tab Tra cứu
+    // User: thấy Tra cứu + Leaderboard
     userTab.style.display = 'flex';
+    if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'none';
     evalTab.style.display = 'none';
     switchMainTab('user');
   } else if(sheetsRole === 'leader'){
-    // Leader: full view, no user portal
+    // Leader: full view
     userTab.style.display = 'none';
+    if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
-    // Hide delete-all / sheets config buttons
     const dangerBtns = document.querySelectorAll('.admin-only');
     dangerBtns.forEach(b => b.style.display='none');
   } else {
-    // Admin: show all tabs, hide User Portal
+    // Admin: tất cả tab
     userTab.style.display = 'none';
+    if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
   }
@@ -3337,6 +3384,189 @@ function applyRoleUI(){
 })();
 
 // ═══════════ /USER PORTAL ═══════════
+
+
+// ═══════════ LEADERBOARD ═══════════
+
+function renderLeaderboard(){
+  const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
+  const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
+
+  // Get all persons with eval data
+  const personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
+
+  // Build project ranking (all members)
+  const projData = [];
+  personList.forEach(name=>{
+    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+    let d = null;
+    try{ d = JSON.parse(localStorage.getItem(key)); } catch(e){}
+    const lv = d?.currentLevel || 'Staff';
+    const ps = calcPersonProjectScore(name, lv);
+    const dc = d?.doneCycles || 0;
+    projData.push({
+      name, level: lv,
+      raw: parseFloat(ps.totalRaw),
+      score: parseFloat(ps.projScore10),
+      doneCycles: dc,
+      mainCount: ps.mainCount,
+      backupCount: ps.backupCount
+    });
+  });
+
+  // Sort by raw desc, then doneCycles desc
+  projData.sort((a,b)=> b.raw-a.raw || b.doneCycles-a.doneCycles);
+
+  const LEVEL_COLOR_BG = {
+    'Staff': '#E6F1FB', 'Senior': '#EAF3DE',
+    'Key Member': '#FDE8F1', 'Leader': '#FAECE7'
+  };
+  const LEVEL_COLOR_TEXT = {
+    'Staff': '#185FA5', 'Senior': '#3B6D11',
+    'Key Member': '#A02A6B', 'Leader': '#993C1D'
+  };
+
+  const lbProj = document.getElementById('lb-projects');
+  if(lbProj){
+    lbProj.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
+          <th style="padding:6px 8px;text-align:center;width:36px">#</th>
+          <th style="padding:6px 8px;text-align:left">Thành viên</th>
+          <th style="padding:6px 8px;text-align:center">Level</th>
+          <th style="padding:6px 8px;text-align:center">Điểm DÁ</th>
+          <th style="padding:6px 8px;text-align:center">Raw</th>
+          <th style="padding:6px 8px;text-align:center">✅ Chu kỳ</th>
+          <th style="padding:6px 8px;text-align:center">Main</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${projData.map((p,i)=>{
+          const isMe = p.name.toLowerCase() === myName;
+          const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
+          const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
+          const lvBg = LEVEL_COLOR_BG[p.level]||'#eee';
+          const lvTx = LEVEL_COLOR_TEXT[p.level]||'#333';
+          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+          return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
+            <td style="padding:6px 8px;text-align:center;font-size:13px">${medal}</td>
+            <td style="padding:6px 8px">${displayName}</td>
+            <td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${lvBg};color:${lvTx}">${p.level}</span></td>
+            <td style="padding:6px 8px;text-align:center;font-weight:500">${p.score}/10</td>
+            <td style="padding:6px 8px;text-align:center;color:var(--color-text-secondary)">${p.raw.toFixed(1)}</td>
+            <td style="padding:6px 8px;text-align:center">${p.doneCycles>0?`<b>${p.doneCycles}</b>`:'–'}</td>
+            <td style="padding:6px 8px;text-align:center">${p.mainCount}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  // Score ranking by level
+  const lbScoresSection = document.getElementById('lb-scores-section');
+  const lbScores = document.getElementById('lb-scores');
+  const lbLevelLabel = document.getElementById('lb-level-label');
+
+  // Determine which level to show
+  let targetLevel = null;
+  if(isAdmin){
+    targetLevel = null; // Admin sees all levels
+  } else {
+    // User sees their own level
+    const myKey = 'eval_v7_person_'+myName.replace(/\s+/g,'_');
+    try{
+      const myData = JSON.parse(localStorage.getItem(myKey));
+      targetLevel = myData?.currentLevel || null;
+    } catch(e){}
+  }
+
+  const scoreData = [];
+  personList.forEach(name=>{
+    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+    let d = null;
+    try{ d = JSON.parse(localStorage.getItem(key)); } catch(e){}
+    if(!d || !d.currentLevel || !d.scores3) return;
+    if(targetLevel && d.currentLevel !== targetLevel) return;
+
+    // Calc I3
+    const all = i3data.flatMap(s=>s.items);
+    const scored = all.filter(i=>d.scores3[i.id]);
+    if(!scored.length) return;
+    const avgMuc = scored.reduce((a,i)=>a+d.scores3[i.id],0)/scored.length;
+    const i3 = parseFloat(((avgMuc/5)*10).toFixed(1));
+
+    // Calc I2
+    const i2all = i2data.flatMap(s=>s.items);
+    const i2scored = i2all.filter(i=>d.scores2?.[i.id]!==undefined);
+    const i2 = i2scored.length ? parseFloat((i2scored.reduce((a,i)=>a+d.scores2[i.id],0)/i2scored.length).toFixed(1)) : 0;
+
+    // Calc proj
+    const ps = calcPersonProjectScore(name, d.currentLevel);
+    const proj = parseFloat(ps.projScore10);
+
+    // Calc total
+    const w = getWeights(d.currentLevel, 'match');
+    const total = parseFloat((i3*w.i3 + proj*w.proj + i2*(w.i2||0)).toFixed(1));
+
+    scoreData.push({ name, level: d.currentLevel, i3, i2, proj, total });
+  });
+
+  if(!scoreData.length){
+    if(lbScoresSection) lbScoresSection.style.display='none';
+    return;
+  }
+
+  scoreData.sort((a,b)=>b.total-a.total);
+  if(lbScoresSection) lbScoresSection.style.display='block';
+  if(lbLevelLabel) lbLevelLabel.textContent = targetLevel ? `(${targetLevel})` : '(tất cả level)';
+
+  if(lbScores){
+    // Group by level if admin
+    const levels = isAdmin
+      ? ['Staff','Senior','Key Member','Leader']
+      : [targetLevel];
+
+    lbScores.innerHTML = levels.map(lv=>{
+      const lvData = scoreData.filter(p=>p.level===lv);
+      if(!lvData.length) return '';
+      const lvBg = LEVEL_COLOR_BG[lv]||'#eee';
+      const lvTx = LEVEL_COLOR_TEXT[lv]||'#333';
+      return `
+      ${isAdmin ? `<div style="font-size:11px;font-weight:600;padding:6px 8px;background:${lvBg};color:${lvTx};border-radius:6px;margin-bottom:6px">${lv}</div>` : ''}
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:${isAdmin?'16px':'0'}">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
+            <th style="padding:5px 8px;text-align:center;width:36px">#</th>
+            <th style="padding:5px 8px;text-align:left">Thành viên</th>
+            <th style="padding:5px 8px;text-align:center">I3</th>
+            <th style="padding:5px 8px;text-align:center">Dự án</th>
+            <th style="padding:5px 8px;text-align:center">I2</th>
+            <th style="padding:5px 8px;text-align:center;font-weight:600">Tổng</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lvData.map((p,i)=>{
+            const isMe = p.name.toLowerCase() === myName;
+            const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
+            const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
+            const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+            return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
+              <td style="padding:5px 8px;text-align:center">${medal}</td>
+              <td style="padding:5px 8px">${displayName}</td>
+              <td style="padding:5px 8px;text-align:center">${p.i3}</td>
+              <td style="padding:5px 8px;text-align:center">${p.proj}</td>
+              <td style="padding:5px 8px;text-align:center">${p.i2}</td>
+              <td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">${p.total}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    }).join('');
+  }
+}
+
+// ═══════════ /LEADERBOARD ═══════════
 
 // ═══════════ LINK: auto-fill project count in Evaluation tab from Project data ═══════════
 function getProjectCountForCurrentPerson(){
