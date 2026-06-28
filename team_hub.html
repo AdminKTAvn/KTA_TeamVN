@@ -1023,8 +1023,8 @@ renderProjects();
       <!-- I3/I2/Total ranking - by level -->
       <div id="lb-scores-section" style="display:none">
         <div class="app-card">
-          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px">📊 Xếp hạng Điểm <span id="lb-level-label" style="font-size:11px;font-weight:400;color:var(--color-text-secondary)"></span></div>
-          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Xếp hạng trong cùng level</div>
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px">📁 Xếp hạng Dự án trong Level <span id="lb-level-label" style="font-size:11px;font-weight:400;color:var(--color-text-secondary)"></span></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Điểm dự án /10 theo benchmark của level</div>
           <div id="lb-scores"></div>
         </div>
       </div>
@@ -3485,33 +3485,39 @@ function renderLeaderboard(){
         <tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
           <th style="padding:6px 8px;text-align:center;width:36px">#</th>
           <th style="padding:6px 8px;text-align:left">Thành viên</th>
-          <th style="padding:6px 8px;text-align:center">Level</th>
-          <th style="padding:6px 8px;text-align:center">Điểm DÁ</th>
-          <th style="padding:6px 8px;text-align:center">Raw</th>
+          <th style="padding:6px 8px;text-align:center">Điểm tích lũy</th>
           <th style="padding:6px 8px;text-align:center">✅ Chu kỳ</th>
           <th style="padding:6px 8px;text-align:center">Main</th>
+          <th style="padding:6px 8px;text-align:center">Backup</th>
         </tr>
       </thead>
       <tbody>
         ${projData.map((p,i)=>{
           const isMe = p.name.toLowerCase() === myName;
-          const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
+          const displayName = isAdmin ? p.name : (isMe ? \`⭐ \${p.name}\` : 'KTA VN');
           const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
-          const lvBg = LEVEL_COLOR_BG[p.level]||'#eee';
-          const lvTx = LEVEL_COLOR_TEXT[p.level]||'#333';
-          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-          return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
-            <td style="padding:6px 8px;text-align:center;font-size:13px">${medal}</td>
-            <td style="padding:6px 8px">${displayName}</td>
-            <td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${lvBg};color:${lvTx}">${p.level}</span></td>
-            <td style="padding:6px 8px;text-align:center;font-weight:500">${p.score}/10</td>
-            <td style="padding:6px 8px;text-align:center;color:var(--color-text-secondary)">${p.raw.toFixed(1)}</td>
-            <td style="padding:6px 8px;text-align:center">${p.doneCycles>0?`<b>${p.doneCycles}</b>`:'–'}</td>
-            <td style="padding:6px 8px;text-align:center">${p.mainCount}</td>
-          </tr>`;
+          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':\`\${i+1}\`;
+          return \`<tr style="border-bottom:0.5px solid var(--color-border-tertiary);\${rowBg}\${isMe?';font-weight:600':''}">
+            <td style="padding:6px 8px;text-align:center;font-size:13px">\${medal}</td>
+            <td style="padding:6px 8px">\${displayName}</td>
+            <td style="padding:6px 8px;text-align:center;font-weight:600;color:var(--color-text-primary)">\${p.raw.toFixed(1)}</td>
+            <td style="padding:6px 8px;text-align:center">\${p.doneCycles>0?\`<b>\${p.doneCycles}</b>\`:'–'}</td>
+            <td style="padding:6px 8px;text-align:center">\${p.mainCount}</td>
+            <td style="padding:6px 8px;text-align:center;color:var(--color-text-tertiary)">\${p.backupCount}</td>
+          </tr>\`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table>
+    <div style="margin-top:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px;font-size:11px;color:var(--color-text-tertiary);line-height:1.8">
+      <b style="color:var(--color-text-secondary)">📐 Công thức tính điểm tích lũy:</b><br>
+      Điểm 1 dự án = <b>(Base + CxBonus) × LevelMult × RoleMult</b><br>
+      • Base: Small=2 · Medium=3 · Large=5<br>
+      • CxBonus = (số tick phức tạp / tổng mục) × 5 — tối đa 5đ<br>
+      • LevelMult: Staff(S:1.0 M:1.3 L:0) · Senior(S:0.5 M:1.0 L:1.3) · Key(S:0.3 M:0.7 L:1.0)<br>
+      • RoleMult: Main solo=1.0 · Main+backup=0.7 · Backup=0.3<br>
+      <b>Ví dụ</b> — Liam: dự án Large, 3/6 tick phức tạp, Key Member, Main solo:<br>
+      → (5 + 2.5) × 1.0 × 1.0 = <b>7.5 điểm</b>
+    </div>`;
   }
 
   // Score ranking by level
@@ -3532,35 +3538,23 @@ function renderLeaderboard(){
     } catch(e){}
   }
 
+  // Build score data from project data (no I3/I2 needed)
+  // Use allMembers already built above
   const scoreData = [];
-  personList.forEach(name=>{
-    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
-    let d = null;
-    try{ d = JSON.parse(localStorage.getItem(key)); } catch(e){}
-    if(!d || !d.currentLevel || !d.scores3) return;
-    if(targetLevel && d.currentLevel !== targetLevel) return;
+  allMembers.forEach(name=>{
+    const key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/[\s]+/g,'_');
+    let lv = 'Staff';
+    try{ const d=JSON.parse(localStorage.getItem(key)); if(d?.currentLevel) lv=d.currentLevel; } catch(e){}
+    if(targetLevel && lv !== targetLevel) return;
 
-    // Calc I3
-    const all = i3data.flatMap(s=>s.items);
-    const scored = all.filter(i=>d.scores3[i.id]);
-    if(!scored.length) return;
-    const avgMuc = scored.reduce((a,i)=>a+d.scores3[i.id],0)/scored.length;
-    const i3 = parseFloat(((avgMuc/5)*10).toFixed(1));
-
-    // Calc I2
-    const i2all = i2data.flatMap(s=>s.items);
-    const i2scored = i2all.filter(i=>d.scores2?.[i.id]!==undefined);
-    const i2 = i2scored.length ? parseFloat((i2scored.reduce((a,i)=>a+d.scores2[i.id],0)/i2scored.length).toFixed(1)) : 0;
-
-    // Calc proj
-    const ps = calcPersonProjectScore(name, d.currentLevel);
+    const ps = calcPersonProjectScore(name, lv);
     const proj = parseFloat(ps.projScore10);
+    const raw = parseFloat(ps.totalRaw);
+    const doneCycles = projects.filter(p=>
+      (p.doneCycleMembers||[]).some(m=>m.toLowerCase()===name.toLowerCase())
+    ).length;
 
-    // Calc total
-    const w = getWeights(d.currentLevel, 'match');
-    const total = parseFloat((i3*w.i3 + proj*w.proj + i2*(w.i2||0)).toFixed(1));
-
-    scoreData.push({ name, level: d.currentLevel, i3, i2, proj, total });
+    scoreData.push({ name, level: lv, proj, raw, doneCycles });
   });
 
   if(!scoreData.length){
@@ -3568,7 +3562,7 @@ function renderLeaderboard(){
     return;
   }
 
-  scoreData.sort((a,b)=>b.total-a.total);
+  scoreData.sort((a,b)=>b.proj-a.proj || b.doneCycles-a.doneCycles);
   if(lbScoresSection) lbScoresSection.style.display='block';
   if(lbLevelLabel) lbLevelLabel.textContent = targetLevel ? `(${targetLevel})` : '(tất cả level)';
 
@@ -3578,41 +3572,48 @@ function renderLeaderboard(){
       ? ['Staff','Senior','Key Member','Leader']
       : [targetLevel];
 
+    const BENCH = {Staff:8, Senior:12, 'Key Member':20, Leader:35};
     lbScores.innerHTML = levels.map(lv=>{
       const lvData = scoreData.filter(p=>p.level===lv);
       if(!lvData.length) return '';
       const lvBg = LEVEL_COLOR_BG[lv]||'#eee';
       const lvTx = LEVEL_COLOR_TEXT[lv]||'#333';
-      return `
-      ${isAdmin ? `<div style="font-size:11px;font-weight:600;padding:6px 8px;background:${lvBg};color:${lvTx};border-radius:6px;margin-bottom:6px">${lv}</div>` : ''}
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:${isAdmin?'16px':'0'}">
-        <thead>
-          <tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
-            <th style="padding:5px 8px;text-align:center;width:36px">#</th>
-            <th style="padding:5px 8px;text-align:left">Thành viên</th>
-            <th style="padding:5px 8px;text-align:center">I3</th>
-            <th style="padding:5px 8px;text-align:center">Dự án</th>
-            <th style="padding:5px 8px;text-align:center">I2</th>
-            <th style="padding:5px 8px;text-align:center;font-weight:600">Tổng</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lvData.map((p,i)=>{
-            const isMe = p.name.toLowerCase() === myName;
-            const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
-            const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
-            const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-            return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
-              <td style="padding:5px 8px;text-align:center">${medal}</td>
-              <td style="padding:5px 8px">${displayName}</td>
-              <td style="padding:5px 8px;text-align:center">${p.i3}</td>
-              <td style="padding:5px 8px;text-align:center">${p.proj}</td>
-              <td style="padding:5px 8px;text-align:center">${p.i2}</td>
-              <td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">${p.total}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
+      const bench = BENCH[lv]||20;
+      const rows = lvData.map((p,i)=>{
+        const isMe = p.name.toLowerCase() === myName;
+        const displayName = isAdmin ? p.name : (isMe ? `⭐ ${p.name}` : 'KTA VN');
+        const rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
+        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+        return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}${isMe?';font-weight:600':''}">
+          <td style="padding:5px 8px;text-align:center">${medal}</td>
+          <td style="padding:5px 8px">${displayName}</td>
+          <td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">${p.proj}/10</td>
+          <td style="padding:5px 8px;text-align:center;color:var(--color-text-secondary)">${p.raw.toFixed(1)}</td>
+          <td style="padding:5px 8px;text-align:center">${p.doneCycles>0?`<b>${p.doneCycles}</b>`:'–'}</td>
+        </tr>`;
+      }).join('');
+      const lvHeader = isAdmin
+        ? `<div style="font-size:11px;font-weight:600;padding:6px 10px;background:${lvBg};color:${lvTx};border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between"><span>${lv}</span><span style="font-weight:400;font-size:10px">Benchmark: ${bench}</span></div>`
+        : `<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Benchmark: <b>${bench}</b> · Điểm = Tích lũy / ${bench} × 10</div>`;
+      return lvHeader + `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px">
+        <thead><tr style="border-bottom:1px solid var(--color-border-secondary);color:var(--color-text-secondary)">
+          <th style="padding:5px 8px;text-align:center;width:36px">#</th>
+          <th style="padding:5px 8px;text-align:left">Thành viên</th>
+          <th style="padding:5px 8px;text-align:center;font-weight:600">Điểm /10</th>
+          <th style="padding:5px 8px;text-align:center">Tích lũy</th>
+          <th style="padding:5px 8px;text-align:center">✅ Chu kỳ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-bottom:${isAdmin?'20px':'0'};padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">
+        <b style="color:var(--color-text-secondary)">📐 Công thức:</b>
+        Điểm dự án /10 = min(10, Điểm tích lũy / ${bench} × 10)<br>
+        Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br><br>
+        <b style="color:var(--color-text-secondary)">📌 Benchmark ${bench} là gì?</b><br>
+        Là mức điểm tích lũy dự án cần đạt để được 10/10 ở level ${lv}.<br>
+        Benchmark tăng dần theo level vì dự án quy mô lớn hơn cần nhiều thời gian hơn — số lượng dự án ít hơn nhưng chất lượng cao hơn.<br>
+        Staff=8 · Senior=12 · Key Member=20 · Leader=35
+      </div>`;
     }).join('');
   }
 }
