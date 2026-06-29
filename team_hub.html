@@ -2145,8 +2145,13 @@ function renderPersonList(){
           const avgMuc=scored.reduce((a,i)=>a+d.scores3[i.id],0)/scored.length;
           const i3s=((avgMuc/5)*10);
           const w=getWeights(d.currentLevel,'match');
-          const preview=(i3s*(w.i3||0.7)).toFixed(1);
-          scoreTag=`<span class="person-chip-score">${preview}</span>`;
+          // Tính điểm tổng thật: I3 + Proj + I2
+          const ps=(typeof calcPersonProjectScore==='function') ? calcPersonProjectScore(name, d.currentLevel) : null;
+          const projS=ps ? parseFloat(ps.projScore10) : 0;
+          const i2vals=i2data.flatMap(s=>s.items).filter(i=>d.scores2&&d.scores2[i.id]);
+          const i2s=i2vals.length ? i2vals.reduce((a,i)=>a+(d.scores2[i.id]||0),0)/i2vals.length : 0;
+          const total=(i3s*w.i3)+(projS*(w.proj||0.3))+(i2s*(w.i2||0));
+          scoreTag=`<span class="person-chip-score">${total.toFixed(1)}</span>`;
         }
         chipLevelStyle = CHIP_LEVEL_COLOR[d.currentLevel]||'';
         chipLevel = d.currentLevel||'';
