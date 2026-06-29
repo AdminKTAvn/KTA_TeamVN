@@ -1701,8 +1701,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
       <div id="lb-user-note" style="display:none;background:#FEF3DC;border:0.5px solid #E8A420;border-radius:var(--border-radius-lg);padding:12px 16px;margin-bottom:16px;line-height:1.7">
         <div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:4px">📌 Lưu ý về bảng xếp hạng</div>
         <div style="font-size:12px;color:#854F0B">
-          Điểm xếp hạng được tính dựa trên <b>các dự án thực tế đã tham gia</b>, lấy từ bảng Quản lý dự án (nguồn: Google Sheet họp hàng tuần).<br>
-          Điểm sẽ <b>thay đổi theo từng giai đoạn</b> khi dự án được cập nhật — không phải con số cố định để so sánh trực tiếp giữa các thành viên ở các giai đoạn khác nhau.
+          Điểm xếp hạng được tính dựa trên <b>các dự án thực tế đã tham gia</b>, lấy từ bảng Quản lý dự án (nguồn: Google Sheet họp hàng tuần).
         </div>
       </div>
 
@@ -4923,7 +4922,12 @@ function renderLeaderboard(){
   // Hàm đặt tên con vật ẩn danh — nhất quán theo tên thật (hash đơn giản)
   var ANIMALS = ['🐼 Panda','🦊 Cáo','🐨 Koala','🦁 Sư Tử','🐯 Hổ','🦋 Bướm','🦜 Vẹt',
     '🐸 Ếch','🦔 Nhím','🐧 Cánh Cụt','🦦 Rái Cá','🐙 Bạch Tuộc','🦘 Kangaroo',
-    '🐬 Cá Heo','🦒 Hươu Cao Cổ','🐺 Sói','🦅 Đại Bàng','🐻 Gấu','🦩 Hồng Hạc','🐲 Rồng'];
+    '🐬 Cá Heo','🦒 Hươu Cao Cổ','🐺 Sói','🦅 Đại Bàng','🐻 Gấu','🦩 Hồng Hạc','🐲 Rồng',
+    '🦝 Gấu Mèo','🐮 Bò','🦙 Lạc Đà','🐑 Cừu','🦌 Nai','🐊 Cá Sấu','🦈 Cá Mập',
+    '🐳 Cá Voi','🦚 Công','🦜 Két','🐦 Chim Sẻ','🦉 Cú','🐇 Thỏ','🦫 Hải Ly',
+    '🐿 Sóc','🦎 Thằn Lằn','🐢 Rùa','🦠 Sứa','🐠 Cá Nhiệt Đới','🦑 Mực',
+    '🦋 Bướm Đêm','🐝 Ong','🦗 Dế','🐛 Sâu Bướm','🦀 Cua','🦞 Tôm Hùm',
+    '🐓 Gà Trống','🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu'];
   function getAnimalName(name){
     var h=0; for(var k=0;k<name.length;k++) h=(h*31+name.charCodeAt(k))&0xffff;
     return ANIMALS[h % ANIMALS.length];
