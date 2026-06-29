@@ -1350,6 +1350,7 @@ renderProjects();
       <div class="sum-divider"></div>
       <div class="summary-text" id="sp-summary-text"></div>
       <ul class="summary-bullets" id="sp-bullets"></ul>
+      <div id="sp-prereq" style="display:none;margin-top:14px;border-radius:10px;border:0.5px solid #EF9F27;background:#FAEEDA;padding:14px 16px"></div>
     </div>
   </div>
 
@@ -2769,6 +2770,89 @@ function renderI3Detail(){
   }).join('');
 }
 
+function renderPrereqCheck(){
+  const el = document.getElementById('sp-prereq');
+  if(!el) return;
+
+  // Chỉ check khi level >= Senior
+  const LEVELS = ['Staff','Senior','Key Member','Leader'];
+  const curIdx = LEVELS.indexOf(currentLevel);
+  if(curIdx < 1){ el.style.display='none'; return; }
+
+  // Config điều kiện từng level
+  const PREREQ = {
+    'Senior': { projTarget:10, scoreTarget:8.0, cycleMin:1, label:'Staff' },
+    'Key Member': { projTarget:15, scoreTarget:8.0, cycleMin:1, label:'Senior' },
+    'Leader': { projTarget:25, scoreTarget:9.0, cycleMin:1, label:'Key Member' },
+  };
+
+  // Check từ level ngay dưới đi lên
+  const missing = [];
+  for(let i=1; i<=curIdx; i++){
+    const lv = LEVELS[i];
+    const cfg = PREREQ[lv];
+    if(!cfg) continue;
+    const prevLv = LEVELS[i-1];
+
+    // Tính proj raw của level dưới
+    const ps = (typeof calcPersonProjectScore==='function')
+      ? calcPersonProjectScore(currentPersonName||'', prevLv) : null;
+    const projRaw = ps ? parseFloat(ps.totalRaw) : 0;
+
+    // Tính điểm tổng ở level dưới
+    let scorePrev = 0;
+    if(ps){
+      const all = i3data.flatMap(s=>s.items);
+      const sc = all.filter(item=>scores3[item.id]);
+      if(sc.length){
+        const avg = sc.reduce((a,item)=>a+scores3[item.id],0)/sc.length;
+        const i3s = (avg/5)*10;
+        const projS = parseFloat(ps.projScore10);
+        const i2vals = i2data.flatMap(s=>s.items).filter(item=>scores2[item.id]);
+        const i2s = i2vals.length ? i2vals.reduce((a,item)=>a+(scores2[item.id]||0),0)/i2vals.length : 0;
+        const w = (typeof getWeights==='function') ? getWeights(prevLv,'match') : {i3:0.7,proj:0.3,i2:0};
+        scorePrev = (i3s*w.i3)+(projS*(w.proj||0.3))+(i2s*(w.i2||0));
+      }
+    }
+
+    // Đếm chu kỳ
+    const cycles = (typeof projects!=='undefined') ? projects.filter(function(p){
+      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===(currentPersonName||'').toLowerCase(); });
+    }).length : 0;
+
+    const items = [];
+    if(projRaw < cfg.projTarget){
+      items.push('Điểm tích lũy dự án: <b>'+projRaw.toFixed(1)+' / '+cfg.projTarget+'</b> (còn thiếu '+(cfg.projTarget-projRaw).toFixed(1)+'đ)');
+    }
+    if(scorePrev < cfg.scoreTarget){
+      items.push('Điểm tổng ở level '+prevLv+': <b>'+scorePrev.toFixed(1)+' / '+cfg.scoreTarget+'</b> (còn thiếu '+(cfg.scoreTarget-scorePrev).toFixed(1)+'đ)');
+    }
+    if(cycles < cfg.cycleMin){
+      items.push('Chu kỳ dự án hoàn thành: <b>'+cycles+' / '+cfg.cycleMin+'</b>');
+    }
+
+    if(items.length){
+      missing.push({ fromLevel: prevLv, toLevel: lv, items });
+    }
+  }
+
+  if(!missing.length){ el.style.display='none'; return; }
+
+  el.style.display='block';
+  el.innerHTML = missing.map(function(m){
+    return '<div style="margin-bottom:'+(missing.length>1?'12px':'0')+'">'
+      +'<div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:8px">'
+      +'⚠️ Cần hoàn thành bù — <b>'+m.fromLevel+'</b> trước khi xác nhận <b>'+m.toLevel+'</b>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:5px">'
+      +m.items.map(function(it){
+        return '<div style="font-size:11px;color:#854F0B;padding:5px 10px;background:rgba(255,255,255,0.6);border-radius:6px">'+it+'</div>';
+      }).join('')
+      +'</div>'
+      +'</div>';
+  }).join('<div style="height:1px;background:#EF9F27;opacity:0.3;margin:8px 0"></div>');
+}
+
 function renderSummary(){
   const panel=document.getElementById('summary-panel');
   const all=i3data.flatMap(s=>s.items);
@@ -2892,6 +2976,7 @@ function renderSummary(){
   if(!allScored) bullets.push(`Còn ${all.length-scored.length} tiêu chí chưa được chấm — nên hoàn thành để có kết quả đầy đủ`);
 
   const _bEl=document.getElementById('sp-bullets'); if(_bEl) _bEl.innerHTML=bullets.map(b=>`<li>${b}</li>`).join('');
+  renderPrereqCheck();
 }
 
 function renderI2(){
