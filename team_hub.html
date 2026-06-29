@@ -278,6 +278,11 @@ button{font-family:var(--font-sans)}
 // ═══════════ MEMBERS MODULE ═══════════
 let members = [];
 
+// Helper dùng nội bộ (_mbEscape có thể chưa load từ module khác)
+function _mbEscape(str){
+  const d=document.createElement('div'); d.textContent=str; return d.innerHTML;
+}
+
 function loadMembers(){
   try{ members = JSON.parse(localStorage.getItem('teamhub_members')) || []; }
   catch(e){ members = []; }
@@ -428,7 +433,7 @@ function renderMembers(){
     const sen   = calcMemberSeniority(m.joinDate);
     const jFmt  = m.joinDate?new Date(m.joinDate).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}):'—';
     return `<tr style="${m.active===false?'opacity:0.55':''}">
-      <td><div class="mb-name">${escapeHtml(m.name)}</div>${m.notes?`<div class="mb-note">${escapeHtml(m.notes)}</div>`:''}</td>
+      <td><div class="mb-name">${_mbEscape(m.name)}</div>${m.notes?`<div class="mb-note">${_mbEscape(m.notes)}</div>`:''}</td>
       <td><span class="mb-badge ${lvCls}">${m.level}</span></td>
       <td><span class="mb-badge ${tmCls}">${m.team}</span></td>
       <td style="font-size:12px;color:var(--color-text-secondary)">${jFmt}</td>
@@ -476,7 +481,7 @@ function _renderMsDropdown(cid, names, selected, placeholder){
   container.innerHTML=`<div class="ms-dropdown">
     <div class="ms-display" id="${cid}-display" onclick="toggleMsList('${cid}')">
       ${selected.length
-        ? selected.map(n=>`<span class="ms-tag">${escapeHtml(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
+        ? selected.map(n=>`<span class="ms-tag">${_mbEscape(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
         : `<span class="ms-placeholder">${placeholder||'Chọn nhân sự...'}</span>`}
     </div>
     <div class="ms-list" id="${cid}-list">
@@ -488,8 +493,8 @@ function _renderMsDropdown(cid, names, selected, placeholder){
 
 function _buildMsOpts(cid, names, selected){
   if(!names.length) return '<div class="ms-empty-opt">Chưa có nhân sự — thêm ở tab Nhân sự</div>';
-  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
-    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${_mbEscape(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${_mbEscape(n)}
   </div>`).join('');
 }
 
@@ -525,7 +530,7 @@ function _syncMsDisplay(cid, selected){
   const display=document.getElementById(cid+'-display');
   if(!display) return;
   display.innerHTML=selected.length
-    ? selected.map(n=>`<span class="ms-tag">${escapeHtml(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
+    ? selected.map(n=>`<span class="ms-tag">${_mbEscape(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
     : '<span class="ms-placeholder">Chọn nhân sự...</span>';
 }
 
@@ -541,8 +546,8 @@ function _syncMsOpts(cid, selected){
 // Build opts với data-name attribute
 function _buildMsOptsNamed(cid, names, selected){
   if(!names.length) return '<div class="ms-empty-opt">Chưa có nhân sự — thêm ở tab Nhân sự</div>';
-  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
-    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${_mbEscape(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${_mbEscape(n)}
   </div>`).join('');
 }
 
@@ -556,8 +561,8 @@ function filterMsList(cid, query){
   const opts=document.getElementById(cid+'-opts');
   if(!opts) return;
   opts.innerHTML=filtered.length
-    ? filtered.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
-        <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+    ? filtered.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${_mbEscape(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+        <span class="ms-check">${selected.includes(n)?'✓':''}</span>${_mbEscape(n)}
       </div>`).join('')
     : '<div class="ms-empty-opt">Không tìm thấy</div>';
 }
@@ -634,7 +639,7 @@ function openImportMembersModal(){
               <td style="padding:7px 12px;text-align:center">
                 <input type="checkbox" class="mb-import-chk" data-idx="${i}" ${isDup?'disabled title="Đã có trong danh sách"':''} ${!isDup?'checked':''}>
               </td>
-              <td style="padding:7px 12px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(c.name)}${isDup?'<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">(đã có)</span>':''}</td>
+              <td style="padding:7px 12px;font-weight:500;color:var(--color-text-primary)">${_mbEscape(c.name)}${isDup?'<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">(đã có)</span>':''}</td>
               <td style="padding:7px 12px"><span class="mb-badge ${lvCls}" style="font-size:10px">${c.level||'—'}</span></td>
               <td style="padding:7px 12px;color:var(--color-text-secondary)">${c.team||'—'}</td>
               <td style="padding:7px 12px;color:var(--color-text-secondary)">${jFmt}</td>
