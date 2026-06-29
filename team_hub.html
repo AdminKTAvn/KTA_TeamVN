@@ -88,14 +88,651 @@ button{font-family:var(--font-sans)}
   </div>
 
   <div class="main-tabs">
-    <div class="main-tab active" id="maintab-projects" onclick="switchMainTab('projects')">📁 Quản lý dự án</div>
+    <div class="main-tab active" id="maintab-members" onclick="switchMainTab('members')">👥 Nhân sự</div>
+    <div class="main-tab" id="maintab-projects" onclick="switchMainTab('projects')">📁 Quản lý dự án</div>
     <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')">📊 Đánh giá năng lực</div>
     <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none">👤 Tra cứu của tôi</div>
     <div class="main-tab" id="maintab-lb" onclick="switchMainTab('lb');renderLeaderboard()" style="display:none">🏆 Xếp hạng</div>
   </div>
 
+  <!-- ═══════════ PANEL 0: MEMBERS ═══════════ -->
+  <div class="main-panel active" id="mainpanel-members">
+<style>
+.mb-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:10px;flex-wrap:wrap}
+.mb-add-btn{font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500}
+.mb-add-btn:hover{background:#333}
+.mb-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.mb-stat{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:14px 16px}
+.mb-stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:6px}
+.mb-stat-value{font-size:24px;font-weight:600;color:var(--color-text-primary)}
+.mb-table-wrap{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);overflow:hidden}
+.mb-table{width:100%;border-collapse:collapse;font-size:13px}
+.mb-table th{text-align:left;font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.3px;padding:10px 14px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.mb-table td{padding:11px 14px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:middle}
+.mb-table tr:last-child td{border-bottom:none}
+.mb-table tr:hover td{background:var(--color-background-secondary)}
+.mb-name{font-weight:500;color:var(--color-text-primary);font-size:13px}
+.mb-note{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.mb-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;display:inline-block}
+.mb-lv-staff{background:#E6F1FB;color:#185FA5}
+.mb-lv-senior{background:#EAF3DE;color:#3B6D11}
+.mb-lv-key{background:#FDE8F1;color:#A02A6B}
+.mb-lv-leader{background:#FAECE7;color:#993C1D}
+.mb-team-liam{background:#F5E8E6;color:#8B2E1F}
+.mb-team-stuart{background:#F0E8FA;color:#6B2FA0}
+.mb-team-nina{background:#FCE8F3;color:#A0296B}
+.mb-active-badge{background:#EAF3DE;color:#3B6D11}
+.mb-inactive-badge{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.mb-icon-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:3px 6px;border-radius:4px;color:var(--color-text-secondary)}
+.mb-icon-btn:hover{background:var(--color-background-secondary)}
+.mb-row-actions{display:flex;gap:4px}
+.mb-empty{text-align:center;padding:40px;color:var(--color-text-tertiary);font-size:13px}
+.mb-filter-row{display:flex;gap:8px;flex-wrap:wrap}
+.mb-filter-select{font-size:12px;padding:6px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)}
+/* Modal nhân sự */
+.mb-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:none;align-items:center;justify-content:center}
+.mb-modal-overlay.open{display:flex}
+.mb-modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:24px;max-width:480px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.18)}
+.mb-modal-title{font-size:16px;font-weight:600;margin-bottom:20px;color:var(--color-text-primary)}
+.mb-field{margin-bottom:16px}
+.mb-field label{display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px}
+.mb-field input,.mb-field select,.mb-field textarea{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px;font-family:inherit}
+.mb-field input:focus,.mb-field select:focus,.mb-field textarea:focus{outline:none;border-color:#1A1A18}
+.mb-field textarea{min-height:60px;resize:vertical}
+.mb-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.mb-btn-cancel{padding:8px 18px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;font-size:13px;color:var(--color-text-secondary)}
+.mb-btn-save{padding:8px 20px;border-radius:var(--border-radius-md);border:none;background:#1A1A18;color:#fff;cursor:pointer;font-size:13px;font-weight:500}
+/* Multi-select dropdown */
+.ms-dropdown{position:relative;width:100%;box-sizing:border-box}
+.ms-display{min-height:38px;padding:6px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.ms-display:focus-within,.ms-display.open{border-color:#1A1A18}
+.ms-tag{font-size:11px;padding:3px 8px;border-radius:20px;background:#1A1A18;color:#fff;display:inline-flex;align-items:center;gap:4px;font-weight:500}
+.ms-tag-del{cursor:pointer;opacity:.7;font-size:12px;line-height:1}
+.ms-tag-del:hover{opacity:1}
+.ms-placeholder{font-size:13px;color:var(--color-text-tertiary)}
+.ms-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:1100;max-height:220px;overflow-y:auto;display:none}
+.ms-list.open{display:block}
+.ms-list-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--color-text-primary)}
+.ms-list-item:hover{background:var(--color-background-secondary)}
+.ms-list-item.selected{font-weight:500}
+.ms-check{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--color-border-secondary);display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.ms-list-item.selected .ms-check{background:#1A1A18;border-color:#1A1A18;color:#fff}
+.ms-search{width:100%;box-sizing:border-box;padding:8px 12px;border:none;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);outline:none}
+.ms-empty-opt{padding:10px 14px;font-size:12px;color:var(--color-text-tertiary);text-align:center}
+</style>
+
+<div class="mb-toolbar">
+  <div class="mb-filter-row">
+    <select class="mb-filter-select" id="mb-filter-team" onchange="renderMembers()">
+      <option value="">Tất cả nhóm</option>
+      <option value="Liam">Liam</option>
+      <option value="Stuart">Stuart</option>
+      <option value="Nina">Nina</option>
+    </select>
+    <select class="mb-filter-select" id="mb-filter-level" onchange="renderMembers()">
+      <option value="">Tất cả level</option>
+      <option value="Staff">Staff</option>
+      <option value="Senior">Senior</option>
+      <option value="Key Member">Key Member</option>
+      <option value="Leader">Leader</option>
+    </select>
+    <select class="mb-filter-select" id="mb-filter-active" onchange="renderMembers()">
+      <option value="">Tất cả</option>
+      <option value="active">Đang làm</option>
+      <option value="inactive">Đã nghỉ</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="mb-save-toast" style="display:none;font-size:12px;color:#3B6D11;background:#EAF3DE;padding:5px 12px;border-radius:var(--border-radius-md)">✓ Đã lưu!</span>
+    <button class="mb-add-btn admin-only" style="background:var(--color-background-primary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)" onclick="openImportMembersModal()">⬆ Import từ dữ liệu cũ</button>
+    <button class="mb-add-btn admin-only" onclick="openMemberModal()">+ Thêm nhân sự</button>
+  </div>
+</div>
+
+<!-- Modal Import nhân sự từ dữ liệu cũ -->
+<div class="mb-modal-overlay" id="mb-import-overlay">
+  <div class="mb-modal" style="max-width:580px">
+    <div class="mb-modal-title">⬆ Import nhân sự từ dữ liệu hiện có</div>
+    <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:16px;line-height:1.7">
+      Hệ thống tự động tìm tên từ <b>dữ liệu dự án</b> và <b>lịch sử đánh giá</b>, điền sẵn Level + Join Date nếu có.<br>
+      Bỏ tick những người không muốn import. Sau khi import vẫn có thể sửa từng người.
+    </div>
+    <div id="mb-import-preview"></div>
+    <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:8px" id="mb-import-note"></div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-cancel" onclick="closeImportMembersModal()">Huỷ</button>
+      <button class="mb-btn-save" id="mb-import-confirm-btn" onclick="confirmImportMembers()">Import</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb-stats" id="mb-stats-grid"></div>
+
+<div class="mb-table-wrap">
+  <table class="mb-table">
+    <thead>
+      <tr>
+        <th>Tên</th>
+        <th>Level</th>
+        <th>Nhóm</th>
+        <th>Ngày vào</th>
+        <th>Thâm niên</th>
+        <th>Trạng thái</th>
+        <th style="width:72px"></th>
+      </tr>
+    </thead>
+    <tbody id="mb-table-body"></tbody>
+  </table>
+  <div class="mb-empty" id="mb-empty" style="display:none">Chưa có nhân sự nào. Bấm "+ Thêm nhân sự" để bắt đầu.</div>
+</div>
+
+<!-- Modal Add/Edit Nhân sự -->
+<div class="mb-modal-overlay" id="mb-modal-overlay">
+  <div class="mb-modal">
+    <div class="mb-modal-title" id="mb-modal-title">Thêm nhân sự</div>
+    <input type="hidden" id="mb-edit-id" value="">
+    <div class="mb-field">
+      <label>Tên (tag name dùng trong hệ thống)</label>
+      <input type="text" id="mb-f-name" placeholder="VD: An, Bình, Chi...">
+    </div>
+    <div class="mb-field">
+      <label>Level hiện tại</label>
+      <select id="mb-f-level">
+        <option value="Staff">Staff</option>
+        <option value="Senior">Senior</option>
+        <option value="Key Member">Key Member</option>
+        <option value="Leader">Leader</option>
+      </select>
+    </div>
+    <div class="mb-field">
+      <label>Nhóm phụ trách</label>
+      <select id="mb-f-team">
+        <option value="Liam">Liam</option>
+        <option value="Stuart">Stuart</option>
+        <option value="Nina">Nina</option>
+      </select>
+    </div>
+    <div class="mb-field">
+      <label>Ngày vào làm</label>
+      <input type="date" id="mb-f-joindate">
+    </div>
+    <div class="mb-field">
+      <label>Trạng thái</label>
+      <select id="mb-f-active">
+        <option value="active">Đang làm</option>
+        <option value="inactive">Đã nghỉ</option>
+      </select>
+    </div>
+    <div class="mb-field">
+      <label>Ghi chú (tuỳ chọn)</label>
+      <textarea id="mb-f-notes" placeholder="VD: Chuyên MEP, đang onboarding..."></textarea>
+    </div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-cancel" onclick="closeMemberModal()">Huỷ</button>
+      <button class="mb-btn-save" onclick="saveMember()">Lưu nhân sự</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════ MEMBERS MODULE ═══════════
+let members = [];
+
+function loadMembers(){
+  try{ members = JSON.parse(localStorage.getItem('teamhub_members')) || []; }
+  catch(e){ members = []; }
+}
+
+function persistMembers(){
+  try{ localStorage.setItem('teamhub_members', JSON.stringify(members)); } catch(e){}
+  if(typeof syncToSheets === 'function') syncToSheets('members');
+}
+
+function calcMemberSeniority(joinDateStr){
+  if(!joinDateStr) return '—';
+  const join = new Date(joinDateStr);
+  const now = new Date();
+  const months = Math.max(0, Math.floor((now - join) / (1000*60*60*24*30.44)));
+  const years = Math.floor(months/12);
+  const rem = months % 12;
+  if(years > 0 && rem > 0) return years+'n '+rem+'th';
+  if(years > 0) return years+' năm';
+  if(months > 0) return months+' tháng';
+  return '< 1 tháng';
+}
+
+function openMemberModal(editId){
+  document.getElementById('mb-modal-overlay').classList.add('open');
+  if(editId){
+    const m = members.find(x=>x.id===editId);
+    if(!m) return;
+    document.getElementById('mb-modal-title').textContent='Sửa nhân sự';
+    document.getElementById('mb-edit-id').value=editId;
+    document.getElementById('mb-f-name').value=m.name;
+    document.getElementById('mb-f-level').value=m.level;
+    document.getElementById('mb-f-team').value=m.team;
+    document.getElementById('mb-f-joindate').value=m.joinDate||'';
+    document.getElementById('mb-f-active').value=m.active!==false?'active':'inactive';
+    document.getElementById('mb-f-notes').value=m.notes||'';
+  } else {
+    document.getElementById('mb-modal-title').textContent='Thêm nhân sự';
+    document.getElementById('mb-edit-id').value='';
+    document.getElementById('mb-f-name').value='';
+    document.getElementById('mb-f-level').value='Staff';
+    document.getElementById('mb-f-team').value='Liam';
+    document.getElementById('mb-f-joindate').value='';
+    document.getElementById('mb-f-active').value='active';
+    document.getElementById('mb-f-notes').value='';
+  }
+}
+
+function closeMemberModal(){
+  document.getElementById('mb-modal-overlay').classList.remove('open');
+}
+
+function saveMember(){
+  const name = document.getElementById('mb-f-name').value.trim();
+  if(!name){ alert('Vui lòng nhập tên nhân sự.'); return; }
+  const level   = document.getElementById('mb-f-level').value;
+  const team    = document.getElementById('mb-f-team').value;
+  const joinDate= document.getElementById('mb-f-joindate').value;
+  const active  = document.getElementById('mb-f-active').value === 'active';
+  const notes   = document.getElementById('mb-f-notes').value.trim();
+  const editId  = document.getElementById('mb-edit-id').value;
+
+  if(editId){
+    const m = members.find(x=>x.id===editId);
+    if(m){ m.name=name; m.level=level; m.team=team; m.joinDate=joinDate; m.active=active; m.notes=notes; }
+  } else {
+    const dup = members.find(x=>x.name.trim().toLowerCase()===name.toLowerCase() && x.active!==false);
+    if(dup && !confirm('Đã có nhân sự tên "'+name+'" trong danh sách. Vẫn thêm?')) return;
+    members.push({
+      id:'mbr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+      name, level, team, joinDate, active, notes, createdAt:Date.now()
+    });
+  }
+  persistMembers();
+  closeMemberModal();
+  renderMembers();
+  refreshProjectMemberDropdowns();
+  if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
+  const toast=document.getElementById('mb-save-toast');
+  if(toast){ toast.style.display='inline-block'; setTimeout(()=>toast.style.display='none',2000); }
+}
+
+function deleteMember(id){
+  const m = members.find(x=>x.id===id);
+  if(!m) return;
+  if(!confirm('Xoá nhân sự "'+m.name+'"?\nLưu ý: dữ liệu dự án liên quan không bị thay đổi.')) return;
+  members = members.filter(x=>x.id!==id);
+  persistMembers();
+  renderMembers();
+  refreshProjectMemberDropdowns();
+}
+
+const MB_LEVEL_CLASS={'Staff':'mb-lv-staff','Senior':'mb-lv-senior','Key Member':'mb-lv-key','Leader':'mb-lv-leader'};
+const MB_TEAM_CLASS={'Liam':'mb-team-liam','Stuart':'mb-team-stuart','Nina':'mb-team-nina'};
+
+function renderMembers(){
+  const fTeam   = document.getElementById('mb-filter-team').value;
+  const fLevel  = document.getElementById('mb-filter-level').value;
+  const fActive = document.getElementById('mb-filter-active').value;
+
+  const filtered = members.filter(m=>
+    (!fTeam  || m.team===fTeam) &&
+    (!fLevel || m.level===fLevel) &&
+    (!fActive|| (fActive==='active'?m.active!==false:m.active===false))
+  );
+
+  const activeAll = members.filter(m=>m.active!==false);
+  const byLevel = {Staff:0,Senior:0,'Key Member':0,Leader:0};
+  activeAll.forEach(m=>{ if(byLevel[m.level]!==undefined) byLevel[m.level]++; });
+
+  document.getElementById('mb-stats-grid').innerHTML=`
+    <div class="mb-stat"><div class="mb-stat-label">Tổng nhân sự</div><div class="mb-stat-value">${activeAll.length}</div></div>
+    <div class="mb-stat"><div class="mb-stat-label">Staff / Senior</div><div class="mb-stat-value" style="font-size:18px">${byLevel['Staff']} / ${byLevel['Senior']}</div></div>
+    <div class="mb-stat"><div class="mb-stat-label">Key Member / Leader</div><div class="mb-stat-value" style="font-size:18px">${byLevel['Key Member']} / ${byLevel['Leader']}</div></div>
+    <div class="mb-stat"><div class="mb-stat-label">Không còn làm</div><div class="mb-stat-value" style="color:var(--color-text-tertiary)">${members.filter(m=>m.active===false).length}</div></div>
+  `;
+
+  const tbody = document.getElementById('mb-table-body');
+  const empty = document.getElementById('mb-empty');
+  if(!filtered.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  const sorted = filtered.slice().sort((a,b)=>{
+    if((a.active!==false)!==(b.active!==false)) return a.active===false?1:-1;
+    if(a.team!==b.team) return a.team.localeCompare(b.team);
+    return a.name.localeCompare(b.name);
+  });
+
+  const isAdmin = (typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader');
+
+  tbody.innerHTML = sorted.map(m=>{
+    const lvCls = MB_LEVEL_CLASS[m.level]||'';
+    const tmCls = MB_TEAM_CLASS[m.team]||'';
+    const aCls  = m.active!==false?'mb-active-badge':'mb-inactive-badge';
+    const aLbl  = m.active!==false?'Đang làm':'Đã nghỉ';
+    const sen   = calcMemberSeniority(m.joinDate);
+    const jFmt  = m.joinDate?new Date(m.joinDate).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}):'—';
+    return `<tr style="${m.active===false?'opacity:0.55':''}">
+      <td><div class="mb-name">${escapeHtml(m.name)}</div>${m.notes?`<div class="mb-note">${escapeHtml(m.notes)}</div>`:''}</td>
+      <td><span class="mb-badge ${lvCls}">${m.level}</span></td>
+      <td><span class="mb-badge ${tmCls}">${m.team}</span></td>
+      <td style="font-size:12px;color:var(--color-text-secondary)">${jFmt}</td>
+      <td style="font-size:12px;color:var(--color-text-secondary)">${sen}</td>
+      <td><span class="mb-badge ${aCls}">${aLbl}</span></td>
+      <td>${isAdmin?`<div class="mb-row-actions"><button class="mb-icon-btn" onclick="openMemberModal('${m.id}')" title="Sửa">✎</button><button class="mb-icon-btn" onclick="deleteMember('${m.id}')" title="Xoá">🗑</button></div>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Helper: lấy tên active để dùng trong multi-select ───
+function getActiveMemberNames(){
+  if(members && members.length) return members.filter(m=>m.active!==false).map(m=>m.name).sort((a,b)=>a.localeCompare(b));
+  // Fallback: extract từ projects nếu members chưa có
+  const seen={};
+  (projects||[]).forEach(p=>{
+    (p.membersMain||[]).concat(p.membersBackup||[]).forEach(n=>{ if(n) seen[n.toLowerCase()]=n; });
+  });
+  return Object.values(seen).sort((a,b)=>a.localeCompare(b));
+}
+
+// ─── Multi-select dropdown widget ───
+function createMsDropdown(containerId, placeholder, initialValues){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const names    = getActiveMemberNames();
+  let selected   = (initialValues||[]).filter(Boolean);
+  container.dataset.selected = JSON.stringify(selected);
+  container.dataset.allNames = JSON.stringify(names);
+  _renderMsDropdown(containerId, names, selected, placeholder);
+  // Đăng ký click-outside handler 1 lần
+  if(!window._msOutsideHandled){
+    window._msOutsideHandled = true;
+    document.addEventListener('click', function(e){
+      document.querySelectorAll('.ms-list.open').forEach(function(el){
+        if(!el.closest('.ms-dropdown').contains(e.target)) el.classList.remove('open');
+      });
+    });
+  }
+}
+
+function _renderMsDropdown(cid, names, selected, placeholder){
+  const container = document.getElementById(cid);
+  if(!container) return;
+  container.innerHTML=`<div class="ms-dropdown">
+    <div class="ms-display" id="${cid}-display" onclick="toggleMsList('${cid}')">
+      ${selected.length
+        ? selected.map(n=>`<span class="ms-tag">${escapeHtml(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
+        : `<span class="ms-placeholder">${placeholder||'Chọn nhân sự...'}</span>`}
+    </div>
+    <div class="ms-list" id="${cid}-list">
+      <input class="ms-search" type="text" placeholder="Tìm tên..." oninput="filterMsList('${cid}',this.value)" onclick="event.stopPropagation()">
+      <div id="${cid}-opts">${_buildMsOpts(cid, names, selected)}</div>
+    </div>
+  </div>`;
+}
+
+function _buildMsOpts(cid, names, selected){
+  if(!names.length) return '<div class="ms-empty-opt">Chưa có nhân sự — thêm ở tab Nhân sự</div>';
+  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+  </div>`).join('');
+}
+
+function toggleMsList(cid){
+  const list=document.getElementById(cid+'-list');
+  if(list) list.classList.toggle('open');
+}
+
+function msToggle(cid, name){
+  const container=document.getElementById(cid);
+  if(!container) return;
+  let selected=JSON.parse(container.dataset.selected||'[]');
+  const idx=selected.indexOf(name);
+  if(idx>=0) selected.splice(idx,1); else selected.push(name);
+  container.dataset.selected=JSON.stringify(selected);
+  _syncMsDisplay(cid, selected);
+  _syncMsOpts(cid, selected);
+  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected,[]);
+}
+
+function msRemove(cid, name){
+  const container=document.getElementById(cid);
+  if(!container) return;
+  let selected=JSON.parse(container.dataset.selected||'[]');
+  selected=selected.filter(n=>n!==name);
+  container.dataset.selected=JSON.stringify(selected);
+  _syncMsDisplay(cid, selected);
+  _syncMsOpts(cid, selected);
+  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected,[]);
+}
+
+function _syncMsDisplay(cid, selected){
+  const display=document.getElementById(cid+'-display');
+  if(!display) return;
+  display.innerHTML=selected.length
+    ? selected.map(n=>`<span class="ms-tag">${escapeHtml(n)}<span class="ms-tag-del" onclick="event.stopPropagation();msRemove('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</span></span>`).join('')
+    : '<span class="ms-placeholder">Chọn nhân sự...</span>';
+}
+
+function _syncMsOpts(cid, selected){
+  const container=document.getElementById(cid);
+  if(!container) return;
+  const allNames=JSON.parse(container.dataset.allNames||'[]');
+  const opts=document.getElementById(cid+'-opts');
+  if(!opts) return;
+  opts.innerHTML=_buildMsOptsNamed(cid,allNames,selected);
+}
+
+// Build opts với data-name attribute
+function _buildMsOptsNamed(cid, names, selected){
+  if(!names.length) return '<div class="ms-empty-opt">Chưa có nhân sự — thêm ở tab Nhân sự</div>';
+  return names.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+    <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+  </div>`).join('');
+}
+
+function filterMsList(cid, query){
+  const container=document.getElementById(cid);
+  if(!container) return;
+  const allNames=JSON.parse(container.dataset.allNames||'[]');
+  const selected=JSON.parse(container.dataset.selected||'[]');
+  const q=query.toLowerCase();
+  const filtered=allNames.filter(n=>n.toLowerCase().includes(q));
+  const opts=document.getElementById(cid+'-opts');
+  if(!opts) return;
+  opts.innerHTML=filtered.length
+    ? filtered.map(n=>`<div class="ms-list-item${selected.includes(n)?' selected':''}" data-name="${escapeHtml(n)}" onclick="msToggle('${cid}','${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+        <span class="ms-check">${selected.includes(n)?'✓':''}</span>${escapeHtml(n)}
+      </div>`).join('')
+    : '<div class="ms-empty-opt">Không tìm thấy</div>';
+}
+
+function getMsValues(cid){
+  const container=document.getElementById(cid);
+  if(!container) return [];
+  try{ return JSON.parse(container.dataset.selected||'[]'); } catch(e){ return []; }
+}
+
+function refreshProjectMemberDropdowns(){
+  if(!document.getElementById('pm-ms-main')) return;
+  const mainSel  =getMsValues('pm-ms-main');
+  const backupSel=getMsValues('pm-ms-backup');
+  createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   mainSel);
+  createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', backupSel);
+}
+
+// Override populatePersonDropdown để ưu tiên members[]
+function populatePersonDropdownFromMembers(){
+  const sel=document.getElementById('person-name-input');
+  if(!sel||sel.tagName!=='SELECT') return;
+  const currentVal=sel.value;
+  const names=getActiveMemberNames();
+  sel.innerHTML='<option value="">— Chọn nhân viên —</option>'
+    +names.map(n=>`<option value="${n}"${n===currentVal?' selected':''}>${n}</option>`).join('');
+}
+
+loadMembers();
+renderMembers();
+
+// ─── IMPORT từ dữ liệu cũ ───
+let _importCandidates = [];
+
+function openImportMembersModal(){
+  _importCandidates = _extractCandidatesFromExistingData();
+  const preview = document.getElementById('mb-import-preview');
+  const note    = document.getElementById('mb-import-note');
+  const btn     = document.getElementById('mb-import-confirm-btn');
+
+  const existingNames = members.map(m=>m.name.trim().toLowerCase());
+  const newOnes  = _importCandidates.filter(c=>!existingNames.includes(c.name.toLowerCase()));
+  const dupOnes  = _importCandidates.filter(c=> existingNames.includes(c.name.toLowerCase()));
+
+  if(!_importCandidates.length){
+    preview.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:13px">Không tìm thấy dữ liệu nhân sự nào trong hệ thống.</div>';
+    note.textContent='';
+    btn.disabled=true;
+    document.getElementById('mb-import-overlay').classList.add('open');
+    return;
+  }
+
+  // Render bảng preview có thể tick/bỏ tick
+  preview.innerHTML=`
+    <div style="max-height:320px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)">
+            <th style="padding:8px 12px;width:32px"><input type="checkbox" id="mb-import-all" checked onchange="toggleAllImport(this.checked)"></th>
+            <th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Tên</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Level</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Nhóm</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Join Date</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--color-text-secondary)">Nguồn</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${_importCandidates.map((c,i)=>{
+            const isDup = existingNames.includes(c.name.toLowerCase());
+            const lvCls = MB_LEVEL_CLASS[c.level]||'';
+            const jFmt  = c.joinDate ? new Date(c.joinDate).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+            const srcLabel = c.sources.join(' + ');
+            return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${isDup?'opacity:0.5':''}">
+              <td style="padding:7px 12px;text-align:center">
+                <input type="checkbox" class="mb-import-chk" data-idx="${i}" ${isDup?'disabled title="Đã có trong danh sách"':''} ${!isDup?'checked':''}>
+              </td>
+              <td style="padding:7px 12px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(c.name)}${isDup?'<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">(đã có)</span>':''}</td>
+              <td style="padding:7px 12px"><span class="mb-badge ${lvCls}" style="font-size:10px">${c.level||'—'}</span></td>
+              <td style="padding:7px 12px;color:var(--color-text-secondary)">${c.team||'—'}</td>
+              <td style="padding:7px 12px;color:var(--color-text-secondary)">${jFmt}</td>
+              <td style="padding:7px 12px;color:var(--color-text-tertiary);font-size:11px">${srcLabel}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  const noteText = [];
+  if(newOnes.length)  noteText.push(`${newOnes.length} người mới sẽ được thêm`);
+  if(dupOnes.length)  noteText.push(`${dupOnes.length} người đã có (bỏ qua)`);
+  note.textContent = noteText.join(' · ');
+  btn.disabled = newOnes.length === 0;
+  document.getElementById('mb-import-overlay').classList.add('open');
+}
+
+function closeImportMembersModal(){
+  document.getElementById('mb-import-overlay').classList.remove('open');
+}
+
+function toggleAllImport(checked){
+  document.querySelectorAll('.mb-import-chk:not([disabled])').forEach(cb=>cb.checked=checked);
+}
+
+function confirmImportMembers(){
+  const checked = Array.from(document.querySelectorAll('.mb-import-chk:not([disabled]):checked'))
+    .map(cb=>parseInt(cb.getAttribute('data-idx')))
+    .filter(i=>!isNaN(i));
+
+  if(!checked.length){ closeImportMembersModal(); return; }
+
+  const existingNames = members.map(m=>m.name.trim().toLowerCase());
+  let added = 0;
+  checked.forEach(idx=>{
+    const c = _importCandidates[idx];
+    if(!c || existingNames.includes(c.name.toLowerCase())) return;
+    members.push({
+      id:'mbr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5)+'_'+idx,
+      name:    c.name,
+      level:   c.level || 'Staff',
+      team:    c.team  || 'Liam',
+      joinDate:c.joinDate || '',
+      active:  true,
+      notes:   '',
+      createdAt: Date.now()
+    });
+    added++;
+  });
+
+  persistMembers();
+  closeImportMembersModal();
+  renderMembers();
+  refreshProjectMemberDropdowns();
+  if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
+
+  const toast=document.getElementById('mb-save-toast');
+  if(toast){ toast.textContent='✓ Đã import '+added+' nhân sự!'; toast.style.display='inline-block'; setTimeout(()=>{ toast.style.display='none'; toast.textContent='✓ Đã lưu!'; },3000); }
+}
+
+// Extract candidates từ projects + eval_v7_persons + eval_v7_person_*
+function _extractCandidatesFromExistingData(){
+  const nameMap = {}; // key: name.toLowerCase()
+
+  // Nguồn 1: projects — lấy tên + team (team của dự án = team của người đó)
+  (projects||[]).forEach(function(p){
+    const team = p.team || '';
+    (p.membersMain||[]).concat(p.membersBackup||[]).forEach(function(n){
+      if(!n || !n.trim()) return;
+      const key = n.trim().toLowerCase();
+      if(!nameMap[key]) nameMap[key] = { name:n.trim(), level:'', team:'', joinDate:'', sources:[] };
+      if(!nameMap[key].team && team) nameMap[key].team = team;
+      if(!nameMap[key].sources.includes('Dự án')) nameMap[key].sources.push('Dự án');
+    });
+  });
+
+  // Nguồn 2: eval_v7_persons (saved list) + eval_v7_person_* (chi tiết: level, joinDate)
+  try{
+    const personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
+    personList.forEach(function(n){
+      if(!n || !n.trim()) return;
+      const key = n.trim().toLowerCase();
+      if(!nameMap[key]) nameMap[key] = { name:n.trim(), level:'', team:'', joinDate:'', sources:[] };
+      if(!nameMap[key].sources.includes('Đánh giá')) nameMap[key].sources.push('Đánh giá');
+
+      // Đọc chi tiết từng người
+      const evalKey = 'eval_v7_person_'+key.replace(/\s+/g,'_');
+      try{
+        const evalData = JSON.parse(localStorage.getItem(evalKey)||'null');
+        if(evalData){
+          if(!nameMap[key].level && evalData.currentLevel) nameMap[key].level = evalData.currentLevel;
+          if(!nameMap[key].joinDate && evalData.joinDate)  nameMap[key].joinDate = evalData.joinDate;
+        }
+      }catch(e){}
+    });
+  }catch(e){}
+
+  // Sort: có level trước, rồi theo tên
+  return Object.values(nameMap).sort(function(a,b){
+    if(!!a.level !== !!b.level) return a.level ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+</script>
+  </div>
+  <!-- ═══════════ /PANEL 0: MEMBERS ═══════════ -->
+
   <!-- ═══════════ PANEL 1: PROJECT MANAGEMENT ═══════════ -->
-  <div class="main-panel active" id="mainpanel-projects">
+  <div class="main-panel" id="mainpanel-projects">
   <style>
   .pm-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:10px;flex-wrap:wrap}
   .pm-add-btn{font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500}
@@ -270,13 +907,13 @@ button{font-family:var(--font-sans)}
       </div>
 
       <div class="pm-field">
-        <label>Nhân sự Main (phụ trách chính — cách nhau bởi dấu phẩy)</label>
-        <input type="text" id="pm-f-members-main" placeholder="VD: An, Bình" oninput="renderDoneCyclesCheckboxes(this.value.split(',').map(s=>s.trim()).filter(Boolean))">
+        <label>Nhân sự Main (phụ trách chính)</label>
+        <div id="pm-ms-main"></div>
       </div>
 
       <div class="pm-field">
-        <label>Nhân sự Backup / Support (hỗ trợ, luân chuyển — cách nhau bởi dấu phẩy)</label>
-        <input type="text" id="pm-f-members-backup" placeholder="VD: Chi, Dũng">
+        <label>Nhân sự Backup / Support (hỗ trợ, luân chuyển)</label>
+        <div id="pm-ms-backup"></div>
       </div>
 
       <div class="pm-field" id="pm-done-cycles-field" style="display:none">
@@ -429,8 +1066,6 @@ function openProjectModal(editId){
     document.getElementById('pm-modal-title').textContent='Sửa dự án';
     document.getElementById('pm-edit-id').value=editId;
     document.getElementById('pm-f-name').value=p.name;
-    document.getElementById('pm-f-members-main').value=(p.membersMain||[]).join(', ');
-    document.getElementById('pm-f-members-backup').value=(p.membersBackup||[]).join(', ');
     document.getElementById('pm-f-status').value=p.status;
     document.getElementById('pm-f-notes').value=p.notes||'';
     document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
@@ -438,18 +1073,20 @@ function openProjectModal(editId){
     const cx = p.complexity||{};
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked = !!cx[k]; });
     updateComplexityPreview();
+    createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   p.membersMain||[]);
+    createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', p.membersBackup||[]);
     // Populate done-cycles checkboxes for existing project
     renderDoneCyclesCheckboxes(p.membersMain||[], p.doneCycleMembers||[]);
   } else {
     document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
     document.getElementById('pm-edit-id').value='';
     document.getElementById('pm-f-name').value='';
-    document.getElementById('pm-f-members-main').value='';
-    document.getElementById('pm-f-members-backup').value='';
     document.getElementById('pm-f-notes').value='';
     document.getElementById('pm-f-status').value='Priorities';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
+    createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   []);
+    createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', []);
     renderDoneCyclesCheckboxes([], []);
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked=false; });
     updateComplexityPreview();
@@ -464,8 +1101,8 @@ function saveProject(){
   const name = document.getElementById('pm-f-name').value.trim();
   const sizeEl = document.querySelector('input[name=pm-size]:checked');
   const teamEl = document.querySelector('input[name=pm-team]:checked');
-  const mainRaw = document.getElementById('pm-f-members-main').value.trim();
-  const backupRaw = document.getElementById('pm-f-members-backup').value.trim();
+  const membersMain   = getMsValues('pm-ms-main');
+  const membersBackup = getMsValues('pm-ms-backup');
   const status = document.getElementById('pm-f-status').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
   const editId = document.getElementById('pm-edit-id').value;
@@ -474,8 +1111,6 @@ function saveProject(){
   if(!sizeEl){ alert('Vui lòng chọn quy mô dự án.'); return; }
   if(!teamEl){ alert('Vui lòng chọn nhóm phụ trách.'); return; }
 
-  const membersMain = mainRaw ? mainRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  const membersBackup = backupRaw ? backupRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
   const complexity = {};
   CX_KEYS.forEach(k=>{ complexity[k]=document.getElementById(k).checked; });
   const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
@@ -978,7 +1613,10 @@ function checkAndSeedData(){
 
 loadProjects();
 renderProjects();
-
+// Override populatePersonDropdown để dùng members[] thay vì extract từ projects
+if(typeof populatePersonDropdownFromMembers === 'function'){
+  populatePersonDropdown = populatePersonDropdownFromMembers;
+}
 </script>
   </div>
   <!-- ═══════════ PANEL 3: USER PORTAL ═══════════ -->
@@ -3463,6 +4101,12 @@ async function sheetsLoadAllFresh(){
         localStorage.setItem('teamhub_projects', JSON.stringify(projects));
         renderProjects();
       }
+      if(data.members && data.members.length){
+        members = data.members;
+        localStorage.setItem('teamhub_members', JSON.stringify(members));
+        renderMembers();
+        if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
+      }
       if(data.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data.eval_persons)); } catch(e){}
       }
@@ -3498,6 +4142,12 @@ async function sheetsLoadAll(){
         localStorage.setItem('teamhub_projects', JSON.stringify(projects));
         renderProjects();
       }
+      if(data2.members && data2.members.length){
+        members = data2.members;
+        localStorage.setItem('teamhub_members', JSON.stringify(members));
+        renderMembers();
+        if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
+      }
       if(data2.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data2.eval_persons)); } catch(e){}
       }
@@ -3530,7 +4180,7 @@ async function syncToSheets(type){
   updateSheetsBadge('syncing');
   try{
     const pw = getRolePw();
-    const snapshot = { projects, ts: Date.now() };
+    const snapshot = { projects, members, ts: Date.now() };
     try{
       const personList = JSON.parse(localStorage.getItem('eval_v7_persons'))||[];
       snapshot.eval_persons = personList;
@@ -3915,9 +4565,10 @@ async function userSendFeedback(){
 
 // Show/hide User tab based on role
 function applyRoleUI(){
-  const userTab = document.getElementById('maintab-user');
-  const projTab = document.getElementById('maintab-projects');
-  const evalTab = document.getElementById('maintab-eval');
+  const userTab    = document.getElementById('maintab-user');
+  const projTab    = document.getElementById('maintab-projects');
+  const evalTab    = document.getElementById('maintab-eval');
+  const membersTab = document.getElementById('maintab-members');
   if(!userTab) return;
   const lbTab = document.getElementById('maintab-lb');
   if(sheetsRole === 'user'){
@@ -3926,6 +4577,7 @@ function applyRoleUI(){
     if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'none';
     evalTab.style.display = 'none';
+    if(membersTab) membersTab.style.display = 'none';
     switchMainTab('user');
   } else if(sheetsRole === 'leader'){
     // Leader: full view
@@ -3933,6 +4585,7 @@ function applyRoleUI(){
     if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
+    if(membersTab) membersTab.style.display = 'flex';
     const dangerBtns = document.querySelectorAll('.admin-only');
     dangerBtns.forEach(b => b.style.display='none');
   } else {
@@ -3941,6 +4594,7 @@ function applyRoleUI(){
     if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
+    if(membersTab) membersTab.style.display = 'flex';
   }
 }
 
