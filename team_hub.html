@@ -3766,8 +3766,8 @@ function userPortalSearch(){
     const lv = evalData.currentLevel;
     const lc = USER_LEVEL_COLOR[lv] || LEVEL_COLOR['Staff'];
 
-    // Calc I3 score
-    let i3score = 0;
+    // Tính điểm tổng thật (I3×w + Proj×w + I2×w) — đồng bộ với tab Đánh giá
+    let i3score = 0, projScore10 = 0, i2score = 0, totalScore = 0;
     if(evalData.scores3){
       const allItems = (typeof i3data !== 'undefined') ? i3data.flatMap(s=>s.items) : [];
       const scored = allItems.filter(i=>evalData.scores3[i.id]);
@@ -3775,6 +3775,18 @@ function userPortalSearch(){
         const avg = scored.reduce((a,i)=>a+evalData.scores3[i.id],0)/scored.length;
         i3score = (avg/5)*10;
       }
+    }
+    if(typeof calcPersonProjectScore==='function'){
+      const ps = calcPersonProjectScore(name, lv);
+      projScore10 = ps ? parseFloat(ps.projScore10) : 0;
+    }
+    if(evalData.scores2 && typeof i2data !== 'undefined'){
+      const i2items = i2data.flatMap(s=>s.items).filter(i=>evalData.scores2[i.id]);
+      if(i2items.length) i2score = i2items.reduce((a,i)=>a+(evalData.scores2[i.id]||0),0)/i2items.length;
+    }
+    if(typeof getWeights==='function'){
+      const w = getWeights(lv, 'match');
+      totalScore = (i3score*(w.i3||0.7)) + (projScore10*(w.proj||0.3)) + (i2score*(w.i2||0));
     }
 
     evalCard.innerHTML = `
@@ -3785,12 +3797,13 @@ function userPortalSearch(){
             <span style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:8px;background:${lc.bg};color:${lc.color};display:inline-block;margin-top:4px">${lv}</span>
           </div>
           <div style="text-align:right">
-            <div style="font-size:12px;color:var(--color-text-secondary)">Điểm I3</div>
-            <div style="font-size:20px;font-weight:700;color:var(--color-text-primary)">${i3score.toFixed(1)}<span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary)">/10</span></div>
+            <div style="font-size:12px;color:var(--color-text-secondary)">Điểm tổng</div>
+            <div style="font-size:24px;font-weight:700;color:var(--color-text-primary)">${totalScore.toFixed(1)}<span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary)">/10</span></div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">I3: ${i3score.toFixed(1)} · Dự án: ${projScore10.toFixed(1)}</div>
           </div>
         </div>
         <div style="padding:12px 16px;font-size:12px;color:var(--color-text-secondary)">
-          Số dự án: <b style="color:var(--color-text-primary)">${evalData.projCount||myProjects.length}</b>
+          Số dự án: <b style="color:var(--color-text-primary)">${myProjects.length}</b>
           ${evalData.joinDate ? ' · Ngày vào: <b style="color:var(--color-text-primary)">'+evalData.joinDate+'</b>' : ''}
         </div>
       </div>`;
