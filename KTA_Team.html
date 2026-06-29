@@ -4920,17 +4920,24 @@ function renderLeaderboard(){
   });
 
   // Hàm đặt tên con vật ẩn danh — nhất quán theo tên thật (hash đơn giản)
+  // Assign con vật theo thứ tự index — mỗi người 1 con duy nhất, không trùng
+  var _animalMap = {};
+  var _animalIdx = 0;
   var ANIMALS = ['🐼 Panda','🦊 Cáo','🐨 Koala','🦁 Sư Tử','🐯 Hổ','🦋 Bướm','🦜 Vẹt',
     '🐸 Ếch','🦔 Nhím','🐧 Cánh Cụt','🦦 Rái Cá','🐙 Bạch Tuộc','🦘 Kangaroo',
     '🐬 Cá Heo','🦒 Hươu Cao Cổ','🐺 Sói','🦅 Đại Bàng','🐻 Gấu','🦩 Hồng Hạc','🐲 Rồng',
     '🦝 Gấu Mèo','🐮 Bò','🦙 Lạc Đà','🐑 Cừu','🦌 Nai','🐊 Cá Sấu','🦈 Cá Mập',
-    '🐳 Cá Voi','🦚 Công','🦜 Két','🐦 Chim Sẻ','🦉 Cú','🐇 Thỏ','🦫 Hải Ly',
-    '🐿 Sóc','🦎 Thằn Lằn','🐢 Rùa','🦠 Sứa','🐠 Cá Nhiệt Đới','🦑 Mực',
-    '🦋 Bướm Đêm','🐝 Ong','🦗 Dế','🐛 Sâu Bướm','🦀 Cua','🦞 Tôm Hùm',
-    '🐓 Gà Trống','🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu'];
+    '🐳 Cá Voi','🦚 Công','🐇 Thỏ','🦫 Hải Ly','🐿 Sóc','🦎 Thằn Lằn','🐢 Rùa',
+    '🐠 Cá Nhiệt Đới','🦑 Mực','🐝 Ong','🦀 Cua','🦞 Tôm Hùm','🐓 Gà Trống',
+    '🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu','🦉 Cú','🐦 Chim Sẻ','🦔 Nhím Biển',
+    '🐡 Cá Nóc','🦋 Bướm Vàng','🐬 Cá Heo Hồng','🦁 Sư Tử Biển'];
   function getAnimalName(name){
-    var h=0; for(var k=0;k<name.length;k++) h=(h*31+name.charCodeAt(k))&0xffff;
-    return ANIMALS[h % ANIMALS.length];
+    var key = name.trim().toLowerCase();
+    if(!_animalMap[key]){
+      _animalMap[key] = ANIMALS[_animalIdx % ANIMALS.length];
+      _animalIdx++;
+    }
+    return _animalMap[key];
   }
 
   // Build project data
