@@ -1514,6 +1514,7 @@ const i2data=[
 
 const scores3={},scores2={};
 let currentLevel=null;
+let _isDirty=false; // true khi có thay đổi chưa lưu
 let i4Level=null;
 let projCount=0;
 const notes3={};
@@ -1604,8 +1605,8 @@ function _autoSavePerson(name){
 function onI3(id){
   const v=parseInt(document.getElementById('s3-'+id).value);
   if(v) scores3[id]=v; else delete scores3[id];
-  // Auto-save ngay khi chọn mức
-  if(currentPersonName) _autoSavePerson(currentPersonName);
+  // Đánh dấu có thay đổi chưa lưu (không auto-save)
+  _isDirty = true;
   const item=i3data.flatMap(s=>s.items).find(i=>i.id===id);
   const lvEl=document.getElementById('lv3-'+id);
   const noteEl=document.getElementById('note3-'+id);
@@ -1938,6 +1939,7 @@ function savePerson(){
   renderPersonList();
   // Restore proj display sau khi lưu (renderPersonList không ảnh hưởng proj UI)
   autoFillProjectCount(true, name);
+  _isDirty = false;
   const t=document.getElementById('save-toast');
   t.textContent='✓ Đã lưu '+name+'!'; t.style.display='inline-block';
   setTimeout(()=>t.style.display='none', 2000);
@@ -1969,6 +1971,7 @@ function loadPerson(name){
     return; 
   }
 
+  _isDirty = false; // Reset dirty khi load người mới
   // BƯỚC 1: Clear toàn bộ data cũ — bao gồm cả UI để không dính data người trước
   Object.keys(scores3).forEach(k=>delete scores3[k]);
   Object.keys(scores2).forEach(k=>delete scores2[k]);
@@ -2090,6 +2093,16 @@ function deletePerson(name, e){
 // Wrapper để switch người từ chip — đảm bảo clear đúng trước khi load
 function switchToPerson(name){
   if(!name || name === currentPersonName) return;
+  // Cảnh báo nếu có thay đổi chưa lưu
+  if(_isDirty && currentPersonName){
+    if(!confirm('Bạn có thay đổi chưa lưu cho ' + currentPersonName + '. Chuyển sang ' + name + ' sẽ mất các thay đổi này. Tiếp tục?')){
+      // Reset dropdown về người hiện tại
+      const sel = document.getElementById('person-name-input');
+      if(sel) sel.value = currentPersonName;
+      return;
+    }
+  }
+  _isDirty = false;
   // Sync dropdown value
   const sel = document.getElementById('person-name-input');
   if(sel) sel.value = name;
@@ -2290,7 +2303,8 @@ function updateResult(){
   total = parseFloat(total.toFixed(2));
 
   // ── Suggestion threshold ──
-  const SUGGEST_THRESHOLD = 8.0; // Staff→Senior và Senior→Key đều 8/10; Key→level mới sẽ set riêng sau
+  const SUGGEST_THRESHOLD_MAP = {Staff:8.0, Senior:8.0, 'Key Member':9.0, Leader:9.0};
+  const SUGGEST_THRESHOLD = SUGGEST_THRESHOLD_MAP[currentLevel] || 8.0;
   const LEVEL_ORDER = ['Staff','Senior','Key Member','Leader'];
   const curIdx = LEVEL_ORDER.indexOf(currentLevel);
   const nextLevel = curIdx < 3 ? LEVEL_ORDER[curIdx+1] : null;
@@ -2790,6 +2804,8 @@ function renderSummary(){
   const i4score=I4_SCORES[currentLevel]||0;
   const totalScore=i3score!==null?(i3score+i4score):null;
 
+  const SUGGEST_THRESHOLD = {'Staff':8.0,'Senior':8.0,'Key Member':9.0,'Leader':9.0}[currentLevel] || 8.0;
+
   let suggestLevel, suggestClass, suggestIcon, suggestLabel, suggestSub;
 
   if(!allScored){
@@ -2811,27 +2827,27 @@ function renderSummary(){
     suggestIcon='⚠️';
     suggestLabel='Cần cải thiện thêm 1 tiêu chí';
     suggestSub=`Còn 1 tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${totalScore.toFixed(1)}/10. Tập trung cải thiện điểm yếu này để xác nhận level.`;
-  } else if(weakItems.length===0&&totalScore>=8.0&&curIdx<3){
+  } else if(weakItems.length===0&&totalScore>=SUGGEST_THRESHOLD&&curIdx<3){
     // Đủ điều kiện đề xuất lên level cao hơn
     suggestLevel=LEVELS[curIdx+1];
     suggestClass='lp-suggest-up';
     suggestIcon='🚀';
     suggestLabel='Đề xuất xem xét thăng level';
-    suggestSub=`Tất cả tiêu chí đạt yêu cầu và điểm tổng ${totalScore.toFixed(1)}/10 ≥ 8.0. Đủ điều kiện xem xét lên ${LEVELS[curIdx+1]}.`;
-  } else if(weakItems.length===0&&totalScore>=8.0&&curIdx===3){
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu và điểm tổng ${totalScore.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Đủ điều kiện xem xét lên ${LEVELS[curIdx+1]}.`;
+  } else if(weakItems.length===0&&totalScore>=SUGGEST_THRESHOLD&&curIdx===3){
     // Leader đạt >= 8
     suggestLevel='Duy trì — Leader';
     suggestClass='lp-suggest-up';
     suggestIcon='🏆';
     suggestLabel='Xuất sắc ở level Leader';
-    suggestSub=`Điểm tổng ${totalScore.toFixed(1)}/10 ≥ 8.0. Năng lực Leader vững chắc — tiếp tục duy trì và phát triển đội ngũ.`;
+    suggestSub=`Điểm tổng ${totalScore.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Năng lực Leader vững chắc — tiếp tục duy trì và phát triển đội ngũ.`;
   } else {
     // Tất cả đạt nhưng điểm tổng < 8.0 — xác nhận level hiện tại, chưa đề xuất lên
     suggestLevel='Xác nhận — '+currentLevel;
     suggestClass='lp-suggest';
     suggestIcon='✅';
     suggestLabel='Đạt level hiện tại · Chưa đủ điều kiện thăng';
-    suggestSub=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng 8.0 để đề xuất thăng level. Tiếp tục nâng cao để đạt ≥ 8.0.`;
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Tiếp tục nâng cao để đạt ≥ ${SUGGEST_THRESHOLD}.`;
   }
 
   sugEl.className='level-proposal '+suggestClass;
@@ -2856,9 +2872,9 @@ function renderSummary(){
   if(!allScored){
     summaryText=`Dữ liệu chưa đủ để đánh giá toàn diện. Đã chấm ${scored.length}/${all.length} tiêu chí.`;
   } else if(weakItems.length===0&&totalScore>=8.0){
-    summaryText=`Nhìn tổng thể, đây là profile năng lực vững chắc. Điểm tổng ${totalScore.toFixed(1)}/10 đạt ngưỡng ≥ 8.0 — đủ điều kiện đề xuất thăng level${curIdx<3?' lên '+LEVELS[curIdx+1]:''}${strongItems.length>=3?', với nhiều tiêu chí nổi trội vượt yêu cầu':''}.`;
+    summaryText=`Nhìn tổng thể, đây là profile năng lực vững chắc. Điểm tổng ${totalScore.toFixed(1)}/10 đạt ngưỡng ≥ ${SUGGEST_THRESHOLD} — đủ điều kiện đề xuất thăng level${curIdx<3?' lên '+LEVELS[curIdx+1]:''}${strongItems.length>=3?', với nhiều tiêu chí nổi trội vượt yêu cầu':''}.`;
   } else if(weakItems.length===0){
-    summaryText=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng 8.0 để đề xuất thăng level. Cần tiếp tục nâng cao chất lượng từng tiêu chí.`;
+    summaryText=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Cần tiếp tục nâng cao chất lượng từng tiêu chí.`;
   } else {
     summaryText=`Profile có ${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng tạm tính: ${totalScore!==null?totalScore.toFixed(1)+'/ 10':'–'}. Cần cải thiện các điểm yếu trước khi xác nhận hoặc đề xuất thăng level.`;
   }
@@ -2905,7 +2921,7 @@ function onI2(id,target){
   else{d.textContent='–';d.style.color='var(--color-text-secondary)';}
   updateResult();
 
-  if(currentPersonName) _autoSavePerson(currentPersonName);
+  _isDirty = true;
 }
 
 function switchTab(id){
