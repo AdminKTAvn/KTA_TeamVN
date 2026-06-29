@@ -4753,7 +4753,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       projHintUnits: [{pts: 2.1, label: 'Medium Main'}, {pts: 1.0, label: 'Small Main'}],
       totalLabel: '8.0',
       summaryUp: 'Key Member',
-      showConds: false,
+      showConds: true,
       cycleMin: 1,
     },
     'Key Member': {
@@ -4780,12 +4780,14 @@ function updateKeyPlusRoadmap(total, projRaw){
   const condTraining = cbTraining ? cbTraining.checked : false;
   const condBackcheck = cbBackcheck ? cbBackcheck.checked : false;
   const condSetup = cbSetup ? cbSetup.checked : false;
+  const condCount = [condTraining, condBackcheck, condSetup].filter(Boolean).length;
+  const CONDS_REQUIRED = currentLevel === 'Senior' ? 2 : 3; // Senior→Key: 2/3, Key++: 3/3
 
-  const projDone = projRaw >= cfg.projTarget;
+  const projDone  = projRaw >= cfg.projTarget;
   const totalDone = total >= cfg.totalTarget;
-  const allConds = !cfg.showConds || (condTraining && condBackcheck && condSetup);
+  const allConds  = !cfg.showConds || (condCount >= CONDS_REQUIRED);
   const cycleDone = !cfg.cycleMin || _doneCycles >= cfg.cycleMin;
-  const allDone = projDone && totalDone && allConds && cycleDone;
+  const allDone   = projDone && totalDone && allConds && cycleDone;
 
   // Proj hint
   const need = Math.max(0, cfg.projTarget - projRaw);
@@ -4825,7 +4827,7 @@ function updateKeyPlusRoadmap(total, projRaw){
   // Conditions block (chỉ Key Member)
   const condsHTML = cfg.showConds ? `
     <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;background:var(--color-background-primary);margin-bottom:10px">
-      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📋 Điều kiện bổ sung <span style="font-size:10px;font-weight:400;color:var(--color-text-tertiary)">(Leader xác nhận)</span></div>
+      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📋 Điều kiện bổ sung <span style="font-size:10px;font-weight:400;color:var(--color-text-tertiary)">(Leader xác nhận · đạt ${condCount}/3 — cần ít nhất ${CONDS_REQUIRED})</span></div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
           <div>
