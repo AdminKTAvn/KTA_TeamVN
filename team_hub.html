@@ -3456,6 +3456,17 @@ async function sendFeedback(personName, message){
 (function tryAutoReconnectSheets(){
   const hint = localStorage.getItem('teamhub_sheets_hint');
   const cfg  = getSheetsConfig();
+  // Nếu chưa có hint (chưa từng kết nối), ẩn app và yêu cầu đăng nhập
+  if(!hint || !cfg.scriptUrl){
+    const isUserMode = new URLSearchParams(window.location.search).get('mode') === 'user';
+    if(!isUserMode){
+      const overlay = document.getElementById('login-overlay');
+      const appShell = document.querySelector('.app-shell');
+      if(overlay) overlay.style.display = 'flex';
+      if(appShell) appShell.style.visibility = 'hidden';
+    }
+    return;
+  }
   if(hint && cfg.scriptUrl){
     sheetsScriptUrl = cfg.scriptUrl;
     updateSheetsBadge('connecting');
