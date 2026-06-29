@@ -3894,8 +3894,8 @@ function updateKeyPlusRoadmap(total, projRaw){
   const roadmap = document.getElementById('keyplus-roadmap');
   if(!roadmap) return;
 
-  // Chỉ hiện cho Key Member
-  if(currentLevel !== 'Key Member'){ roadmap.style.display='none'; return; }
+  // Chỉ hiện cho Staff, Senior, Key Member
+  if(!currentLevel || currentLevel === 'Leader'){ roadmap.style.display='none'; return; }
   roadmap.style.display='block';
 
   // Lấy điểm nếu không truyền vào
@@ -3906,100 +3906,169 @@ function updateKeyPlusRoadmap(total, projRaw){
     if(isNaN(total)) total = 0;
   }
   if(projRaw === null){
-    const ps = calcPersonProjectScore(currentPersonName||'', 'Key Member');
+    const ps = calcPersonProjectScore(currentPersonName||'', currentLevel);
     projRaw = ps ? parseFloat(ps.totalRaw) : 0;
   }
 
-  const PROJ_TARGET = 20;
-  const TOTAL_TARGET = 9.0;
+  // Config theo từng level
+  const ROADMAP_CONFIG = {
+    'Staff': {
+      targetLabel: 'Senior',
+      targetColor: '#3B6D11',
+      targetBg: '#EAF3DE',
+      barColor: '#639922',
+      projTarget: 8,
+      totalTarget: 7.0,
+      projHintUnits: [{pts: 1.3, label: 'Medium Main'}, {pts: 0.9, label: 'Small Main'}],
+      totalLabel: '7.0',
+      summaryUp: 'Senior',
+      showConds: false,
+    },
+    'Senior': {
+      targetLabel: 'Key Member',
+      targetColor: '#A02A6B',
+      targetBg: '#FDE8F1',
+      barColor: '#D85AA0',
+      projTarget: 12,
+      totalTarget: 8.0,
+      projHintUnits: [{pts: 2.1, label: 'Medium Main'}, {pts: 1.0, label: 'Small Main'}],
+      totalLabel: '8.0',
+      summaryUp: 'Key Member',
+      showConds: false,
+    },
+    'Key Member': {
+      targetLabel: 'Key++',
+      targetColor: '#A02A6B',
+      targetBg: '#FDE8F1',
+      barColor: '#A02A6B',
+      projTarget: 20,
+      totalTarget: 9.0,
+      projHintUnits: [{pts: 5.0, label: 'Large Main'}, {pts: 2.1, label: 'Medium Main'}],
+      totalLabel: '9.0',
+      summaryUp: 'Key++',
+      showConds: true,
+    },
+  };
 
-  // -- Điểm tích lũy dự án --
-  const projPct = Math.min(100, (projRaw/PROJ_TARGET)*100);
-  const projBar = document.getElementById('kp-proj-bar');
-  const projNums = document.getElementById('kp-proj-nums');
-  const projStatus = document.getElementById('kp-proj-status');
-  const projHint = document.getElementById('kp-proj-hint');
+  const cfg = ROADMAP_CONFIG[currentLevel];
+  if(!cfg){ roadmap.style.display='none'; return; }
 
-  if(projBar) projBar.style.width = projPct.toFixed(0)+'%';
-  if(projNums) projNums.textContent = projRaw.toFixed(1)+' / '+PROJ_TARGET;
+  // Đọc trạng thái checkboxes (Key Member)
+  const cbTraining = document.getElementById('kp-training');
+  const cbBackcheck = document.getElementById('kp-backcheck');
+  const cbSetup = document.getElementById('kp-setup');
+  const condTraining = cbTraining ? cbTraining.checked : false;
+  const condBackcheck = cbBackcheck ? cbBackcheck.checked : false;
+  const condSetup = cbSetup ? cbSetup.checked : false;
 
-  const projDone = projRaw >= PROJ_TARGET;
-  if(projStatus){
-    projStatus.textContent = projDone ? '✓ Đạt' : 'Chưa đạt';
-    projStatus.style.background = projDone ? '#EAF3DE' : '#FAECE7';
-    projStatus.style.color = projDone ? '#3B6D11' : '#993C1D';
-  }
-
-  if(projHint && !projDone){
-    const need = PROJ_TARGET - projRaw;
-    // Estimate dự án cần thêm (Medium Main Key = 2.1, Large Main Key = 5.0)
-    const nLarge = Math.ceil(need / 5.0);
-    const nMed = Math.ceil(need / 2.1);
-    projHint.innerHTML = 'Còn thiếu <b>'+need.toFixed(1)+'đ</b> · Gợi ý: thêm ~<b>'+nLarge+' dự án Large Main</b> hoặc ~<b>'+nMed+' dự án Medium Main</b>';
-  } else if(projHint){
-    projHint.innerHTML = '✓ Đã tích lũy đủ điểm dự án';
-    projHint.style.color = '#3B6D11';
-  }
-
-  // -- Điểm tổng --
-  const totalStatus = document.getElementById('kp-total-status');
-  const totalHint = document.getElementById('kp-total-hint');
-  const totalDone = total >= TOTAL_TARGET;
-  if(totalStatus){
-    totalStatus.textContent = totalDone ? '✓ Đạt' : 'Chưa đạt';
-    totalStatus.style.background = totalDone ? '#EAF3DE' : '#FAECE7';
-    totalStatus.style.color = totalDone ? '#3B6D11' : '#993C1D';
-  }
-  if(totalHint){
-    if(totalDone){
-      totalHint.innerHTML = '✓ Điểm tổng <b>'+total.toFixed(1)+'/10</b> ≥ 9.0';
-      totalHint.style.color = '#3B6D11';
-    } else {
-      totalHint.innerHTML = 'Hiện tại <b>'+total.toFixed(1)+'/10</b> · Cần thêm <b>'+(TOTAL_TARGET-total).toFixed(1)+'đ</b> để đạt ngưỡng 9.0';
-      totalHint.style.color = 'var(--color-text-tertiary)';
-    }
-  }
-
-  // -- 3 điều kiện --
-  const ids = ['training','backcheck','setup'];
-  ids.forEach(function(id){
-    const cb = document.getElementById('kp-'+id);
-    const lbl = document.getElementById('kp-'+id+'-label');
-    const checked = cb && cb.checked;
-    if(lbl){ lbl.textContent = checked ? '✓ Đã duyệt' : 'Chờ'; lbl.style.color = checked ? '#3B6D11' : 'var(--color-text-tertiary)'; }
-  });
-
-  const conds = ids.map(function(id){ const cb = document.getElementById('kp-'+id); return cb && cb.checked; });
-  const allConds = conds.every(Boolean);
+  const projDone = projRaw >= cfg.projTarget;
+  const totalDone = total >= cfg.totalTarget;
+  const allConds = !cfg.showConds || (condTraining && condBackcheck && condSetup);
   const allDone = projDone && totalDone && allConds;
 
-  const summary = document.getElementById('kp-summary');
-  if(summary){
-    const doneCount = [projDone, totalDone, allConds].filter(Boolean).length;
-    if(allDone){
-      summary.style.background = '#EAF3DE';
-      summary.style.color = '#3B6D11';
-      summary.innerHTML = '🎉 Đủ tất cả điều kiện! Đề xuất lên <b>Key++</b>';
-    } else {
-      summary.style.background = '#F1EFE8';
-      summary.style.color = 'var(--color-text-secondary)';
-      summary.innerHTML = 'Hoàn thiện <b>'+doneCount+'/3</b> nhóm điều kiện · Cần đạt hết để lên Key++';
-    }
-  }
+  // Proj hint
+  const need = Math.max(0, cfg.projTarget - projRaw);
+  const projHintHTML = projDone
+    ? '<span style="color:#3B6D11">✓ Đã tích lũy đủ điểm dự án</span>'
+    : 'Còn thiếu <b>'+need.toFixed(1)+'đ</b> · Gợi ý: thêm ~<b>'+Math.ceil(need/cfg.projHintUnits[0].pts)+' dự án '+cfg.projHintUnits[0].label+'</b> hoặc ~<b>'+Math.ceil(need/cfg.projHintUnits[1].pts)+' dự án '+cfg.projHintUnits[1].label+'</b>';
+
+  // Total hint
+  const totalHintHTML = totalDone
+    ? '<span style="color:#3B6D11">✓ Điểm tổng <b>'+total.toFixed(1)+'/10</b> ≥ '+cfg.totalLabel+'</span>'
+    : 'Hiện tại <b>'+total.toFixed(1)+'/10</b> · Cần thêm <b>'+(cfg.totalTarget-total).toFixed(1)+'đ</b> để đạt ngưỡng '+cfg.totalLabel;
+
+  // Status badge helper
+  function badge(done){ return '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+(done?'#EAF3DE':'#FAECE7')+';color:'+(done?'#3B6D11':'#993C1D')+'">'+(done?'✓ Đạt':'Chưa đạt')+'</span>'; }
+
+  // Summary
+  const doneCount = [projDone, totalDone, allConds].filter(Boolean).length;
+  const totalGroups = cfg.showConds ? 3 : 2;
+  const summaryHTML = allDone
+    ? '<div style="background:#EAF3DE;color:#3B6D11;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">🎉 Đủ điều kiện! Đề xuất lên <b>'+cfg.summaryUp+'</b></div>'
+    : '<div style="background:#F1EFE8;color:var(--color-text-secondary);padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">Hoàn thiện <b>'+doneCount+'/'+totalGroups+'</b> nhóm điều kiện · Cần đạt hết để lên <b>'+cfg.summaryUp+'</b></div>';
+
+  // Conditions block (chỉ Key Member)
+  const condsHTML = cfg.showConds ? `
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;background:var(--color-background-primary);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📋 Điều kiện bổ sung <span style="font-size:10px;font-weight:400;color:var(--color-text-tertiary)">(Leader xác nhận)</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">🎓 Training</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã đào tạo / hướng dẫn nhân sự cấp dưới</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-training" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer" ${condTraining?'checked':''}>
+            <span id="kp-training-label" style="font-size:11px;color:${condTraining?'#3B6D11':'var(--color-text-tertiary)'}">${condTraining?'✓ Đã duyệt':'Chờ'}</span>
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">🔍 Backcheck</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã thực hiện kiểm tra chất lượng / review công việc</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-backcheck" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer" ${condBackcheck?'checked':''}>
+            <span id="kp-backcheck-label" style="font-size:11px;color:${condBackcheck?'#3B6D11':'var(--color-text-tertiary)'}">${condBackcheck?'✓ Đã duyệt':'Chờ'}</span>
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary)">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">⚙️ Setup dự án</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px">Đã tự khởi động / setup dự án độc lập</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-style:italic">Nhân viên báo qua kênh Góp ý → Leader xác nhận</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;margin-left:12px">
+            <input type="checkbox" id="kp-setup" onchange="onKeyPlusConditionChange()" style="width:16px;height:16px;cursor:pointer" ${condSetup?'checked':''}>
+            <span id="kp-setup-label" style="font-size:11px;color:${condSetup?'#3B6D11':'var(--color-text-tertiary)'}">${condSetup?'✓ Đã duyệt':'Chờ'}</span>
+          </label>
+        </div>
+      </div>
+    </div>` : '';
+
+  // Render toàn bộ roadmap dynamically
+  roadmap.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">🗺️ Lộ trình lên <span style="background:${cfg.targetBg};color:${cfg.targetColor};padding:2px 8px;border-radius:6px">${cfg.targetLabel}</span></div>
+
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;margin-bottom:10px;background:var(--color-background-primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">📁 Điểm tích lũy dự án</div>
+        ${badge(projDone)}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="flex:1;height:6px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:${cfg.barColor};border-radius:3px;transition:width .3s;width:${Math.min(100,(projRaw/cfg.projTarget)*100).toFixed(0)}%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--color-text-secondary);white-space:nowrap">${projRaw.toFixed(1)} / ${cfg.projTarget}</div>
+      </div>
+      <div style="font-size:11px;color:var(--color-text-tertiary);line-height:1.6">${projHintHTML}</div>
+    </div>
+
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;margin-bottom:10px;background:var(--color-background-primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">🎯 Điểm tổng</div>
+        ${badge(totalDone)}
+      </div>
+      <div style="font-size:11px;color:var(--color-text-tertiary)">${totalHintHTML}</div>
+    </div>
+
+    ${condsHTML}
+    ${summaryHTML}
+  `;
 
   // Cập nhật level suggest nếu đủ điều kiện
-  const sugVal = document.getElementById('sp-suggest-val');
-  const sugSub = document.getElementById('sp-suggest-sub');
-  const sugIcon = document.getElementById('sp-suggest-icon');
   const sugEl = document.getElementById('sp-level-suggest');
-  if(allDone && sugEl && sugVal){
+  if(allDone && sugEl){
     sugEl.style.display='flex';
     sugEl.className='level-proposal lp-suggest-up';
-    if(sugIcon) sugIcon.textContent='🚀';
-    const sugLabel = document.getElementById('sp-suggest-label');
-    if(sugLabel) sugLabel.textContent='Đề xuất';
-    sugVal.textContent='Đề xuất xem xét lên Key++';
-    if(sugSub) sugSub.textContent='Đã đạt đủ 5 điều kiện: Điểm tổng ≥9.0 · Tích lũy ≥20 · Training · Backcheck · Setup';
+    sugEl.innerHTML=\`<div class="level-proposal-icon" id="sp-suggest-icon">🚀</div>
+      <div class="level-proposal-content">
+        <div class="level-proposal-label" id="sp-suggest-label">Đề xuất</div>
+        <div class="level-proposal-value" id="sp-suggest-val">Đề xuất xem xét lên \${cfg.summaryUp}</div>
+        <div class="level-proposal-sub" id="sp-suggest-sub">Đã đạt đủ điều kiện lên \${cfg.summaryUp}</div>
+      </div>\`;
   }
 }
 
