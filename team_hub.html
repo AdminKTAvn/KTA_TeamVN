@@ -2995,8 +2995,8 @@ async function doLogin(){
 
   try{
     const res = await sheetsRequest(effectiveUrl, { action:'ping', password: pw });
-    if(res.ok){
-      const role = res.role || 'user';
+    if(res.ok && res.role && res.role !== 'none'){
+      const role = res.role;
       // Lưu password theo role
       if(role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
       if(role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
@@ -3933,10 +3933,10 @@ function updateKeyPlusRoadmap(total, projRaw){
       targetColor: '#3B6D11',
       targetBg: '#EAF3DE',
       barColor: '#639922',
-      projTarget: 8,
-      totalTarget: 7.0,
+      projTarget: 10,
+      totalTarget: 8.0,
       projHintUnits: [{pts: 1.3, label: 'Medium Main'}, {pts: 0.9, label: 'Small Main'}],
-      totalLabel: '7.0',
+      totalLabel: '8.0',
       summaryUp: 'Senior',
       showConds: false,
       cycleMin: 1,
@@ -3946,7 +3946,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       targetColor: '#A02A6B',
       targetBg: '#FDE8F1',
       barColor: '#D85AA0',
-      projTarget: 12,
+      projTarget: 15,
       totalTarget: 8.0,
       projHintUnits: [{pts: 2.1, label: 'Medium Main'}, {pts: 1.0, label: 'Small Main'}],
       totalLabel: '8.0',
@@ -3959,7 +3959,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       targetColor: '#A02A6B',
       targetBg: '#FDE8F1',
       barColor: '#A02A6B',
-      projTarget: 20,
+      projTarget: 25,
       totalTarget: 9.0,
       projHintUnits: [{pts: 5.0, label: 'Large Main'}, {pts: 2.1, label: 'Medium Main'}],
       totalLabel: '9.0',
