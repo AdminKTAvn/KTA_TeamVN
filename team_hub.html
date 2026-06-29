@@ -3436,58 +3436,55 @@ function renderPrereqCheck(){
   const curIdx = LEVELS.indexOf(currentLevel);
   if(curIdx < 1){ el.style.display='none'; return; }
 
-  // Config điều kiện từng level
-  const PREREQ = {
-    'Senior': { projTarget:10, scoreTarget:8.0, cycleMin:1, label:'Staff' },
-    'Key Member': { projTarget:15, scoreTarget:8.0, cycleMin:1, label:'Senior' },
-    'Leader': { projTarget:25, scoreTarget:9.0, cycleMin:1, label:'Key Member' },
-  };
+  // Benchmark dự án từng level
+  // Logic: dùng raw tích lũy ở level HIỆN TẠI, so ngược xuống benchmark các level thấp hơn
+  // VD: Key Member raw=12 → Staff OK (>=10) nhưng Senior chưa (12<15) → cần bù thêm 3đ
+  const PROJ_BENCH   = { 'Staff':10, 'Senior':15, 'Key Member':25, 'Leader':35 };
+  const SCORE_TARGET = { 'Staff':8.0, 'Senior':8.0, 'Key Member':8.0, 'Leader':9.0 };
 
-  // Check từ level ngay dưới đi lên
+  // Tính raw 1 lần ở level HIỆN TẠI (multiplier theo level hiện tại)
+  const psNow  = (typeof calcPersonProjectScore==='function')
+    ? calcPersonProjectScore(currentPersonName||'', currentLevel) : null;
+  const rawNow = psNow ? parseFloat(psNow.totalRaw) : 0;
+
+  // Tính điểm tổng hiện tại
+  let scoreNow = 0;
+  if(psNow){
+    const all    = i3data.flatMap(s=>s.items);
+    const sc     = all.filter(item=>scores3[item.id]);
+    if(sc.length){
+      const avg    = sc.reduce((a,item)=>a+scores3[item.id],0)/sc.length;
+      const i3s    = (avg/5)*10;
+      const projS  = parseFloat(psNow.projScore10);
+      const i2vals = i2data.flatMap(s=>s.items).filter(item=>scores2[item.id]);
+      const i2s    = i2vals.length ? i2vals.reduce((a,item)=>a+(scores2[item.id]||0),0)/i2vals.length : 0;
+      const w      = (typeof getWeights==='function') ? getWeights(currentLevel,'match') : {i3:0.7,proj:0.3,i2:0};
+      scoreNow     = (i3s*w.i3)+(projS*(w.proj||0.3))+(i2s*(w.i2||0));
+    }
+  }
+
+  const cycles = (typeof projects!=='undefined') ? projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===(currentPersonName||'').toLowerCase(); });
+  }).length : 0;
+
+  // So rawNow với benchmark từng level thấp hơn — phát hiện nợ chưa trả
   const missing = [];
   for(let i=1; i<=curIdx; i++){
-    const lv = LEVELS[i];
-    const cfg = PREREQ[lv];
-    if(!cfg) continue;
-    const prevLv = LEVELS[i-1];
-
-    // Tính proj raw của level dưới
-    const ps = (typeof calcPersonProjectScore==='function')
-      ? calcPersonProjectScore(currentPersonName||'', prevLv) : null;
-    const projRaw = ps ? parseFloat(ps.totalRaw) : 0;
-
-    // Tính điểm tổng ở level dưới
-    let scorePrev = 0;
-    if(ps){
-      const all = i3data.flatMap(s=>s.items);
-      const sc = all.filter(item=>scores3[item.id]);
-      if(sc.length){
-        const avg = sc.reduce((a,item)=>a+scores3[item.id],0)/sc.length;
-        const i3s = (avg/5)*10;
-        const projS = parseFloat(ps.projScore10);
-        const i2vals = i2data.flatMap(s=>s.items).filter(item=>scores2[item.id]);
-        const i2s = i2vals.length ? i2vals.reduce((a,item)=>a+(scores2[item.id]||0),0)/i2vals.length : 0;
-        const w = (typeof getWeights==='function') ? getWeights(prevLv,'match') : {i3:0.7,proj:0.3,i2:0};
-        scorePrev = (i3s*w.i3)+(projS*(w.proj||0.3))+(i2s*(w.i2||0));
-      }
-    }
-
-    // Đếm chu kỳ
-    const cycles = (typeof projects!=='undefined') ? projects.filter(function(p){
-      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===(currentPersonName||'').toLowerCase(); });
-    }).length : 0;
+    const lv     = LEVELS[i];    // level đang check điều kiện lên (VD: Senior)
+    const prevLv = LEVELS[i-1];  // level cần đã hoàn thành (VD: Staff)
+    const bench  = PROJ_BENCH[prevLv]   || 10;
+    const stgt   = SCORE_TARGET[prevLv] || 8.0;
 
     const items = [];
-    if(projRaw < cfg.projTarget){
-      items.push('Điểm tích lũy dự án: <b>'+projRaw.toFixed(1)+' / '+cfg.projTarget+'</b> (còn thiếu '+(cfg.projTarget-projRaw).toFixed(1)+'đ)');
+    if(rawNow < bench){
+      items.push('Điểm tích lũy dự án: <b>'+rawNow.toFixed(1)+' / '+bench+'</b> (còn thiếu '+(bench-rawNow).toFixed(1)+'đ — benchmark '+prevLv+')');
     }
-    if(scorePrev < cfg.scoreTarget){
-      items.push('Điểm tổng ở level '+prevLv+': <b>'+scorePrev.toFixed(1)+' / '+cfg.scoreTarget+'</b> (còn thiếu '+(cfg.scoreTarget-scorePrev).toFixed(1)+'đ)');
+    if(scoreNow < stgt){
+      items.push('Điểm tổng hiện tại: <b>'+scoreNow.toFixed(1)+' / '+stgt+'</b> (còn thiếu '+(stgt-scoreNow).toFixed(1)+'đ)');
     }
-    if(cycles < cfg.cycleMin){
-      items.push('Chu kỳ dự án hoàn thành: <b>'+cycles+' / '+cfg.cycleMin+'</b>');
+    if(cycles < 1){
+      items.push('Chu kỳ dự án hoàn thành: <b>'+cycles+' / 1</b>');
     }
-
     if(items.length){
       missing.push({ fromLevel: prevLv, toLevel: lv, items });
     }
