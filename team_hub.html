@@ -3910,6 +3910,11 @@ function updateKeyPlusRoadmap(total, projRaw){
     projRaw = ps ? parseFloat(ps.totalRaw) : 0;
   }
 
+  // Lấy số chu kỳ Done của người đang xem
+  const _doneCycles = (typeof projects !== 'undefined') ? projects.filter(function(p){
+    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===(currentPersonName||'').toLowerCase(); });
+  }).length : 0;
+
   // Config theo từng level
   const ROADMAP_CONFIG = {
     'Staff': {
@@ -3923,6 +3928,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       totalLabel: '7.0',
       summaryUp: 'Senior',
       showConds: false,
+      cycleMin: 1,
     },
     'Senior': {
       targetLabel: 'Key Member',
@@ -3935,6 +3941,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       totalLabel: '8.0',
       summaryUp: 'Key Member',
       showConds: false,
+      cycleMin: 1,
     },
     'Key Member': {
       targetLabel: 'Key++',
@@ -3964,7 +3971,8 @@ function updateKeyPlusRoadmap(total, projRaw){
   const projDone = projRaw >= cfg.projTarget;
   const totalDone = total >= cfg.totalTarget;
   const allConds = !cfg.showConds || (condTraining && condBackcheck && condSetup);
-  const allDone = projDone && totalDone && allConds;
+  const cycleDone = !cfg.cycleMin || _doneCycles >= cfg.cycleMin;
+  const allDone = projDone && totalDone && allConds && cycleDone;
 
   // Proj hint
   const need = Math.max(0, cfg.projTarget - projRaw);
@@ -3980,9 +3988,23 @@ function updateKeyPlusRoadmap(total, projRaw){
   // Status badge helper
   function badge(done){ return '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+(done?'#EAF3DE':'#FAECE7')+';color:'+(done?'#3B6D11':'#993C1D')+'">'+(done?'✓ Đạt':'Chưa đạt')+'</span>'; }
 
+  // Cycle block HTML (Staff và Senior)
+  const cycleHTML = cfg.cycleMin ? `
+    <div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);padding:14px 16px;margin-bottom:10px;background:var(--color-background-primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">🔄 Chu kỳ dự án hoàn thành</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:4px">Tối thiểu ${cfg.cycleMin} chu kỳ · Hiện tại: <b>${_doneCycles}</b> chu kỳ</div>
+        </div>
+        ${cycleDone
+          ? '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#EAF3DE;color:#3B6D11">✓ Đạt</span>'
+          : '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#FAECE7;color:#993C1D">Chưa đạt</span>'}
+      </div>
+    </div>` : '';
+
   // Summary
-  const doneCount = [projDone, totalDone, allConds].filter(Boolean).length;
-  const totalGroups = cfg.showConds ? 3 : 2;
+  const doneCount = [projDone, totalDone, cycleDone && !!cfg.cycleMin, allConds].filter(Boolean).length;
+  const totalGroups = (cfg.showConds ? 1 : 0) + (cfg.cycleMin ? 1 : 0) + 2;
   const summaryHTML = allDone
     ? '<div style="background:#EAF3DE;color:#3B6D11;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">🎉 Đủ điều kiện! Đề xuất lên <b>'+cfg.summaryUp+'</b></div>'
     : '<div style="background:#F1EFE8;color:var(--color-text-secondary);padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">Hoàn thiện <b>'+doneCount+'/'+totalGroups+'</b> nhóm điều kiện · Cần đạt hết để lên <b>'+cfg.summaryUp+'</b></div>';
@@ -4054,6 +4076,7 @@ function updateKeyPlusRoadmap(total, projRaw){
       <div style="font-size:11px;color:var(--color-text-tertiary)">${totalHintHTML}</div>
     </div>
 
+    ${cycleHTML}
     ${condsHTML}
     ${summaryHTML}
   `;
