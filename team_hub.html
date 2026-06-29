@@ -3513,9 +3513,28 @@ async function sendFeedback(personName, message){
               if(finalRole==='user')   localStorage.setItem('teamhub_sheets_userpw', finalPw);
               sheetsRole = finalRole;
             } else {
-              sheetsRole = savedRole || 'user';
+              // Tất cả password đều none → chặn, hiện login
+              const blurFail2 = document.getElementById('blur-overlay');
+              if(blurFail2) blurFail2.style.display='none';
+              updateSheetsBadge();
+              const overlay2 = document.getElementById('login-overlay');
+              const appShell2 = document.querySelector('.app-shell');
+              if(overlay2) overlay2.style.display='flex';
+              if(appShell2) appShell2.style.visibility='hidden';
+              return;
             }
           } else {
+            if(!verifiedRole || verifiedRole === 'none'){
+              // role none từ Sheets → chặn
+              const blurFail3 = document.getElementById('blur-overlay');
+              if(blurFail3) blurFail3.style.display='none';
+              updateSheetsBadge();
+              const overlay3 = document.getElementById('login-overlay');
+              const appShell3 = document.querySelector('.app-shell');
+              if(overlay3) overlay3.style.display='flex';
+              if(appShell3) appShell3.style.visibility='hidden';
+              return;
+            }
             sheetsRole = verifiedRole;
           }
           sheetsConnected = true;
