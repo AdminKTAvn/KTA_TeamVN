@@ -400,9 +400,21 @@ function renderMembers(){
   if(!filtered.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
 
+  const LEVEL_ORDER = {'Leader':0,'Key Member':1,'Senior':2,'Staff':3};
+  const TEAM_ORDER  = {'Liam':0,'Stuart':1,'Nina':2};
   const sorted = filtered.slice().sort((a,b)=>{
+    // 1. Active trước, inactive sau
     if((a.active!==false)!==(b.active!==false)) return a.active===false?1:-1;
-    if(a.team!==b.team) return a.team.localeCompare(b.team);
+    // 2. Theo nhóm (Liam → Stuart → Nina)
+    const tA = TEAM_ORDER[a.team]??99, tB = TEAM_ORDER[b.team]??99;
+    if(tA!==tB) return tA-tB;
+    // 3. Theo level (Leader → Key Member → Senior → Staff)
+    const lA = LEVEL_ORDER[a.level]??99, lB = LEVEL_ORDER[b.level]??99;
+    if(lA!==lB) return lA-lB;
+    // 4. Theo thâm niên (joinDate sớm nhất lên đầu, không có joinDate xuống cuối)
+    if(a.joinDate && b.joinDate) return new Date(a.joinDate)-new Date(b.joinDate);
+    if(a.joinDate) return -1;
+    if(b.joinDate) return 1;
     return a.name.localeCompare(b.name);
   });
 
@@ -1207,8 +1219,10 @@ function renderProjects(){
     const tDeadline = tProjs.filter(p=>p.status==='Deadline').length;
     const sizeCount = {Small:0,Medium:0,Large:0};
     tProjs.forEach(p=>sizeCount[p.size]++);
-    const memberSet = new Set();
-    tProjs.forEach(p=>p.members.forEach(m=>memberSet.add(m)));
+    // Đếm nhân sự từ members[] theo team — fallback về unique names từ projects nếu members chưa có
+    const teamMemberCount = (typeof members!=='undefined' && members.length)
+      ? members.filter(m=>m.team===team && m.active!==false).length
+      : (()=>{ const s=new Set(); tProjs.forEach(p=>p.members.forEach(m=>s.add(m))); return s.size; })();
     const pct = tProjs.length ? Math.round(tComplete/tProjs.length*100) : 0;
     return `<div class="pm-team-card">
       <div class="pm-team-head">
@@ -1218,7 +1232,7 @@ function renderProjects(){
       <div class="pm-team-body">
         <div class="pm-team-row"><span>Hoàn thành</span><b>${tComplete}</b></div>
         <div class="pm-team-row"><span>Cận deadline</span><b style="color:${tDeadline>0?'#993C1D':'inherit'}">${tDeadline}</b></div>
-        <div class="pm-team-row"><span>Nhân sự tham gia</span><b>${memberSet.size}</b></div>
+        <div class="pm-team-row"><span>Nhân sự tham gia</span><b>${teamMemberCount}</b></div>
         <div class="pm-team-row"><span>Small / Medium / Large</span><b>${sizeCount.Small} / ${sizeCount.Medium} / ${sizeCount.Large}</b></div>
         <div class="pm-bar-row">
           <div class="pm-bar-track"><div class="pm-bar-fill" style="width:${pct}%;background:${TEAM_COLOR[team]}"></div></div>
