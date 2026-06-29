@@ -4817,12 +4817,19 @@ function updateKeyPlusRoadmap(total, projRaw){
       </div>
     </div>` : '';
 
-  // Summary
-  const doneCount = [projDone, totalDone, cycleDone && !!cfg.cycleMin, allConds].filter(Boolean).length;
-  const totalGroups = (cfg.showConds ? 1 : 0) + (cfg.cycleMin ? 1 : 0) + 2;
+  // Summary — liệt kê rõ từng nhóm còn thiếu
+  const groupStatus = [
+    { label: 'Điểm dự án',       done: projDone },
+    { label: 'Điểm tổng',        done: totalDone },
+    ...(cfg.cycleMin  ? [{ label: 'Chu kỳ hoàn thành', done: cycleDone }] : []),
+    ...(cfg.showConds ? [{ label: 'Điều kiện bổ sung ('+condCount+'/3, cần ≥'+CONDS_REQUIRED+')', done: allConds }] : []),
+  ];
+  const doneCount   = groupStatus.filter(g=>g.done).length;
+  const totalGroups = groupStatus.length;
+  const missing     = groupStatus.filter(g=>!g.done).map(g=>g.label);
   const summaryHTML = allDone
     ? '<div style="background:#EAF3DE;color:#3B6D11;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">🎉 Đủ điều kiện! Đề xuất lên <b>'+cfg.summaryUp+'</b></div>'
-    : '<div style="background:#F1EFE8;color:var(--color-text-secondary);padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">Hoàn thiện <b>'+doneCount+'/'+totalGroups+'</b> nhóm điều kiện · Cần đạt hết để lên <b>'+cfg.summaryUp+'</b></div>';
+    : '<div style="background:#F1EFE8;color:var(--color-text-secondary);padding:10px 12px;border-radius:8px;font-size:12px;font-weight:500;text-align:center">Hoàn thiện <b>'+doneCount+'/'+totalGroups+'</b> nhóm · Còn thiếu: <b>'+missing.join(' · ')+'</b></div>';
 
   // Conditions block (chỉ Key Member)
   const condsHTML = cfg.showConds ? `
