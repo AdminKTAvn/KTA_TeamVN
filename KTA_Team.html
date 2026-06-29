@@ -184,6 +184,7 @@ button{font-family:var(--font-sans)}
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <span id="mb-save-toast" style="display:none;font-size:12px;color:#3B6D11;background:#EAF3DE;padding:5px 12px;border-radius:var(--border-radius-md)">✓ Đã lưu!</span>
+    <button class="mb-add-btn admin-only" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveMembersManual()">💾 Lưu dữ liệu</button>
     <button class="mb-add-btn admin-only" style="background:var(--color-background-primary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)" onclick="openImportMembersModal()">⬆ Import từ dữ liệu cũ</button>
     <button class="mb-add-btn admin-only" onclick="openMemberModal()">+ Thêm nhân sự</button>
   </div>
@@ -593,6 +594,16 @@ function populatePersonDropdownFromMembers(){
 
 loadMembers();
 renderMembers();
+
+function saveMembersManual(){
+  persistMembers();
+  const toast = document.getElementById('mb-save-toast');
+  if(toast){
+    toast.textContent = '✓ Đã lưu lên Sheet!';
+    toast.style.display = 'inline-block';
+    setTimeout(()=>{ toast.style.display='none'; toast.textContent='✓ Đã lưu!'; }, 2500);
+  }
+}
 
 // ─── IMPORT từ dữ liệu cũ ───
 let _importCandidates = [];
