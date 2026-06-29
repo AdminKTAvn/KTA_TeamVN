@@ -2799,12 +2799,15 @@ function renderSummary(){
   const LEVELS=['Staff','Senior','Key Member','Leader'];
   const curIdx=LEVELS.indexOf(currentLevel);
 
-  // Tính điểm tổng
-  const i3score=allScored?((avgMuc/5)*8):null;
-  const i4score=I4_SCORES[currentLevel]||0;
-  const totalScore=i3score!==null?(i3score+i4score):null;
+  // Lấy điểm tổng thật từ updateResult (I3×w + Proj×w + I2×w) — đồng bộ với header
+  const _rTotalEl = document.getElementById('r-total');
+  const _rTotalRaw = _rTotalEl ? _rTotalEl.textContent.replace('*','').trim() : '';
+  const totalScore = (_rTotalRaw && _rTotalRaw !== '–') ? parseFloat(_rTotalRaw) : null;
+  // i3score chỉ dùng để hiển thị bullets/summary text
+  const i3score = ((avgMuc/5)*10);
 
   const SUGGEST_THRESHOLD = {'Staff':8.0,'Senior':8.0,'Key Member':9.0,'Leader':9.0}[currentLevel] || 8.0;
+  const _ts = totalScore !== null ? totalScore.toFixed(1) : '–';
 
   let suggestLevel, suggestClass, suggestIcon, suggestLabel, suggestSub;
 
@@ -2820,34 +2823,34 @@ function renderSummary(){
     suggestClass='lp-warn';
     suggestIcon='📌';
     suggestLabel='Chưa vững level hiện tại';
-    suggestSub=`${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${totalScore.toFixed(1)}/10. Cần cải thiện trước khi xác nhận level.`;
+    suggestSub=`${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${_ts}/10. Cần cải thiện trước khi xác nhận level.`;
   } else if(weakItems.length===1){
     suggestLevel='Gần đạt — '+currentLevel;
     suggestClass='lp-warn';
     suggestIcon='⚠️';
     suggestLabel='Cần cải thiện thêm 1 tiêu chí';
-    suggestSub=`Còn 1 tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${totalScore.toFixed(1)}/10. Tập trung cải thiện điểm yếu này để xác nhận level.`;
-  } else if(weakItems.length===0&&totalScore>=SUGGEST_THRESHOLD&&curIdx<3){
+    suggestSub=`Còn 1 tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng: ${_ts}/10. Tập trung cải thiện điểm yếu này để xác nhận level.`;
+  } else if(weakItems.length===0&&totalScore!==null&&totalScore>=SUGGEST_THRESHOLD&&curIdx<3){
     // Đủ điều kiện đề xuất lên level cao hơn
     suggestLevel=LEVELS[curIdx+1];
     suggestClass='lp-suggest-up';
     suggestIcon='🚀';
     suggestLabel='Đề xuất xem xét thăng level';
-    suggestSub=`Tất cả tiêu chí đạt yêu cầu và điểm tổng ${totalScore.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Đủ điều kiện xem xét lên ${LEVELS[curIdx+1]}.`;
-  } else if(weakItems.length===0&&totalScore>=SUGGEST_THRESHOLD&&curIdx===3){
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu và điểm tổng ${_ts}/10 ≥ ${SUGGEST_THRESHOLD}. Đủ điều kiện xem xét lên ${LEVELS[curIdx+1]}.`;
+  } else if(weakItems.length===0&&totalScore!==null&&totalScore>=SUGGEST_THRESHOLD&&curIdx===3){
     // Leader đạt >= 8
     suggestLevel='Duy trì — Leader';
     suggestClass='lp-suggest-up';
     suggestIcon='🏆';
     suggestLabel='Xuất sắc ở level Leader';
-    suggestSub=`Điểm tổng ${totalScore.toFixed(1)}/10 ≥ ${SUGGEST_THRESHOLD}. Năng lực Leader vững chắc — tiếp tục duy trì và phát triển đội ngũ.`;
+    suggestSub=`Điểm tổng ${_ts}/10 ≥ ${SUGGEST_THRESHOLD}. Năng lực Leader vững chắc — tiếp tục duy trì và phát triển đội ngũ.`;
   } else {
     // Tất cả đạt nhưng điểm tổng < 8.0 — xác nhận level hiện tại, chưa đề xuất lên
     suggestLevel='Xác nhận — '+currentLevel;
     suggestClass='lp-suggest';
     suggestIcon='✅';
     suggestLabel='Đạt level hiện tại · Chưa đủ điều kiện thăng';
-    suggestSub=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Tiếp tục nâng cao để đạt ≥ ${SUGGEST_THRESHOLD}.`;
+    suggestSub=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${_ts}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Tiếp tục nâng cao để đạt ≥ ${SUGGEST_THRESHOLD}.`;
   }
 
   sugEl.className='level-proposal '+suggestClass;
@@ -2871,12 +2874,12 @@ function renderSummary(){
   let summaryText='';
   if(!allScored){
     summaryText=`Dữ liệu chưa đủ để đánh giá toàn diện. Đã chấm ${scored.length}/${all.length} tiêu chí.`;
-  } else if(weakItems.length===0&&totalScore>=8.0){
-    summaryText=`Nhìn tổng thể, đây là profile năng lực vững chắc. Điểm tổng ${totalScore.toFixed(1)}/10 đạt ngưỡng ≥ ${SUGGEST_THRESHOLD} — đủ điều kiện đề xuất thăng level${curIdx<3?' lên '+LEVELS[curIdx+1]:''}${strongItems.length>=3?', với nhiều tiêu chí nổi trội vượt yêu cầu':''}.`;
+  } else if(weakItems.length===0&&totalScore!==null&&totalScore>=SUGGEST_THRESHOLD){
+    summaryText=`Nhìn tổng thể, đây là profile năng lực vững chắc. Điểm tổng ${_ts}/10 đạt ngưỡng ≥ ${SUGGEST_THRESHOLD} — đủ điều kiện đề xuất thăng level${curIdx<3?' lên '+LEVELS[curIdx+1]:''}${strongItems.length>=3?', với nhiều tiêu chí nổi trội vượt yêu cầu':''}.`;
   } else if(weakItems.length===0){
-    summaryText=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${totalScore.toFixed(1)}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Cần tiếp tục nâng cao chất lượng từng tiêu chí.`;
+    summaryText=`Tất cả tiêu chí đạt yêu cầu của ${currentLevel} nhưng điểm tổng ${_ts}/10 chưa đạt ngưỡng ${SUGGEST_THRESHOLD} để đề xuất thăng level. Cần tiếp tục nâng cao chất lượng từng tiêu chí.`;
   } else {
-    summaryText=`Profile có ${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng tạm tính: ${totalScore!==null?totalScore.toFixed(1)+'/ 10':'–'}. Cần cải thiện các điểm yếu trước khi xác nhận hoặc đề xuất thăng level.`;
+    summaryText=`Profile có ${weakItems.length} tiêu chí chưa đạt yêu cầu của ${currentLevel}. Điểm tổng tạm tính: ${totalScore!==null?_ts+'/10':'–'}. Cần cải thiện các điểm yếu trước khi xác nhận hoặc đề xuất thăng level.`;
   }
   const _sumTextEl=document.getElementById('sp-summary-text'); if(_sumTextEl) _sumTextEl.textContent=summaryText;
 
