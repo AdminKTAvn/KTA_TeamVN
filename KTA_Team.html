@@ -184,8 +184,8 @@ button{font-family:var(--font-sans)}
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <span id="mb-save-toast" style="display:none;font-size:12px;color:#3B6D11;background:#EAF3DE;padding:5px 12px;border-radius:var(--border-radius-md)">✓ Đã lưu!</span>
-    <button class="mb-add-btn admin-only" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveMembersManual()">💾 Lưu dữ liệu</button>
-    <button class="mb-add-btn admin-only" style="background:var(--color-background-primary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)" onclick="openImportMembersModal()">⬆ Import từ dữ liệu cũ</button>
+    <button class="mb-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveMembersManual()">💾 Lưu dữ liệu</button>
+    <button class="mb-add-btn" style="background:var(--color-background-primary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)" onclick="openImportMembersModal()">⬆ Import từ dữ liệu cũ</button>
     <button class="mb-add-btn admin-only" onclick="openMemberModal()">+ Thêm nhân sự</button>
   </div>
 </div>
@@ -196,7 +196,7 @@ button{font-family:var(--font-sans)}
     <div class="mb-modal-title">⬆ Import nhân sự từ dữ liệu hiện có</div>
     <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:16px;line-height:1.7">
       Hệ thống tự động tìm tên từ <b>dữ liệu dự án</b> và <b>lịch sử đánh giá</b>, điền sẵn Level + Join Date nếu có.<br>
-      Bỏ tick những người không muốn import. Sau khi import vẫn có thể sửa từng người.
+      Cột <b>Nhóm</b> để trống — vui lòng vào sửa từng người sau khi import để điền đúng nhóm.
     </div>
     <div id="mb-import-preview"></div>
     <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:8px" id="mb-import-note"></div>
@@ -716,14 +716,12 @@ function confirmImportMembers(){
 function _extractCandidatesFromExistingData(){
   const nameMap = {}; // key: name.toLowerCase()
 
-  // Nguồn 1: projects — lấy tên + team (team của dự án = team của người đó)
+  // Nguồn 1: projects — lấy tên, KHÔNG tự gán team (1 người có thể làm dự án nhiều nhóm → dễ sai)
   (projects||[]).forEach(function(p){
-    const team = p.team || '';
     (p.membersMain||[]).concat(p.membersBackup||[]).forEach(function(n){
       if(!n || !n.trim()) return;
       const key = n.trim().toLowerCase();
       if(!nameMap[key]) nameMap[key] = { name:n.trim(), level:'', team:'', joinDate:'', sources:[] };
-      if(!nameMap[key].team && team) nameMap[key].team = team;
       if(!nameMap[key].sources.includes('Dự án')) nameMap[key].sources.push('Dự án');
     });
   });
