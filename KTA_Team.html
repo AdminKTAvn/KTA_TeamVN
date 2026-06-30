@@ -20,7 +20,7 @@
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);-webkit-font-smoothing:antialiased}
-.app-shell{max-width:1080px;margin:0 auto;padding:0 16px 60px}
+.app-shell{max-width:1080px;margin:0 auto;padding:0 16px 60px;visibility:hidden}
 .app-header{padding:28px 0 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .app-title{font-size:20px;font-weight:600;letter-spacing:-0.01em}
 .app-title-sub{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
@@ -3707,18 +3707,17 @@ function switchMainTab(id){
 
 // ═══════════ LOGIN SCREEN ═══════════
 (function initLoginScreen(){
-  // Kiểm tra đã đăng nhập chưa
-  const savedAdmin  = localStorage.getItem('teamhub_sheets_adminpw')  || '';
-  const savedLeader = localStorage.getItem('teamhub_sheets_leaderpw') || '';
-  const savedUser   = localStorage.getItem('teamhub_sheets_userpw')   || '';
-  const savedUrl    = (function(){ try{ return JSON.parse(localStorage.getItem('teamhub_sheets_config')||'{}').scriptUrl||''; }catch(e){ return ''; } })();
+  // Kiểm tra đã đăng nhập chưa — dùng CHUNG điều kiện với tryAutoReconnectSheets (hint + url)
+  // để tránh 2 nơi check khác nhau gây hiện app mà chưa thực kết nối
+  const hint = localStorage.getItem('teamhub_sheets_hint');
+  const savedUrl = (function(){ try{ return JSON.parse(localStorage.getItem('teamhub_sheets_config')||'{}').scriptUrl||''; }catch(e){ return ''; } })();
 
-  if((savedAdmin || savedLeader || savedUser) && savedUrl){
-    // Đã từng đăng nhập → ẩn login, auto-reconnect sẽ xử lý
+  if(hint && savedUrl){
+    // Đã từng đăng nhập thành công → ẩn login, để tryAutoReconnectSheets xử lý xác thực lại
     return;
   }
 
-  // Chưa đăng nhập → hiện màn hình login
+  // Chưa đăng nhập (hoặc lần đầu) → hiện màn hình login ngay, không cho vào app khi chưa xác thực
   const overlay = document.getElementById('login-overlay');
   const appShell = document.querySelector('.app-shell');
   if(overlay) overlay.style.display = 'flex';
