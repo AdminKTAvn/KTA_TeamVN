@@ -287,6 +287,109 @@ button{font-family:var(--font-sans)}
 </div>
 
 <script>
+// ═══════════ I18N SYSTEM (VI/EN) ═══════════
+const I18N = {
+  vi: {
+    'login.title': 'KTA TeamVN',
+    'login.subtitle': 'Đăng nhập để tiếp tục',
+    'login.urlLabel': 'URL Kết nối (chỉ nhập 1 lần)',
+    'login.pwPlaceholder': 'Nhập password...',
+    'login.btn': 'Đăng nhập →',
+    'login.error': 'Password không đúng. Thử lại!',
+    'login.hint': 'Nhập password được cấp bởi Admin',
+    'header.subtitle': 'Quản lý dự án & Đánh giá năng lực — đồng bộ qua Google Sheets',
+    'header.sheetsDisconnected': '📊 Sheets: Chưa kết nối',
+    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
+    'badge.connectedLeader': '📊 Sheets: Leader ✓',
+    'badge.connectedUser': '📊 Sheets: Đã kết nối ✓',
+    'badge.syncing': '📊 Sheets: Đang lưu...',
+    'badge.error': '📊 Sheets: Lỗi — thử lại',
+    'badge.connecting': '📊 Sheets: Đang kết nối...',
+    'badge.disconnected': '📊 Sheets: Chưa kết nối',
+    'tab.members': 'Nhân sự',
+    'tab.projects': 'Quản lý dự án',
+    'tab.eval': 'Đánh giá năng lực',
+    'tab.user': 'Tra cứu của tôi',
+    'tab.lb': 'Xếp hạng',
+  },
+  en: {
+    'login.title': 'KTA TeamVN',
+    'login.subtitle': 'Sign in to continue',
+    'login.urlLabel': 'Connection URL (enter once)',
+    'login.pwPlaceholder': 'Enter password...',
+    'login.btn': 'Sign in →',
+    'login.error': 'Incorrect password. Try again!',
+    'login.hint': 'Enter the password provided by Admin',
+    'header.subtitle': 'Project Management & Competency Evaluation — synced via Google Sheets',
+    'header.sheetsDisconnected': '📊 Sheets: Not connected',
+    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
+    'badge.connectedLeader': '📊 Sheets: Leader ✓',
+    'badge.connectedUser': '📊 Sheets: Connected ✓',
+    'badge.syncing': '📊 Sheets: Saving...',
+    'badge.error': '📊 Sheets: Error — retry',
+    'badge.connecting': '📊 Sheets: Connecting...',
+    'badge.disconnected': '📊 Sheets: Not connected',
+    'tab.members': 'Members',
+    'tab.projects': 'Project Management',
+    'tab.eval': 'Competency Evaluation',
+    'tab.user': 'My Lookup',
+    'tab.lb': 'Leaderboard',
+  }
+};
+
+let currentLang = localStorage.getItem('teamhub_lang') || 'vi';
+let lastBadgeState = undefined; // Trạng thái badge Sheets hiện tại, dùng để re-render đúng khi đổi ngôn ngữ
+
+function t(key){
+  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
+}
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.setAttribute('placeholder', t(key));
+  });
+  document.documentElement.lang = currentLang;
+}
+
+function setLang(lang){
+  currentLang = lang;
+  localStorage.setItem('teamhub_lang', lang);
+  applyI18n();
+  // Update lang toggle buttons (cả 2 vị trí: login + header)
+  ['vi','en'].forEach(function(l){
+    document.querySelectorAll('#lang-btn-'+l+', #lang-btn-'+l+'-2').forEach(function(btn){
+      if(!btn) return;
+      if(l===lang){ btn.style.background='#1A1A18'; btn.style.color='#fff'; }
+      else { btn.style.background='transparent'; btn.style.color='var(--color-text-secondary)'; }
+    });
+  });
+  // Re-render badge Sheets theo ngôn ngữ mới, dùng đúng trạng thái hiện tại
+  if(typeof updateSheetsBadge==='function') updateSheetsBadge(lastBadgeState);
+  // Re-render các phần dùng JS template string (nếu hàm tồn tại)
+  if(typeof renderMembers==='function') renderMembers();
+  if(typeof renderProjects==='function') renderProjects();
+  if(typeof renderLeaderboard==='function' && document.getElementById('mainpanel-lb')?.classList.contains('active')) renderLeaderboard();
+}
+
+// Khởi tạo ngôn ngữ khi load trang
+document.addEventListener('DOMContentLoaded', function(){
+  applyI18n();
+  setLang(currentLang);
+});
+// Fallback nếu DOMContentLoaded đã fire trước khi script này chạy
+if(document.readyState === 'complete' || document.readyState === 'interactive'){
+  applyI18n();
+  setLang(currentLang);
+}
+// ═══════════ /I18N SYSTEM ═══════════
+</script>
+
+<script>
 // ═══════════ MEMBERS MODULE ═══════════
 let members = [];
 
@@ -3705,6 +3808,26 @@ function switchMainTab(id){
 
 
 
+// ── Safety fallback: nếu sau 3s không có overlay/app nào hiển thị (lỗi JS bất kỳ), force hiện login ──
+setTimeout(function(){
+  try{
+    const overlay = document.getElementById('login-overlay');
+    const appShell = document.querySelector('.app-shell');
+    const overlayVisible = overlay && overlay.style.display !== 'none';
+    const appVisible = appShell && getComputedStyle(appShell).visibility === 'visible';
+    if(!overlayVisible && !appVisible){
+      if(overlay) overlay.style.display = 'flex';
+      if(appShell) appShell.style.visibility = 'hidden';
+      const blurEl = document.getElementById('blur-overlay');
+      if(blurEl) blurEl.style.display = 'none';
+    }
+  } catch(e){
+    // Nếu kể cả fallback cũng lỗi, force hiện overlay bằng cách thô nhất
+    const overlay = document.getElementById('login-overlay');
+    if(overlay) overlay.style.display = 'flex';
+  }
+}, 3000);
+
 // ═══════════ LOGIN SCREEN ═══════════
 (function initLoginScreen(){
   // Kiểm tra đã đăng nhập chưa — dùng CHUNG điều kiện với tryAutoReconnectSheets (hint + url)
@@ -3850,7 +3973,7 @@ function updateSheetsBadge(state){
   badge.style.color = s[1]; badge.style.background = s[2];
   badge.style.borderColor = s[3]; badge.style.borderStyle = s[4];
 }
-let lastBadgeState = undefined;
+
 
 // ── Setup Modal ──
 function openSheetsSetup(){
@@ -5109,105 +5232,7 @@ function getProjectCountForCurrentPerson(){
   return getPersonProjectStats(currentPersonName);
 }
 
-// ═══════════ I18N SYSTEM (VI/EN) ═══════════
-const I18N = {
-  vi: {
-    'login.title': 'KTA TeamVN',
-    'login.subtitle': 'Đăng nhập để tiếp tục',
-    'login.urlLabel': 'URL Kết nối (chỉ nhập 1 lần)',
-    'login.pwPlaceholder': 'Nhập password...',
-    'login.btn': 'Đăng nhập →',
-    'login.error': 'Password không đúng. Thử lại!',
-    'login.hint': 'Nhập password được cấp bởi Admin',
-    'header.subtitle': 'Quản lý dự án & Đánh giá năng lực — đồng bộ qua Google Sheets',
-    'header.sheetsDisconnected': '📊 Sheets: Chưa kết nối',
-    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
-    'badge.connectedLeader': '📊 Sheets: Leader ✓',
-    'badge.connectedUser': '📊 Sheets: Đã kết nối ✓',
-    'badge.syncing': '📊 Sheets: Đang lưu...',
-    'badge.error': '📊 Sheets: Lỗi — thử lại',
-    'badge.connecting': '📊 Sheets: Đang kết nối...',
-    'badge.disconnected': '📊 Sheets: Chưa kết nối',
-    'tab.members': 'Nhân sự',
-    'tab.projects': 'Quản lý dự án',
-    'tab.eval': 'Đánh giá năng lực',
-    'tab.user': 'Tra cứu của tôi',
-    'tab.lb': 'Xếp hạng',
-  },
-  en: {
-    'login.title': 'KTA TeamVN',
-    'login.subtitle': 'Sign in to continue',
-    'login.urlLabel': 'Connection URL (enter once)',
-    'login.pwPlaceholder': 'Enter password...',
-    'login.btn': 'Sign in →',
-    'login.error': 'Incorrect password. Try again!',
-    'login.hint': 'Enter the password provided by Admin',
-    'header.subtitle': 'Project Management & Competency Evaluation — synced via Google Sheets',
-    'header.sheetsDisconnected': '📊 Sheets: Not connected',
-    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
-    'badge.connectedLeader': '📊 Sheets: Leader ✓',
-    'badge.connectedUser': '📊 Sheets: Connected ✓',
-    'badge.syncing': '📊 Sheets: Saving...',
-    'badge.error': '📊 Sheets: Error — retry',
-    'badge.connecting': '📊 Sheets: Connecting...',
-    'badge.disconnected': '📊 Sheets: Not connected',
-    'tab.members': 'Members',
-    'tab.projects': 'Project Management',
-    'tab.eval': 'Competency Evaluation',
-    'tab.user': 'My Lookup',
-    'tab.lb': 'Leaderboard',
-  }
-};
 
-let currentLang = localStorage.getItem('teamhub_lang') || 'vi';
-
-function t(key){
-  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
-}
-
-function applyI18n(){
-  document.querySelectorAll('[data-i18n]').forEach(function(el){
-    const key = el.getAttribute('data-i18n');
-    el.textContent = t(key);
-  });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
-    const key = el.getAttribute('data-i18n-placeholder');
-    el.setAttribute('placeholder', t(key));
-  });
-  document.documentElement.lang = currentLang;
-}
-
-function setLang(lang){
-  currentLang = lang;
-  localStorage.setItem('teamhub_lang', lang);
-  applyI18n();
-  // Update lang toggle buttons (cả 2 vị trí: login + header)
-  ['vi','en'].forEach(function(l){
-    document.querySelectorAll('#lang-btn-'+l+', #lang-btn-'+l+'-2').forEach(function(btn){
-      if(!btn) return;
-      if(l===lang){ btn.style.background='#1A1A18'; btn.style.color='#fff'; }
-      else { btn.style.background='transparent'; btn.style.color='var(--color-text-secondary)'; }
-    });
-  });
-  // Re-render badge Sheets theo ngôn ngữ mới, dùng đúng trạng thái hiện tại
-  if(typeof updateSheetsBadge==='function') updateSheetsBadge(lastBadgeState);
-  // Re-render các phần dùng JS template string (nếu hàm tồn tại)
-  if(typeof renderMembers==='function') renderMembers();
-  if(typeof renderProjects==='function') renderProjects();
-  if(typeof renderLeaderboard==='function' && document.getElementById('mainpanel-lb')?.classList.contains('active')) renderLeaderboard();
-}
-
-// Khởi tạo ngôn ngữ khi load trang
-document.addEventListener('DOMContentLoaded', function(){
-  applyI18n();
-  setLang(currentLang);
-});
-// Fallback nếu DOMContentLoaded đã fire trước khi script này chạy
-if(document.readyState === 'complete' || document.readyState === 'interactive'){
-  applyI18n();
-  setLang(currentLang);
-}
-// ═══════════ /I18N SYSTEM ═══════════
 
 </script>
 </body>
