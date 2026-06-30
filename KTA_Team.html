@@ -94,7 +94,7 @@ button{font-family:var(--font-sans)}
         <button class="lang-btn" id="lang-btn-vi-2" onclick="setLang('vi')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#1A1A18;color:#fff">VI</button>
         <button class="lang-btn" id="lang-btn-en-2" onclick="setLang('en')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--color-text-secondary)">EN</button>
       </div>
-      <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()" data-i18n="header.sheetsDisconnected">📊 Sheets: Chưa kết nối</span>
+      <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()">📊 Sheets: Chưa kết nối</span>
     </div>
   </div>
 
@@ -3836,19 +3836,21 @@ let sheetsSyncing = false;
 function updateSheetsBadge(state){
   const badge = document.getElementById('sheets-status-badge');
   if(!badge) return;
+  lastBadgeState = state; // lưu lại để re-render khi đổi ngôn ngữ
   const S = {
-    connected_admin:  ['📊 Sheets: Admin ✓', '#3B6D11','#EAF3DE','#639922','solid'],
-    connected_leader: ['📊 Sheets: Leader ✓', '#993C1D','#FAECE7','#D85A30','solid'],
-    connected_user:   ['📊 Sheets: Đã kết nối ✓', '#185FA5','#E6F1FB','#378ADD','solid'],
-    syncing:         ['📊 Sheets: Đang lưu...', '#BA7517','#FEF3DC','#BA7517','solid'],
-    error:           ['📊 Sheets: Lỗi — thử lại', '#993C1D','#FAECE7','#D85A30','solid'],
-    connecting:      ['📊 Sheets: Đang kết nối...', '#BA7517','#FEF3DC','#BA7517','solid'],
+    connected_admin:  [t('badge.connectedAdmin'),  '#3B6D11','#EAF3DE','#639922','solid'],
+    connected_leader: [t('badge.connectedLeader'), '#993C1D','#FAECE7','#D85A30','solid'],
+    connected_user:   [t('badge.connectedUser'),   '#185FA5','#E6F1FB','#378ADD','solid'],
+    syncing:          [t('badge.syncing'),         '#BA7517','#FEF3DC','#BA7517','solid'],
+    error:            [t('badge.error'),           '#993C1D','#FAECE7','#D85A30','solid'],
+    connecting:       [t('badge.connecting'),      '#BA7517','#FEF3DC','#BA7517','solid'],
   };
-  const s = S[state] || ['📊 Sheets: Chưa kết nối', 'var(--color-text-tertiary)','var(--color-background-secondary)','var(--color-border-secondary)','dashed'];
+  const s = S[state] || [t('badge.disconnected'), 'var(--color-text-tertiary)','var(--color-background-secondary)','var(--color-border-secondary)','dashed'];
   badge.textContent = s[0];
   badge.style.color = s[1]; badge.style.background = s[2];
   badge.style.borderColor = s[3]; badge.style.borderStyle = s[4];
 }
+let lastBadgeState = undefined;
 
 // ── Setup Modal ──
 function openSheetsSetup(){
@@ -5119,6 +5121,13 @@ const I18N = {
     'login.hint': 'Nhập password được cấp bởi Admin',
     'header.subtitle': 'Quản lý dự án & Đánh giá năng lực — đồng bộ qua Google Sheets',
     'header.sheetsDisconnected': '📊 Sheets: Chưa kết nối',
+    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
+    'badge.connectedLeader': '📊 Sheets: Leader ✓',
+    'badge.connectedUser': '📊 Sheets: Đã kết nối ✓',
+    'badge.syncing': '📊 Sheets: Đang lưu...',
+    'badge.error': '📊 Sheets: Lỗi — thử lại',
+    'badge.connecting': '📊 Sheets: Đang kết nối...',
+    'badge.disconnected': '📊 Sheets: Chưa kết nối',
     'tab.members': 'Nhân sự',
     'tab.projects': 'Quản lý dự án',
     'tab.eval': 'Đánh giá năng lực',
@@ -5135,6 +5144,13 @@ const I18N = {
     'login.hint': 'Enter the password provided by Admin',
     'header.subtitle': 'Project Management & Competency Evaluation — synced via Google Sheets',
     'header.sheetsDisconnected': '📊 Sheets: Not connected',
+    'badge.connectedAdmin': '📊 Sheets: Admin ✓',
+    'badge.connectedLeader': '📊 Sheets: Leader ✓',
+    'badge.connectedUser': '📊 Sheets: Connected ✓',
+    'badge.syncing': '📊 Sheets: Saving...',
+    'badge.error': '📊 Sheets: Error — retry',
+    'badge.connecting': '📊 Sheets: Connecting...',
+    'badge.disconnected': '📊 Sheets: Not connected',
     'tab.members': 'Members',
     'tab.projects': 'Project Management',
     'tab.eval': 'Competency Evaluation',
@@ -5173,6 +5189,8 @@ function setLang(lang){
       else { btn.style.background='transparent'; btn.style.color='var(--color-text-secondary)'; }
     });
   });
+  // Re-render badge Sheets theo ngôn ngữ mới, dùng đúng trạng thái hiện tại
+  if(typeof updateSheetsBadge==='function') updateSheetsBadge(lastBadgeState);
   // Re-render các phần dùng JS template string (nếu hàm tồn tại)
   if(typeof renderMembers==='function') renderMembers();
   if(typeof renderProjects==='function') renderProjects();
