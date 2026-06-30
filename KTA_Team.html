@@ -1527,7 +1527,7 @@ const LEVEL_BENCHMARK = {Staff:10, Senior:15, 'Key Member':25, Leader:35};
 // Tỷ trọng I2/I3/Dự án by level + project relation
 function getWeights(personLevel, projectRelation){
   // Trọng số cố định theo level
-  // Dự án giảm dần khi lên cao vì dự án lớn cần nhiều thời gian hơn
+  // Tỷ trọng Dự án giảm dần khi lên cao vì I3 (chất lượng) và I2 (skill cá nhân) ngày càng quan trọng hơn khối lượng
   const WEIGHTS = {
     'Staff':      {proj:0.30, i3:0.70, i2:0.00},
     'Senior':     {proj:0.30, i3:0.55, i2:0.15},
@@ -5080,7 +5080,7 @@ function renderLeaderboard(){
         +'<b style="color:var(--color-text-secondary)">📐 Công thức:</b> Điểm /10 = min(10, Tích lũy / '+bench+' × 10)<br>'
         +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br>'
         +'<b style="color:var(--color-text-secondary)">📌 Benchmark '+bench+'</b> = mức tích lũy cần đạt để được 10/10 ở '+lv+'.<br>'
-        +'Benchmark tăng dần vì dự án lớn hơn cần nhiều thời gian hơn — ít dự án hơn nhưng chất lượng cao hơn.<br>'
+        +'Benchmark tăng dần theo level vì kỳ vọng khối lượng công việc cao hơn — không liên quan đến size dự án (size đã được tính riêng ở điểm từng dự án).<br>'
         +'Staff=8 · Senior=12 · Key Member=20 · Leader=35'
         +'</div>';
     }).join('');
