@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KTA TeamVN — Quản lý dự án & Đánh giá năng lực</title>
+<title>KTA TeamVN</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAChElEQVR4nO2XT2vyQBDGn9nEXUkUvAptseix0GMPvfgBRL+Dn9FD8Vh66qEFod4CgkgvpX9jVDA7Pdj1NdbE1bf2vbw/WAwzk+Rxdmd2Q8zMyEBrDSEEbm5uQEQoFApIu4WIMB6Pwcy4vLxc3puFm+ldwfd9nJ2dIZfLZcbN53M8PDwsBW0jW94KWmtEUQStNbTWG/2rMbZYCwAAIcRyPD4+4uXlBR8fH+j3+wnfLlhPwTpBEGA4HEIIgYuLCzCzVcrX2U3uCp7nodvtYjweo1KppC7Mgwl4fn5Gu93G0dERut3uzqk37D0FtVoNAHBycoLr6+u9p2AnAcy8HJVKZWmr1+sJ3/rYBBGBme0FMDOUUiCixD811+ZXKQUp5be4NBHWAogIt7e38Dwvc8FFUYThcIjpdJo6LcYeRRFoWys2mCZjHpAmMgxDBEGA8/Pz1DitNRzHwf39vX0GhBAoFApb4xzHQbFYtIotlUr7l2EacRwjjmMA6ZkyrTqO4/3L0JYwDNHpdDAajXB6eopGo5HY0H48A6swM3zfR6PRgFIKzWYTUspEZg4qAFgsTCklfN+H635P+MEFAItMzGazjb5fEZDL5dBqtX5PgOM4i4d/bVBCCJTL5T8v/bI7jgN3Mplklo3p2VJKKKWsBLy/vyMMw0QnXL02Z8XX11e4V1dXOD4+3to2n56eUK/Xkc/nM1/ueR6UUuj3+0vxmyCiRT/o9Xpsw93dHb+9vVnF7oI7n8/BzNBaZ2Ygzb8J21hmhmu2TSLaeKqxOduvYxtPRL9Thln8F/DPBbimAtI+p4w9rZ7/WkA+n8/8pDJ2KeVhBPR6Pcxms9RyM31gMBigWq3+uIBP0BrFzbH8tY0AAAAASUVORK5CYII=">
 <style>
 :root{
@@ -37,7 +37,7 @@ button{font-family:var(--font-sans)}
   .blur-spinner{width:36px;height:36px;border:3px solid #E5E3DD;border-top-color:#1A1A18;border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .blur-text{font-size:13px;color:#9C9A94;font-weight:500}
-  .login-card{background:#fff;border-radius:16px;padding:40px 36px;max-width:400px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center}
+  .login-card{position:relative;background:#fff;border-radius:16px;padding:40px 36px;max-width:400px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center}
   .login-logo{font-size:36px;margin-bottom:12px}
   .login-title{font-size:22px;font-weight:700;color:#1A1A18;margin-bottom:4px}
   .login-sub{font-size:13px;color:#9C9A94;margin-bottom:28px}
@@ -61,21 +61,25 @@ button{font-family:var(--font-sans)}
 <!-- Login Screen (chỉ hiện cho link Admin, không phải ?mode=user) -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-card">
+    <div style="position:absolute;top:20px;right:24px;display:flex;gap:4px;background:#F1EFE8;border-radius:8px;padding:3px">
+      <button class="lang-btn active" id="lang-btn-vi" onclick="setLang('vi')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#1A1A18;color:#fff">VI</button>
+      <button class="lang-btn" id="lang-btn-en" onclick="setLang('en')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:#5F5E5A">EN</button>
+    </div>
     <img src="data:image/png;base64,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" style="width:80px;height:80px;object-fit:contain;margin-bottom:8px" />
-    <div class="login-title">KTA TeamVN</div>
-    <div class="login-sub">Đăng nhập để tiếp tục</div>
+    <div class="login-title" data-i18n="login.title">KTA TeamVN</div>
+    <div class="login-sub" data-i18n="login.subtitle">Đăng nhập để tiếp tục</div>
     <div id="login-url-section" style="margin-bottom:10px;text-align:left;display:none">
-      <div style="font-size:11px;font-weight:600;color:#9C9A94;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">URL Kết nối (chỉ nhập 1 lần)</div>
+      <div style="font-size:11px;font-weight:600;color:#9C9A94;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px" data-i18n="login.urlLabel">URL Kết nối (chỉ nhập 1 lần)</div>
       <input class="login-input" type="text" id="login-url-input"
         placeholder="https://script.google.com/macros/s/.../exec"
         style="font-size:11px;font-family:monospace;margin-bottom:0" />
     </div>
     <input class="login-input" type="password" id="login-pw-input"
-      placeholder="Nhập password..."
+      placeholder="Nhập password..." data-i18n-placeholder="login.pwPlaceholder"
       onkeydown="if(event.key==='Enter') doLogin()" />
-    <button class="login-btn" onclick="doLogin()">Đăng nhập →</button>
-    <div class="login-error" id="login-error">Password không đúng. Thử lại!</div>
-    <div class="login-hint">Nhập password được cấp bởi Admin</div>
+    <button class="login-btn" onclick="doLogin()" data-i18n="login.btn">Đăng nhập →</button>
+    <div class="login-error" id="login-error" data-i18n="login.error">Password không đúng. Thử lại!</div>
+    <div class="login-hint" data-i18n="login.hint">Nhập password được cấp bởi Admin</div>
   </div>
 </div>
 
@@ -83,17 +87,23 @@ button{font-family:var(--font-sans)}
   <div class="app-header">
     <div>
       <div class="app-title">KTA TeamVN</div>
-      <div class="app-title-sub">Quản lý dự án &amp; Đánh giá năng lực — đồng bộ qua Google Sheets</div>
+      <div class="app-title-sub" data-i18n="header.subtitle">Quản lý dự án &amp; Đánh giá năng lực — đồng bộ qua Google Sheets</div>
     </div>
-    <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()">📊 Sheets: Chưa kết nối</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;gap:4px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:3px">
+        <button class="lang-btn" id="lang-btn-vi-2" onclick="setLang('vi')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#1A1A18;color:#fff">VI</button>
+        <button class="lang-btn" id="lang-btn-en-2" onclick="setLang('en')" style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--color-text-secondary)">EN</button>
+      </div>
+      <span class="sheets-status" id="sheets-status-badge" onclick="openSheetsSetup()" data-i18n="header.sheetsDisconnected">📊 Sheets: Chưa kết nối</span>
+    </div>
   </div>
 
   <div class="main-tabs">
-    <div class="main-tab active" id="maintab-members" onclick="switchMainTab('members')">👥 Nhân sự</div>
-    <div class="main-tab" id="maintab-projects" onclick="switchMainTab('projects')">📁 Quản lý dự án</div>
-    <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')">📊 Đánh giá năng lực</div>
-    <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none">👤 Tra cứu của tôi</div>
-    <div class="main-tab" id="maintab-lb" onclick="switchMainTab('lb');renderLeaderboard()" style="display:none">🏆 Xếp hạng</div>
+    <div class="main-tab active" id="maintab-members" onclick="switchMainTab('members')"><span>👥</span> <span data-i18n="tab.members">Nhân sự</span></div>
+    <div class="main-tab" id="maintab-projects" onclick="switchMainTab('projects')"><span>📁</span> <span data-i18n="tab.projects">Quản lý dự án</span></div>
+    <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')"><span>📊</span> <span data-i18n="tab.eval">Đánh giá năng lực</span></div>
+    <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none"><span>👤</span> <span data-i18n="tab.user">Tra cứu của tôi</span></div>
+    <div class="main-tab" id="maintab-lb" onclick="switchMainTab('lb');renderLeaderboard()" style="display:none"><span>🏆</span> <span data-i18n="tab.lb">Xếp hạng</span></div>
   </div>
 
   <!-- ═══════════ PANEL 0: MEMBERS ═══════════ -->
@@ -5097,6 +5107,90 @@ function getProjectCountForCurrentPerson(){
   if(typeof getPersonProjectStats!=='function') return null;
   return getPersonProjectStats(currentPersonName);
 }
+
+// ═══════════ I18N SYSTEM (VI/EN) ═══════════
+const I18N = {
+  vi: {
+    'login.title': 'KTA TeamVN',
+    'login.subtitle': 'Đăng nhập để tiếp tục',
+    'login.urlLabel': 'URL Kết nối (chỉ nhập 1 lần)',
+    'login.pwPlaceholder': 'Nhập password...',
+    'login.btn': 'Đăng nhập →',
+    'login.error': 'Password không đúng. Thử lại!',
+    'login.hint': 'Nhập password được cấp bởi Admin',
+    'header.subtitle': 'Quản lý dự án & Đánh giá năng lực — đồng bộ qua Google Sheets',
+    'header.sheetsDisconnected': '📊 Sheets: Chưa kết nối',
+    'tab.members': 'Nhân sự',
+    'tab.projects': 'Quản lý dự án',
+    'tab.eval': 'Đánh giá năng lực',
+    'tab.user': 'Tra cứu của tôi',
+    'tab.lb': 'Xếp hạng',
+  },
+  en: {
+    'login.title': 'KTA TeamVN',
+    'login.subtitle': 'Sign in to continue',
+    'login.urlLabel': 'Connection URL (enter once)',
+    'login.pwPlaceholder': 'Enter password...',
+    'login.btn': 'Sign in →',
+    'login.error': 'Incorrect password. Try again!',
+    'login.hint': 'Enter the password provided by Admin',
+    'header.subtitle': 'Project Management & Competency Evaluation — synced via Google Sheets',
+    'header.sheetsDisconnected': '📊 Sheets: Not connected',
+    'tab.members': 'Members',
+    'tab.projects': 'Project Management',
+    'tab.eval': 'Competency Evaluation',
+    'tab.user': 'My Lookup',
+    'tab.lb': 'Leaderboard',
+  }
+};
+
+let currentLang = localStorage.getItem('teamhub_lang') || 'vi';
+
+function t(key){
+  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
+}
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.setAttribute('placeholder', t(key));
+  });
+  document.documentElement.lang = currentLang;
+}
+
+function setLang(lang){
+  currentLang = lang;
+  localStorage.setItem('teamhub_lang', lang);
+  applyI18n();
+  // Update lang toggle buttons (cả 2 vị trí: login + header)
+  ['vi','en'].forEach(function(l){
+    document.querySelectorAll('#lang-btn-'+l+', #lang-btn-'+l+'-2').forEach(function(btn){
+      if(!btn) return;
+      if(l===lang){ btn.style.background='#1A1A18'; btn.style.color='#fff'; }
+      else { btn.style.background='transparent'; btn.style.color='var(--color-text-secondary)'; }
+    });
+  });
+  // Re-render các phần dùng JS template string (nếu hàm tồn tại)
+  if(typeof renderMembers==='function') renderMembers();
+  if(typeof renderProjects==='function') renderProjects();
+  if(typeof renderLeaderboard==='function' && document.getElementById('mainpanel-lb')?.classList.contains('active')) renderLeaderboard();
+}
+
+// Khởi tạo ngôn ngữ khi load trang
+document.addEventListener('DOMContentLoaded', function(){
+  applyI18n();
+  setLang(currentLang);
+});
+// Fallback nếu DOMContentLoaded đã fire trước khi script này chạy
+if(document.readyState === 'complete' || document.readyState === 'interactive'){
+  applyI18n();
+  setLang(currentLang);
+}
+// ═══════════ /I18N SYSTEM ═══════════
 
 </script>
 </body>
