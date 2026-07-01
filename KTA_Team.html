@@ -4333,7 +4333,7 @@ async function syncToSheets(type){
     } catch(e){}
     const res = await sheetsRequest(null, { action:'saveAll', password: pw, data: snapshot });
     if(!res.ok) throw new Error(res.error || 'Save failed');
-    updateSheetsBadge('connected_admin');
+    updateSheetsBadge(sheetsRole==='leader' ? 'connected_leader' : 'connected_admin');
   } catch(e){
     console.error('Sheets sync error', e);
     updateSheetsBadge('error');
