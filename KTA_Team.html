@@ -4484,6 +4484,7 @@ const ADMIN_PASSWORD  = 'YOUR_PASSWORD_HERE';   // <-- password Admin
 const LEADER_PASSWORD = 'YOUR_LEADER_PASSWORD';  // <-- password Leader
 const USER_PASSWORD   = 'YOUR_USER_PASSWORD';    // <-- password User
 const SHEET_NAME_PROJECTS = 'Projects';
+const SHEET_NAME_MEMBERS  = 'Members';
 const SHEET_NAME_EVAL     = 'Evaluation';
 const SHEET_NAME_FEEDBACK = 'Feedback';
 
@@ -4530,11 +4531,16 @@ function getOrCreateSheet(name){
 function loadAll(){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const pSheet = ss.getSheetByName(SHEET_NAME_PROJECTS);
+  const mSheet = ss.getSheetByName(SHEET_NAME_MEMBERS);
   const eSheet = ss.getSheetByName(SHEET_NAME_EVAL);
-  let projects=[], eval_persons=[], eval_data={};
+  let projects=[], members=[], eval_persons=[], eval_data={};
   if(pSheet){
     const raw = pSheet.getRange(1,1).getValue();
     if(raw) try{ projects = JSON.parse(raw); }catch(e){}
+  }
+  if(mSheet){
+    const raw = mSheet.getRange(1,1).getValue();
+    if(raw) try{ members = JSON.parse(raw); }catch(e){}
   }
   if(eSheet){
     const r1 = eSheet.getRange(1,1).getValue();
@@ -4542,13 +4548,15 @@ function loadAll(){
     if(r1) try{ eval_persons = JSON.parse(r1); }catch(e){}
     if(r2) try{ eval_data = JSON.parse(r2); }catch(e){}
   }
-  return { projects, eval_persons, eval_data };
+  return { projects, members, eval_persons, eval_data };
 }
 
 function saveAll(data){
   const pSheet = getOrCreateSheet(SHEET_NAME_PROJECTS);
+  const mSheet = getOrCreateSheet(SHEET_NAME_MEMBERS);
   const eSheet = getOrCreateSheet(SHEET_NAME_EVAL);
   if(data.projects) pSheet.getRange(1,1).setValue(JSON.stringify(data.projects));
+  if(data.members)  mSheet.getRange(1,1).setValue(JSON.stringify(data.members));
   if(data.eval_persons) eSheet.getRange(1,1).setValue(JSON.stringify(data.eval_persons));
   if(data.eval_data)    eSheet.getRange(1,2).setValue(JSON.stringify(data.eval_data));
 }
