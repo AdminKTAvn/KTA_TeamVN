@@ -719,6 +719,150 @@ function saveMembersManual(){
   }
 }
 
+// ═══════════ ACTIVITY LOG ENGINE ═══════════
+let activityLog = [];
+
+// Load từ localStorage khi khởi động
+try{ activityLog = JSON.parse(localStorage.getItem('teamhub_activity_log')) || []; } catch(e){ activityLog=[]; }
+
+const AL_IMPACT_WEIGHT = { Major: 3, Medium: 2, Minor: 1 };
+
+// Tính Contribution Score cho 1 người trên 1 dự án
+function calcContributionPerProject(personName, projectName){
+  const tasks = activityLog.filter(function(t){
+    return t.projectName === projectName &&
+      (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+  });
+  if(!tasks.length) return null;
+  const score = tasks.reduce(function(sum, t){
+    return sum + (AL_IMPACT_WEIGHT[t.impact] || 1);
+  }, 0);
+  const byImpact = { Major:0, Medium:0, Minor:0 };
+  tasks.forEach(function(t){ if(byImpact[t.impact]!==undefined) byImpact[t.impact]++; });
+  const categories = [];
+  tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){ if(!categories.includes(c)) categories.push(c); }); });
+  const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return t.knowledge.trim(); });
+  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge };
+}
+
+// Tính toàn bộ Contribution cho 1 người
+function calcContribution(personName){
+  if(!activityLog.length) return null;
+  // Lấy danh sách dự án người này tham gia
+  const projNames = [...new Set(activityLog.filter(function(t){
+    return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+  }).map(function(t){ return t.projectName; }))];
+
+  if(!projNames.length) return null;
+
+  const perProject = projNames.map(function(p){ return calcContributionPerProject(personName, p); }).filter(Boolean);
+  const totalScore = perProject.reduce(function(s,p){ return s+p.score; }, 0);
+  const totalTasks = perProject.reduce(function(s,p){ return s+p.taskCount; }, 0);
+
+  // Category diversity
+  const allCats = [];
+  perProject.forEach(function(p){ p.categories.forEach(function(c){ if(!allCats.includes(c)) allCats.push(c); }); });
+
+  // Knowledge entries
+  const allKnowledge = [];
+  perProject.forEach(function(p){ p.knowledge.forEach(function(k){ if(k && !allKnowledge.includes(k)) allKnowledge.push(k); }); });
+
+  // Role validation per project (so với KTA projects data)
+  const roleValidation = perProject.map(function(pp){
+    const proj = (projects||[]).find(function(p){ return p.name && p.name.toLowerCase().includes(pp.projectName.toLowerCase()); });
+    const isMain = proj && (proj.membersMain||[]).some(function(m){ return m.toLowerCase().trim() === personName.toLowerCase().trim(); });
+    const isSupport = proj && (proj.membersBackup||[]).some(function(m){ return m.toLowerCase().trim() === personName.toLowerCase().trim(); });
+
+    // Tính tổng score của project để biết % đóng góp
+    const projTotalScore = activityLog.filter(function(t){ return t.projectName === pp.projectName; })
+      .reduce(function(s,t){ return s + (AL_IMPACT_WEIGHT[t.impact]||1); }, 0);
+    const ratio = projTotalScore > 0 ? pp.score / projTotalScore : 0;
+
+    let validation = null;
+    if(isMain && ratio >= 0.5) validation = { status:'ok', msg:'Main đang đúng vai ('+Math.round(ratio*100)+'% contribution)' };
+    else if(isMain && ratio < 0.4) validation = { status:'warn', msg:'Main đang đóng góp ít hơn kỳ vọng ('+Math.round(ratio*100)+'%)' };
+    else if(isSupport) validation = { status:'ok', msg:'Support role ('+Math.round(ratio*100)+'% contribution)' };
+
+    return { ...pp, isMain, isSupport, ratio, validation };
+  });
+
+  return { totalScore, totalTasks, perProject: roleValidation, allCats, allKnowledge };
+}
+
+// Render Activity Log tab
+function renderActivityLog(personName){
+  const el = document.getElementById('al-content');
+  if(!el) return;
+
+  if(!personName){
+    el.innerHTML = '<div class="al-empty"><div class="al-empty-icon">👤</div>Chọn nhân viên để xem Activity Log.</div>';
+    return;
+  }
+
+  if(!activityLog.length){
+    el.innerHTML = '<div class="al-empty"><div class="al-empty-icon">📋</div>Chưa có dữ liệu Activity Log.<br><span style="font-size:11px">Cần kết nối SharePoint → Power Automate → Sheets.</span></div>';
+    return;
+  }
+
+  const data = calcContribution(personName);
+  if(!data || !data.totalTasks){
+    el.innerHTML = '<div class="al-empty"><div class="al-empty-icon">🔍</div>Không tìm thấy activity nào cho <b>'+_mbEscape(personName)+'</b> trong log.</div>';
+    return;
+  }
+
+  // Render stats
+  const totalMajor  = data.perProject.reduce(function(s,p){ return s+(p.byImpact.Major||0); }, 0);
+  const totalMedium = data.perProject.reduce(function(s,p){ return s+(p.byImpact.Medium||0); }, 0);
+  const totalMinor  = data.perProject.reduce(function(s,p){ return s+(p.byImpact.Minor||0); }, 0);
+
+  let html = '<div class="al-stats">';
+  html += '<div class="al-stat"><div class="al-stat-label">Contribution Score</div><div class="al-stat-value">'+data.totalScore+'</div><div class="al-stat-sub">Impact × Tasks</div></div>';
+  html += '<div class="al-stat"><div class="al-stat-label">Tổng Tasks</div><div class="al-stat-value">'+data.totalTasks+'</div><div class="al-stat-sub">'+data.perProject.length+' dự án</div></div>';
+  html += '<div class="al-stat"><div class="al-stat-label">Major / Medium / Minor</div><div class="al-stat-value" style="font-size:15px">'+totalMajor+' / '+totalMedium+' / '+totalMinor+'</div><div class="al-stat-sub">theo impact</div></div>';
+  html += '<div class="al-stat"><div class="al-stat-label">Skill Breadth</div><div class="al-stat-value">'+data.allCats.length+'</div><div class="al-stat-sub">categories khác nhau</div></div>';
+  html += '</div>';
+
+  // Per project
+  html += '<div class="al-proj-list">';
+  const maxScore = Math.max(...data.perProject.map(function(p){ return p.score; }));
+  data.perProject.sort(function(a,b){ return b.score - a.score; }).forEach(function(p){
+    const pct = maxScore > 0 ? Math.round(p.score/maxScore*100) : 0;
+    const roleClass = p.isMain ? 'al-role-main' : 'al-role-support';
+    const roleLabel = p.isMain ? 'Main' : p.isSupport ? 'Support' : 'Participant';
+    html += '<div class="al-proj-card">';
+    html += '<div class="al-proj-head"><span class="al-proj-name">'+_mbEscape(p.projectName)+'</span><span class="al-proj-role '+roleClass+'">'+roleLabel+'</span></div>';
+    if(p.validation){
+      html += '<div class="'+(p.validation.status==='ok'?'al-valid-ok':'al-valid-warn')+'">'+p.validation.msg+'</div>';
+    }
+    html += '<div class="al-proj-bar"><div class="al-proj-bar-fill" style="width:'+pct+'%"></div></div>';
+    html += '<div class="al-proj-meta"><span>Score: <b>'+p.score+'</b></span><span>'+p.taskCount+' tasks</span><span>'+Math.round(p.ratio*100)+'% of project</span></div>';
+    html += '<div class="al-impact-badges">';
+    if(p.byImpact.Major)  html += '<span class="al-imp-major">Major ×'+p.byImpact.Major+'</span>';
+    if(p.byImpact.Medium) html += '<span class="al-imp-medium">Medium ×'+p.byImpact.Medium+'</span>';
+    if(p.byImpact.Minor)  html += '<span class="al-imp-minor">Minor ×'+p.byImpact.Minor+'</span>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  // Category diversity
+  if(data.allCats.length){
+    html += '<div class="al-cat-section"><div class="al-cat-title">🏷️ Category Diversity ('+data.allCats.length+' loại)</div><div class="al-cat-grid">';
+    data.allCats.forEach(function(c){ html += '<span class="al-cat-tag">'+_mbEscape(c)+'</span>'; });
+    html += '</div></div>';
+  }
+
+  // Knowledge
+  if(data.allKnowledge.length){
+    html += '<div class="al-know-section"><div class="al-cat-title">📚 Related Knowledge (I2 Learning · '+data.allKnowledge.length+' entries)</div><div class="al-know-list">';
+    data.allKnowledge.forEach(function(k){ html += '<div class="al-know-item"><span class="al-know-icon">💡</span>'+_mbEscape(k)+'</div>'; });
+    html += '</div></div>';
+  }
+
+  el.innerHTML = html;
+}
+// ═══════════ /ACTIVITY LOG ENGINE ═══════════
+
+
 // ─── IMPORT từ dữ liệu cũ ───
 let _importCandidates = [];
 
@@ -2005,6 +2149,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
   <div class="tab active" onclick="switchTab('t3')">Input 3 — Năng lực (80%)</div>
   <div class="tab" onclick="switchTab('t2')">Input 2 — Kỹ năng (tham khảo)</div>
   <div class="tab" onclick="switchTab('result')">Kết quả & Nhận xét</div>
+  <div class="tab" onclick="switchTab('activity')">📋 Activity Log</div>
 </div>
 
 <!-- INPUT 3 -->
@@ -2245,6 +2390,70 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
     <button onclick="sendPrompt('Phân tích chi tiết kết quả đánh giá: ' + getResultText())">Phân tích chi tiết ↗</button>
   </div>
 </div>
+
+<!-- ACTIVITY LOG PANEL -->
+<div class="panel" id="activity">
+<style>
+.al-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.al-title{font-size:14px;font-weight:600;color:var(--color-text-primary)}
+.al-subtitle{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.al-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.al-stat{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:12px 14px}
+.al-stat-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.al-stat-value{font-size:20px;font-weight:600;color:var(--color-text-primary)}
+.al-stat-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+/* Contribution per project */
+.al-proj-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.al-proj-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);padding:12px 14px}
+.al-proj-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.al-proj-name{font-size:12px;font-weight:600;color:var(--color-text-primary)}
+.al-proj-role{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
+.al-role-main{background:#EAF3DE;color:#3B6D11}
+.al-role-support{background:#E6F1FB;color:#185FA5}
+.al-proj-bar{height:6px;background:var(--color-background-secondary);border-radius:3px;margin-bottom:6px;overflow:hidden}
+.al-proj-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#0F6E56,#3B6D11);transition:width .4s}
+.al-proj-meta{display:flex;gap:12px;font-size:11px;color:var(--color-text-secondary)}
+.al-impact-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.al-imp-major{background:#FAECE7;color:#993C1D;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.al-imp-medium{background:#FEF3DC;color:#854F0B;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.al-imp-minor{background:#EAF3DE;color:#3B6D11;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+/* Category diversity */
+.al-cat-section{margin-bottom:20px}
+.al-cat-title{font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px}
+.al-cat-grid{display:flex;flex-wrap:wrap;gap:6px}
+.al-cat-tag{font-size:11px;padding:4px 10px;border-radius:20px;background:#EEEDFE;color:#534AB7;font-weight:500}
+.al-cat-count{font-size:10px;opacity:.7;margin-left:2px}
+/* Knowledge */
+.al-know-section{margin-bottom:16px}
+.al-know-list{display:flex;flex-direction:column;gap:6px}
+.al-know-item{background:#E1F5EE;border-radius:6px;padding:8px 12px;font-size:12px;color:#0F6E56;display:flex;align-items:center;gap:8px}
+.al-know-icon{flex-shrink:0;font-size:14px}
+/* Empty state */
+.al-empty{text-align:center;padding:40px 20px;color:var(--color-text-tertiary);font-size:13px}
+.al-empty-icon{font-size:32px;margin-bottom:8px}
+/* Role validation */
+.al-valid-ok{background:#EAF3DE;border:0.5px solid #639922;border-radius:var(--border-radius-md);padding:8px 12px;font-size:11px;color:#3B6D11;margin-bottom:8px}
+.al-valid-warn{background:#FEF3DC;border:0.5px solid #E8A420;border-radius:var(--border-radius-md);padding:8px 12px;font-size:11px;color:#854F0B;margin-bottom:8px}
+</style>
+
+<div class="al-header">
+  <div>
+    <div class="al-title">📋 Activity Log — Contribution Score</div>
+    <div class="al-subtitle">Dữ liệu từ SharePoint · Tính theo Task Count × Impact Weight</div>
+  </div>
+  <div id="al-sync-note" style="font-size:11px;color:var(--color-text-tertiary)"></div>
+</div>
+
+<div id="al-content">
+  <div class="al-empty">
+    <div class="al-empty-icon">📋</div>
+    Chưa có dữ liệu Activity Log.<br>
+    Vui lòng chọn nhân viên để xem.
+  </div>
+</div>
+</div>
+<!-- /ACTIVITY LOG PANEL -->
+
 </div>
 
 <script>
@@ -2618,6 +2827,9 @@ function onPersonNameSelect(name){
   currentLevel = null;
   projCount = 0;
   currentPersonName = name;
+
+  // Render Activity Log cho người mới chọn
+  if(typeof renderActivityLog==='function') renderActivityLog(name);
 
   if(savedData){
     // Có data → load
@@ -4247,6 +4459,11 @@ async function sheetsLoadAllFresh(){
         renderMembers();
         if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
       }
+      if(data.activityLog && data.activityLog.length){
+        activityLog = data.activityLog;
+        localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
+        if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
+      }
       if(data.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data.eval_persons)); } catch(e){}
       }
@@ -4287,6 +4504,11 @@ async function sheetsLoadAll(){
         localStorage.setItem('teamhub_members', JSON.stringify(members));
         renderMembers();
         if(typeof populatePersonDropdownFromMembers==='function') populatePersonDropdownFromMembers();
+      }
+      if(data2.activityLog && data2.activityLog.length){
+        activityLog = data2.activityLog;
+        localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
+        if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
       }
       if(data2.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data2.eval_persons)); } catch(e){}
