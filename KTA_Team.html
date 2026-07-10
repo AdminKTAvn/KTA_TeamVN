@@ -742,7 +742,12 @@ function calcContributionPerProject(personName, projectName){
   const categories = [];
   tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){ if(!categories.includes(c)) categories.push(c); }); });
   const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return t.knowledge.trim(); });
-  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge };
+  // Danh sách task rút gọn (mô tả ngắn) để hiển thị ngữ cảnh, mới nhất lên trước
+  const taskDetails = tasks
+    .filter(function(t){ return t.description && t.description.trim(); })
+    .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: t.description.trim() }; })
+    .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails };
 }
 
 // Tính toàn bộ Contribution cho 1 người
@@ -787,6 +792,62 @@ function calcContribution(personName){
   });
 
   return { totalScore, totalTasks, perProject: roleValidation, allCats, allKnowledge };
+}
+
+// Lấy mốc bắt đầu của chu kỳ 2 tuần (yyyy-mm-dd, luôn là Thứ 2) chứa 1 ngày cho trước
+// Neo theo Thứ 2 01/01/2024 để các chu kỳ 2 tuần luôn đều đặn, không lệch theo từng người
+function _biweekStartKey(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+  const day = d.getDay(); // 0=CN,1=T2,...6=T7
+  const diffToMon = (day === 0) ? -6 : (1 - day);
+  d.setDate(d.getDate() + diffToMon); // Thứ 2 của tuần chứa ngày đó
+  const anchor = new Date('2024-01-01T00:00:00'); // Thứ 2
+  const diffDays = Math.round((d.getTime() - anchor.getTime()) / 86400000);
+  const periodIndex = Math.floor(diffDays / 14);
+  const periodStart = new Date(anchor.getTime());
+  periodStart.setDate(periodStart.getDate() + periodIndex*14);
+  const y = periodStart.getFullYear();
+  const m = String(periodStart.getMonth()+1).padStart(2,'0');
+  const dd = String(periodStart.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dd;
+}
+
+// Xu hướng Contribution Score theo chu kỳ 2 tuần cho 1 người
+function calcWeeklyTrend(personName){
+  const byPeriod = {};
+  activityLog.forEach(function(t){
+    const isPerson = (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+    if(!isPerson || !t.date) return;
+    const wk = _biweekStartKey(t.date);
+    if(!wk) return;
+    if(!byPeriod[wk]) byPeriod[wk] = { score:0, tasks:0 };
+    byPeriod[wk].score += (AL_IMPACT_WEIGHT[t.impact] || 1);
+    byPeriod[wk].tasks += 1;
+  });
+  return Object.keys(byPeriod).sort().map(function(wk){
+    return { wk: wk, score: byPeriod[wk].score, tasks: byPeriod[wk].tasks };
+  });
+}
+
+// So sánh Contribution Score với các nhân sự cùng level hiện tại
+function calcLevelComparison(personName){
+  const person = (members||[]).find(function(m){ return m.name.toLowerCase().trim() === personName.toLowerCase().trim(); });
+  if(!person || !person.level) return null;
+  const peers = (members||[]).filter(function(m){ return m.level === person.level && m.active !== false; });
+  const rows = peers.map(function(m){
+    const c = calcContribution(m.name);
+    return { name: m.name, score: c ? c.totalScore : 0, tasks: c ? c.totalTasks : 0 };
+  }).sort(function(a,b){ return b.score - a.score; });
+  return { level: person.level, rows: rows };
+}
+
+// Trạng thái "xem toàn bộ lịch sử" của biểu đồ trend (reset về false khi đổi người)
+let _alTrendExpanded = false;
+let _alTrendExpandedFor = null;
+function toggleAlTrendExpand(){
+  _alTrendExpanded = !_alTrendExpanded;
+  if(typeof currentPersonName !== 'undefined' && currentPersonName) renderActivityLog(currentPersonName);
 }
 
 // Render Activity Log tab
@@ -840,7 +901,22 @@ function renderActivityLog(personName){
     if(p.byImpact.Major)  html += '<span class="al-imp-major">Major ×'+p.byImpact.Major+'</span>';
     if(p.byImpact.Medium) html += '<span class="al-imp-medium">Medium ×'+p.byImpact.Medium+'</span>';
     if(p.byImpact.Minor)  html += '<span class="al-imp-minor">Minor ×'+p.byImpact.Minor+'</span>';
-    html += '</div></div>';
+    html += '</div>';
+    // Mô tả task ngắn gọn (tối đa 3 dòng gần nhất, tránh loạn thông tin)
+    if(p.taskDetails && p.taskDetails.length){
+      const shown = p.taskDetails.slice(0,3);
+      html += '<div class="al-task-list">';
+      shown.forEach(function(td){
+        const short = td.description.length > 70 ? td.description.slice(0,70).trim()+'…' : td.description;
+        const impCls = td.impact==='Major' ? 'al-task-dot-major' : td.impact==='Medium' ? 'al-task-dot-medium' : 'al-task-dot-minor';
+        html += '<div class="al-task-item" title="'+_mbEscape(td.description)+'"><span class="al-task-dot '+impCls+'"></span><span class="al-task-desc">'+_mbEscape(short)+'</span>'+(td.date?'<span class="al-task-date">'+_mbEscape(td.date.slice(5))+'</span>':'')+'</div>';
+      });
+      if(p.taskDetails.length > 3){
+        html += '<div class="al-task-more">+'+(p.taskDetails.length-3)+' task khác</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
   });
   html += '</div>';
 
@@ -855,6 +931,43 @@ function renderActivityLog(personName){
   if(data.allKnowledge.length){
     html += '<div class="al-know-section"><div class="al-cat-title">📚 Related Knowledge (I2 Learning · '+data.allKnowledge.length+' entries)</div><div class="al-know-list">';
     data.allKnowledge.forEach(function(k){ html += '<div class="al-know-item"><span class="al-know-icon">💡</span>'+_mbEscape(k)+'</div>'; });
+    html += '</div></div>';
+  }
+
+  // Xu hướng theo chu kỳ 2 tuần — mặc định 10 chu kỳ gần nhất, có nút xem toàn bộ lịch sử
+  if(_alTrendExpandedFor !== personName){ _alTrendExpanded = false; _alTrendExpandedFor = personName; }
+  const trendFull = calcWeeklyTrend(personName);
+  const trend = _alTrendExpanded ? trendFull : trendFull.slice(-10);
+  if(trendFull.length > 1){
+    const maxT = Math.max.apply(null, trend.map(function(t){ return t.score; }));
+    const titleSuffix = (!_alTrendExpanded && trendFull.length > 10) ? ' (10 chu kỳ gần nhất)' : (_alTrendExpanded ? ' (toàn bộ lịch sử)' : '');
+    html += '<div class="al-cat-section"><div class="al-cat-title">📈 Xu hướng Contribution Score theo 2 tuần'+titleSuffix+'</div>';
+    html += '<div class="al-trend-chart'+(_alTrendExpanded?' al-trend-expanded':'')+'">';
+    trend.forEach(function(t){
+      const h = maxT > 0 ? Math.max(4, Math.round(t.score/maxT*80)) : 4;
+      const dStart = new Date(t.wk+'T00:00:00');
+      const dEnd = new Date(dStart.getTime()); dEnd.setDate(dEnd.getDate()+13);
+      const fmt = function(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); };
+      const label = fmt(dStart);
+      html += '<div class="al-trend-col"><div class="al-trend-bar" style="height:'+h+'px" title="Chu kỳ '+fmt(dStart)+' – '+fmt(dEnd)+': '+t.score+' điểm · '+t.tasks+' tasks"></div><div class="al-trend-label">'+label+'</div></div>';
+    });
+    html += '</div>';
+    if(trendFull.length > 10){
+      html += '<button class="al-trend-toggle" onclick="toggleAlTrendExpand()">'+(_alTrendExpanded ? '▲ Thu gọn lại (10 chu kỳ gần nhất)' : '▼ Xem toàn bộ lịch sử ('+trendFull.length+' chu kỳ)')+'</button>';
+    }
+    html += '</div>';
+  }
+
+  // So sánh cùng level
+  const cmp = calcLevelComparison(personName);
+  if(cmp && cmp.rows.length > 1){
+    const maxC = Math.max.apply(null, cmp.rows.map(function(r){ return r.score; }));
+    html += '<div class="al-cat-section"><div class="al-cat-title">⚖️ So sánh Contribution Score cùng level ('+_mbEscape(cmp.level)+')</div><div class="al-cmp-list">';
+    cmp.rows.forEach(function(r){
+      const pct = maxC > 0 ? Math.round(r.score/maxC*100) : 0;
+      const isMe = r.name.toLowerCase().trim() === personName.toLowerCase().trim();
+      html += '<div class="al-cmp-row'+(isMe?' al-cmp-me':'')+'"><span class="al-cmp-name">'+_mbEscape(r.name)+(isMe?' (đang xem)':'')+'</span><div class="al-cmp-bar-wrap"><div class="al-cmp-bar" style="width:'+pct+'%"></div></div><span class="al-cmp-score">'+r.score+'</span></div>';
+    });
     html += '</div></div>';
   }
 
@@ -2414,12 +2527,37 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 .al-proj-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#0F6E56,#3B6D11);transition:width .4s}
 .al-proj-meta{display:flex;gap:12px;font-size:11px;color:var(--color-text-secondary)}
 .al-impact-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.al-task-list{margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);display:flex;flex-direction:column;gap:4px}
+.al-task-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-secondary)}
+.al-task-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.al-task-dot-major{background:#C0392B}
+.al-task-dot-medium{background:#639922}
+.al-task-dot-minor{background:#378ADD}
+.al-task-desc{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-task-date{color:var(--color-text-tertiary);flex-shrink:0;font-size:10px}
+.al-task-more{font-size:10px;color:var(--color-text-tertiary);padding-left:12px}
 .al-imp-major{background:#FAECE7;color:#993C1D;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
 .al-imp-medium{background:#FEF3DC;color:#854F0B;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
 .al-imp-minor{background:#EAF3DE;color:#3B6D11;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
 /* Category diversity */
 .al-cat-section{margin-bottom:20px}
 .al-cat-title{font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px}
+.al-trend-chart{display:flex;align-items:flex-end;gap:6px;height:100px;padding:10px 8px 0;background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary)}
+.al-trend-chart.al-trend-expanded{overflow-x:auto;justify-content:flex-start}
+.al-trend-chart.al-trend-expanded .al-trend-col{flex:0 0 26px}
+.al-trend-toggle{display:block;margin:6px auto 0;font-size:11px;color:var(--color-text-tertiary);background:none;border:none;cursor:pointer;text-decoration:underline}
+.al-trend-toggle:hover{color:var(--color-text-secondary)}
+.al-trend-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.al-trend-bar{width:70%;max-width:22px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#3B6D11,#0F6E56);transition:height .3s}
+.al-trend-label{font-size:9px;color:var(--color-text-tertiary);margin-top:4px;white-space:nowrap}
+.al-cmp-list{display:flex;flex-direction:column;gap:8px;background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:12px 14px}
+.al-cmp-row{display:flex;align-items:center;gap:10px}
+.al-cmp-name{font-size:12px;color:var(--color-text-secondary);width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-cmp-bar-wrap{flex:1;height:8px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden}
+.al-cmp-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,#378ADD,#185FA5);transition:width .4s}
+.al-cmp-score{font-size:12px;font-weight:600;color:var(--color-text-primary);width:28px;text-align:right;flex-shrink:0}
+.al-cmp-row.al-cmp-me .al-cmp-name{color:#185FA5;font-weight:700}
+.al-cmp-row.al-cmp-me .al-cmp-bar{background:linear-gradient(90deg,#D85AA0,#A02A6B)}
 .al-cat-grid{display:flex;flex-wrap:wrap;gap:6px}
 .al-cat-tag{font-size:11px;padding:4px 10px;border-radius:20px;background:#EEEDFE;color:#534AB7;font-weight:500}
 .al-cat-count{font-size:10px;opacity:.7;margin-left:2px}
@@ -4778,17 +4916,37 @@ function loadAll(){
     if(r2) try{ eval_data = JSON.parse(r2); }catch(e){}
   }
   if(alSheet && alSheet.getLastRow() > 1){
-    const rows = alSheet.getRange(2,1,alSheet.getLastRow()-1,6).getValues();
+    const lastCol = alSheet.getLastColumn();
+    const headers = alSheet.getRange(1,1,1,lastCol).getValues()[0]
+      .map(function(h){ return (h||'').toString().trim(); });
+    const rows = alSheet.getRange(2,1,alSheet.getLastRow()-1,lastCol).getValues();
+    const idx = {
+      projectName: headers.indexOf('projectName'),
+      date:        headers.indexOf('date'),
+      assignedTo:  headers.indexOf('assignedTo'),
+      categories:  headers.indexOf('categories'),
+      impact:      headers.indexOf('impact'),
+      knowledge:   headers.indexOf('knowledge'),
+      description: headers.indexOf('description'),
+    };
     activityLog = rows
-      .filter(function(r){ return r[1]; }) // phải có projectName
+      .filter(function(r){ return idx.projectName>=0 && r[idx.projectName]; })
       .map(function(r){
+        const dateVal = idx.date>=0 ? r[idx.date] : '';
         return {
-          date:        r[0] ? Utilities.formatDate(new Date(r[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
-          projectName: (r[1]||'').toString().trim(),
-          assignedTo:  (r[2]||'').toString().split(',').map(function(s){return s.trim();}).filter(Boolean),
-          categories:  (r[3]||'').toString().split(',').map(function(s){return s.trim();}).filter(Boolean),
-          impact:      (r[4]||'').toString().trim(),
-          knowledge:   (r[5]||'').toString().trim(),
+          projectName: idx.projectName>=0 ? r[idx.projectName].toString().trim() : '',
+          date: dateVal instanceof Date
+            ? Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+            : (dateVal||'').toString().trim(),
+          assignedTo: idx.assignedTo>=0
+            ? r[idx.assignedTo].toString().split(',').map(function(s){return s.trim();}).filter(Boolean)
+            : [],
+          categories: idx.categories>=0
+            ? r[idx.categories].toString().split(',').map(function(s){return s.trim();}).filter(Boolean)
+            : [],
+          impact:      idx.impact>=0 ? r[idx.impact].toString().trim() : '',
+          knowledge:   idx.knowledge>=0 ? r[idx.knowledge].toString().trim() : '',
+          description: idx.description>=0 ? r[idx.description].toString().trim() : '',
         };
       });
   }
@@ -4815,11 +4973,11 @@ function saveFeedback(name, message, ts){
 
 // Nhận 1 item từ Power Automate (SharePoint MASTER LOG) và append vào sheet ActivityLog
 // payload gồm: date, projectName, assignedTo (chuỗi, cách nhau bởi dấu phẩy),
-//              categories (chuỗi, cách nhau bởi dấu phẩy), impact, knowledge
+//              categories (chuỗi, cách nhau bởi dấu phẩy), impact, knowledge, description
 function logActivity(payload){
   const sheet = getOrCreateSheet(SHEET_NAME_ACTIVITYLOG);
   if(sheet.getLastRow() === 0){
-    sheet.appendRow(['Date','ProjectName','AssignedTo','Categories','Impact','Knowledge','LoggedAt']);
+    sheet.appendRow(['date','projectName','assignedTo','categories','impact','knowledge','description']);
   }
   sheet.appendRow([
     payload.date || '',
@@ -4828,7 +4986,7 @@ function logActivity(payload){
     payload.categories || '',
     payload.impact || '',
     payload.knowledge || '',
-    new Date(),
+    payload.description || '',
   ]);
 }`;
 }
