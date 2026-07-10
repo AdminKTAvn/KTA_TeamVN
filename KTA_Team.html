@@ -198,31 +198,6 @@ button{font-family:var(--font-sans)}
     <button class="mb-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveMembersManual()">💾 Lưu dữ liệu</button>
     <button class="mb-add-btn" style="background:var(--color-background-primary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)" onclick="openImportMembersModal()">⬆ Import từ dữ liệu cũ</button>
     <button class="mb-add-btn admin-only" onclick="openMemberModal()">+ Thêm nhân sự</button>
-    <button class="mb-add-btn admin-only" style="background:#FDE8F1;color:#A02A6B;border:0.5px solid #D85AA0" onclick="openRenameMigrateModal()">🔄 Đồng bộ tên đã đổi</button>
-  </div>
-</div>
-
-<!-- Modal Migrate dữ liệu khi đổi tên nhân sự -->
-<div class="mb-modal-overlay" id="mb-rename-overlay">
-  <div class="mb-modal" style="max-width:560px">
-    <div class="mb-modal-title">🔄 Đồng bộ dữ liệu sau khi đổi tên</div>
-    <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:16px;line-height:1.7">
-      Dùng khi bạn đã <b>đổi tên 1 người</b> ở tab Nhân sự (VD: "Liam" → "Liam Trần") và muốn <b>giữ nguyên</b> toàn bộ điểm đánh giá cũ + phân công dự án cũ, thay vì bị mất/mồ côi dưới tên cũ.<br>
-      Có thể chạy nhiều lần liên tiếp cho từng người đã đổi tên.
-    </div>
-    <div class="mb-field">
-      <label>Tên CŨ (tên trước khi đổi)</label>
-      <input type="text" id="rn-old-name" placeholder="VD: Liam">
-    </div>
-    <div class="mb-field">
-      <label>Tên MỚI (chọn từ danh sách Nhân sự hiện tại)</label>
-      <select id="rn-new-name"></select>
-    </div>
-    <div id="rn-preview" style="font-size:12px;color:var(--color-text-secondary);margin-top:6px;line-height:1.6"></div>
-    <div class="mb-modal-actions">
-      <button class="mb-btn-cancel" onclick="closeRenameMigrateModal()">Đóng</button>
-      <button class="mb-btn-save" onclick="runRenameMigrate()">Di chuyển dữ liệu</button>
-    </div>
   </div>
 </div>
 
@@ -743,104 +718,6 @@ function saveMembersManual(){
     setTimeout(()=>{ toast.style.display='none'; toast.textContent='✓ Đã lưu!'; }, 2500);
   }
 }
-
-// ═══════════ MIGRATE DỮ LIỆU KHI ĐỔI TÊN NHÂN SỰ ═══════════
-function openRenameMigrateModal(){
-  const sel = document.getElementById('rn-new-name');
-  const names = (members||[]).filter(m=>m.active!==false).map(m=>m.name).sort((a,b)=>a.localeCompare(b));
-  sel.innerHTML = '<option value="">— Chọn tên mới —</option>' + names.map(n=>`<option value="${_mbEscape(n)}">${_mbEscape(n)}</option>`).join('');
-  document.getElementById('rn-old-name').value = '';
-  document.getElementById('rn-preview').innerHTML = '';
-  document.getElementById('rn-overlay-shown') ;
-  document.getElementById('rn-old-name').addEventListener('input', updateRenamePreview);
-  sel.addEventListener('change', updateRenamePreview);
-  document.getElementById('rn-preview').innerHTML='';
-  document.getElementById('rn-old-name').oninput = updateRenamePreview;
-  sel.onchange = updateRenamePreview;
-  document.getElementById('mb-rename-overlay').classList.add('open');
-}
-function closeRenameMigrateModal(){
-  document.getElementById('mb-rename-overlay').classList.remove('open');
-}
-function updateRenamePreview(){
-  const oldName = document.getElementById('rn-old-name').value.trim();
-  const newName = document.getElementById('rn-new-name').value.trim();
-  const box = document.getElementById('rn-preview');
-  if(!oldName || !newName){ box.innerHTML=''; return; }
-  const oldKey = 'eval_v7_person_'+oldName.trim().toLowerCase().replace(/\s+/g,'_');
-  const hasEval = !!localStorage.getItem(oldKey);
-  let projCount = 0;
-  (projects||[]).forEach(p=>{
-    (p.membersMain||[]).concat(p.membersBackup||[]).forEach(n=>{
-      if(n && n.trim().toLowerCase()===oldName.trim().toLowerCase()) projCount++;
-    });
-  });
-  box.innerHTML = `Sẽ chuyển: ${hasEval?'✓ có dữ liệu đánh giá cũ':'— không tìm thấy dữ liệu đánh giá cũ'} · tìm thấy trong <b>${projCount}</b> lượt phân công dự án.`;
-}
-function runRenameMigrate(){
-  const oldName = document.getElementById('rn-old-name').value.trim();
-  const newName = document.getElementById('rn-new-name').value.trim();
-  if(!oldName || !newName){ alert('Vui lòng nhập Tên cũ và chọn Tên mới.'); return; }
-  if(oldName.toLowerCase()===newName.toLowerCase()){ alert('Tên cũ và tên mới giống nhau, không cần di chuyển.'); return; }
-
-  let didSomething = false;
-
-  // 1) Migrate eval data (localStorage) từ key cũ sang key mới
-  const oldKey = 'eval_v7_person_'+oldName.trim().toLowerCase().replace(/\s+/g,'_');
-  const newKey = 'eval_v7_person_'+newName.trim().toLowerCase().replace(/\s+/g,'_');
-  const oldEvalRaw = localStorage.getItem(oldKey);
-  if(oldEvalRaw){
-    const newEvalRaw = localStorage.getItem(newKey);
-    if(newEvalRaw && newEvalRaw !== oldEvalRaw){
-      if(!confirm('Tên mới "'+newName+'" đã có sẵn dữ liệu đánh giá riêng. Ghi đè bằng dữ liệu của "'+oldName+'"? (Huỷ = bỏ qua bước này, giữ nguyên dữ liệu hiện tại của '+newName+')')){
-        // skip overwrite, continue với phần project
-      } else {
-        localStorage.setItem(newKey, oldEvalRaw);
-        localStorage.removeItem(oldKey);
-        didSomething = true;
-      }
-    } else {
-      localStorage.setItem(newKey, oldEvalRaw);
-      localStorage.removeItem(oldKey);
-      didSomething = true;
-    }
-    // Cập nhật danh sách person list (eval_v7_persons)
-    try{
-      let personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
-      personList = personList.filter(n=>n.trim().toLowerCase()!==oldName.trim().toLowerCase());
-      if(!personList.some(n=>n.trim().toLowerCase()===newName.trim().toLowerCase())) personList.push(newName);
-      localStorage.setItem('eval_v7_persons', JSON.stringify(personList));
-    } catch(e){}
-  }
-
-  // 2) Migrate tên trong phân công dự án (membersMain / membersBackup)
-  let projMatches = 0;
-  (projects||[]).forEach(p=>{
-    ['membersMain','membersBackup'].forEach(field=>{
-      if(!Array.isArray(p[field])) return;
-      p[field] = p[field].map(n=>{
-        if(n && n.trim().toLowerCase()===oldName.trim().toLowerCase()){ projMatches++; return newName; }
-        return n;
-      });
-    });
-  });
-  if(projMatches>0) didSomething = true;
-
-  if(!didSomething){
-    alert('Không tìm thấy dữ liệu nào của "'+oldName+'" để di chuyển (có thể đã migrate trước đó, hoặc người này chưa từng có điểm/dự án).');
-    return;
-  }
-
-  // Lưu lại + đồng bộ lên Sheets
-  persistMembers();
-  if(typeof renderPersonList==='function') renderPersonList();
-  if(typeof renderProjects==='function') renderProjects();
-  if(typeof _refreshProjectDisplayIfNeeded==='function') _refreshProjectDisplayIfNeeded();
-
-  alert('✓ Đã di chuyển dữ liệu từ "'+oldName+'" sang "'+newName+'"'+(projMatches>0?' ('+projMatches+' lượt phân công dự án đã cập nhật)':'')+'. Đã lưu & đồng bộ lên Sheets.');
-  closeRenameMigrateModal();
-}
-// ═══════════ /MIGRATE DỮ LIỆU KHI ĐỔI TÊN NHÂN SỰ ═══════════
 
 // ═══════════ ACTIVITY LOG ENGINE ═══════════
 let activityLog = [];
