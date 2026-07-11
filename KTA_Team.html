@@ -836,6 +836,10 @@ try{ activityLog = JSON.parse(localStorage.getItem('teamhub_activity_log')) || [
 let weeklyStatus = {};
 try{ weeklyStatus = JSON.parse(localStorage.getItem('teamhub_weekly_status')) || {}; } catch(e){ weeklyStatus={}; }
 
+// Hiệu suất tháng đã chốt sổ (dùng cho thưởng) — mảng {month, personName, level, contributionScore, taskCount, rankInLevel, totalInLevel, frozenAt}
+let monthlyPerformance = [];
+try{ monthlyPerformance = JSON.parse(localStorage.getItem('teamhub_monthly_performance')) || []; } catch(e){ monthlyPerformance=[]; }
+
 // Ghi chú tuần này theo tên dự án (viết thường) — chỉ để hiện tooltip, không lưu vào project object
 let weeklyNoteByProject = {};
 // Giai đoạn hiện tại (DD/Plancheck/CD/CD (Final)/ID/CA) dò từ ghi chú Tracker tuần
@@ -2462,6 +2466,20 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
           <div id="lb-scores"></div>
         </div>
       </div>
+
+      <!-- Monthly Performance (Contribution Score) — chốt sổ cứng, dùng cho thưởng -->
+      <div class="app-card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary)">📊 Hiệu suất tháng <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(Contribution Score — dùng cho thưởng)</span></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="mp-month-select" onchange="renderMonthlyPerformance()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)"></select>
+            <button id="mp-freeze-btn" class="admin-only" onclick="doFreezeMonthlyPerformance()" style="display:none;font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🔒 Chốt sổ tháng trước</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Đã chốt sổ tự động vào ngày 1 mỗi tháng cho tháng liền trước · Xếp hạng riêng trong từng level · Số liệu không đổi sau khi chốt</div>
+        <div id="mp-status" style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px"></div>
+        <div id="mp-table"></div>
+      </div>
     </div>
   </div>
   <!-- ═══════════ /PANEL 4 ═══════════ -->
@@ -3408,6 +3426,8 @@ function onPersonNameSelect(name){
 
   if(typeof updateAIAnalysisBar==='function') updateAIAnalysisBar(name);
   if(typeof _lastScopeAssessment!=='undefined') _lastScopeAssessment = null;
+  const _aiRemarksBox = document.getElementById('ai-remarks-box');
+  if(_aiRemarksBox) _aiRemarksBox.style.display = 'none';
 
   // Level giờ được khai báo & kiểm soát tại tab Nhân sự (kèm lịch sử) — tự động áp dụng ở đây,
   // không cần bấm chọn tay nữa. Nút level vẫn giữ lại để override thủ công nếu thực sự cần.
@@ -5034,6 +5054,11 @@ async function sheetsLoadAllFresh(){
         renderProjects();
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
       }
+      if(data.monthlyPerformance){
+        monthlyPerformance = data.monthlyPerformance;
+        try{ localStorage.setItem('teamhub_monthly_performance', JSON.stringify(monthlyPerformance)); }catch(e){}
+        if(typeof renderMonthlyPerformance==='function') renderMonthlyPerformance();
+      }
       if(data.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data.eval_persons)); } catch(e){}
       }
@@ -5086,6 +5111,11 @@ async function sheetsLoadAll(){
         applyWeeklyStatusToProjects();
         renderProjects();
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
+      }
+      if(data2.monthlyPerformance){
+        monthlyPerformance = data2.monthlyPerformance;
+        try{ localStorage.setItem('teamhub_monthly_performance', JSON.stringify(monthlyPerformance)); }catch(e){}
+        if(typeof renderMonthlyPerformance==='function') renderMonthlyPerformance();
       }
       if(data2.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data2.eval_persons)); } catch(e){}
@@ -6007,9 +6037,95 @@ function updateKeyPlusRoadmap(total, projRaw){
 
 // ═══════════ LEADERBOARD ═══════════
 
+// ═══════════ HIỆU SUẤT THÁNG (chốt sổ, dùng cho thưởng) ═══════════
+
+function renderMonthlyPerformance(){
+  const sel = document.getElementById('mp-month-select');
+  const tableEl = document.getElementById('mp-table');
+  const statusEl = document.getElementById('mp-status');
+  const freezeBtn = document.getElementById('mp-freeze-btn');
+  if(!sel || !tableEl) return;
+
+  const isAdmin = (typeof sheetsRole!=='undefined') && sheetsRole==='admin';
+  if(freezeBtn) freezeBtn.style.display = isAdmin ? 'inline-block' : 'none';
+
+  const months = Array.from(new Set((monthlyPerformance||[]).map(r=>r.month))).sort().reverse();
+  if(!months.length){
+    sel.innerHTML = '<option value="">Chưa có tháng nào được chốt sổ</option>';
+    tableEl.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:16px">Chưa có dữ liệu hiệu suất tháng nào được chốt sổ. '+(isAdmin?'Bấm "🔒 Chốt sổ tháng trước" để tạo lần đầu.':'')+'</div>';
+    if(statusEl) statusEl.textContent = '';
+    return;
+  }
+  const prevSelected = sel.value;
+  sel.innerHTML = months.map(m=>`<option value="${m}">${_mpFmtMonth(m)}</option>`).join('');
+  sel.value = months.includes(prevSelected) ? prevSelected : months[0];
+
+  const selectedMonth = sel.value;
+  const rows = (monthlyPerformance||[]).filter(r=>r.month===selectedMonth);
+  const frozenAt = rows.length ? rows[0].frozenAt : '';
+  if(statusEl) statusEl.textContent = frozenAt ? ('🔒 Đã chốt sổ lúc: '+new Date(frozenAt).toLocaleString('vi-VN')) : '';
+
+  const byLevel = {};
+  rows.forEach(r=>{
+    if(!byLevel[r.level]) byLevel[r.level] = [];
+    byLevel[r.level].push(r);
+  });
+  const LEVEL_ORDER_MP = ['Leader','Key Member','Senior','Staff'];
+  const levels = Object.keys(byLevel).sort((a,b)=> (LEVEL_ORDER_MP.indexOf(a)+99)%99 - (LEVEL_ORDER_MP.indexOf(b)+99)%99 || a.localeCompare(b));
+
+  tableEl.innerHTML = levels.map(lv=>{
+    const list = byLevel[lv].slice().sort((a,b)=> a.rankInLevel - b.rankInLevel);
+    const maxScore = Math.max.apply(null, list.map(r=>Number(r.contributionScore)||0));
+    const rowsHtml = list.map(r=>{
+      const pct = maxScore>0 ? Math.round((Number(r.contributionScore)||0)/maxScore*100) : 0;
+      return `<div style="padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span style="width:22px;color:var(--color-text-tertiary);flex-shrink:0">#${r.rankInLevel}</span>
+          <span style="width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${_mbEscape(r.personName)}</span>
+          <div style="flex:1;height:8px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#378ADD,#185FA5);width:${pct}%"></div></div>
+          <span style="width:60px;text-align:right;font-weight:600;flex-shrink:0">${r.contributionScore} <span style="font-weight:400;color:var(--color-text-tertiary);font-size:10px">(${r.taskCount}tk)</span></span>
+        </div>
+        ${r.evidence ? `<div style="font-size:11px;color:var(--color-text-tertiary);margin:3px 0 0 30px;line-height:1.5">📌 ${_mbEscape(r.evidence)}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">${lv} (${list.length} người)</div>
+      ${rowsHtml}
+    </div>`;
+  }).join('');
+}
+
+function _mpFmtMonth(m){
+  if(!m || m.indexOf('-')<0) return m;
+  const parts = m.split('-');
+  return 'Tháng '+parseInt(parts[1],10)+'/'+parts[0];
+}
+
+async function doFreezeMonthlyPerformance(){
+  if(typeof sheetsRole==='undefined' || sheetsRole!=='admin'){ alert('Chỉ Admin mới được chốt sổ.'); return; }
+  if(!confirm('Chốt sổ Hiệu suất tháng TRƯỚC (tháng liền kề đã qua)? Số liệu sau khi chốt sẽ không đổi nữa dù ActivityLog có cập nhật thêm.')) return;
+  const btn = document.getElementById('mp-freeze-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Đang chốt sổ...'; }
+  try{
+    const pw = getRolePw();
+    const res = await sheetsRequest(null, { action: 'freezeMonthlyPerformance', password: pw });
+    if(!res || !res.ok){ alert('Lỗi: ' + (res && res.error ? res.error : 'không rõ nguyên nhân')); return; }
+    if(res.alreadyFrozen){ alert('Tháng này đã được chốt sổ trước đó rồi (tháng '+res.month+').'); }
+    else { alert('✓ Đã chốt sổ tháng '+res.month+' — '+res.count+' bản ghi.'); }
+    if(typeof sheetsLoadAllFresh==='function') await sheetsLoadAllFresh();
+    else if(typeof sheetsLoadAll==='function') await sheetsLoadAll();
+    renderMonthlyPerformance();
+  } catch(ex){
+    alert('Lỗi khi chốt sổ: ' + ex.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🔒 Chốt sổ tháng trước'; }
+  }
+}
+
 function renderLeaderboard(){
   const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
   const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
+  if(typeof renderMonthlyPerformance==='function') renderMonthlyPerformance();
 
   const LEADERS_EXCLUDE = ['liam','stuart','nina'];
   const LEVEL_COLOR_BG = {'Staff':'#E6F1FB','Senior':'#EAF3DE','Key Member':'#FDE8F1','Leader':'#FAECE7'};
