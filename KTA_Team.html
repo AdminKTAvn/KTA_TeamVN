@@ -725,6 +725,31 @@ let activityLog = [];
 // Load từ localStorage khi khởi động
 try{ activityLog = JSON.parse(localStorage.getItem('teamhub_activity_log')) || []; } catch(e){ activityLog=[]; }
 
+// weeklyStatus: map tên dự án (SharePoint, viết thường) -> {projectName, note, badge} lấy từ Tracker tuần
+let weeklyStatus = {};
+try{ weeklyStatus = JSON.parse(localStorage.getItem('teamhub_weekly_status')) || {}; } catch(e){ weeklyStatus={}; }
+
+// Ghi chú tuần này theo tên dự án (viết thường) — chỉ để hiện tooltip, không lưu vào project object
+let weeklyNoteByProject = {};
+
+// Quy đổi badge Tracker tuần → Status thật của dự án trong app
+const WEEKLY_TO_STATUS_MAP = { 'DONE':'Complete', 'PENDING':'Hold', 'URGENT':'Deadline', 'FULL-TIME':'Priorities', 'PART-TIME':'Non-Urgent' };
+
+// Tự động gán status thật cho từng dự án dựa theo weeklyStatus (gọi lại mỗi lần data mới về)
+function applyWeeklyStatusToProjects(){
+  if(!weeklyStatus || !projects || !projects.length) return;
+  weeklyNoteByProject = {};
+  projects.forEach(function(p){
+    const key = (p.name||'').toLowerCase().trim();
+    const w = weeklyStatus[key];
+    if(w && w.badge){
+      const mapped = WEEKLY_TO_STATUS_MAP[w.badge.toString().toUpperCase()];
+      if(mapped){ p.status = mapped; }
+      if(w.note) weeklyNoteByProject[key] = w.note;
+    }
+  });
+}
+
 const AL_IMPACT_WEIGHT = { Major: 3, Medium: 2, Minor: 1 };
 
 // Tính Contribution Score cho 1 người trên 1 dự án
@@ -1644,6 +1669,7 @@ function renderProjects(){
     const cxCount = p.complexityCount||0;
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
+    const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
     return `
     <tr>
       <td>
@@ -1654,7 +1680,7 @@ function renderProjects(){
       <td><span class="pm-complexity-badge ${cxColorClass(cxCount)}">${cxCount}/6</span></td>
       <td><span class="pm-badge ${TEAM_CLASS[p.team]}">${p.team}</span></td>
       <td class="pm-members">${mainTags}${backupTags}${(!mainTags&&!backupTags)?'—':''}</td>
-      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}">${p.status}</span></td>
+      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}"${wNote?` title="Tuần này: ${escapeHtml(wNote)}"`:''}>${p.status}</span></td>
       <td>
         <div class="pm-row-actions">
           <button class="pm-icon-btn" onclick="openProjectModal('${p.id}')" title="Sửa">✎</button>
@@ -2518,6 +2544,15 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 /* Contribution per project */
 .al-proj-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
 .al-proj-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);padding:12px 14px}
+.al-wk-status{display:flex;align-items:center;gap:6px;margin:4px 0 8px;font-size:11px}
+.al-wk-badge{font-weight:600;padding:2px 8px;border-radius:10px;font-size:10px;letter-spacing:.02em}
+.al-wk-note{color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-wk-pending .al-wk-badge{background:#FEF6DC;color:#9A7B0A}
+.al-wk-urgent .al-wk-badge{background:#FAECE7;color:#C0392B}
+.al-wk-done .al-wk-badge{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.al-wk-full .al-wk-badge{background:#EAF3DE;color:#3B6D11}
+.al-wk-part .al-wk-badge{background:#E6F1FB;color:#185FA5}
+.al-wk-default .al-wk-badge{background:var(--color-background-secondary);color:var(--color-text-secondary)}
 .al-proj-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .al-proj-name{font-size:12px;font-weight:600;color:var(--color-text-primary)}
 .al-proj-role{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
@@ -4602,6 +4637,13 @@ async function sheetsLoadAllFresh(){
         localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
       }
+      if(data.weeklyStatus){
+        weeklyStatus = data.weeklyStatus;
+        try{ localStorage.setItem('teamhub_weekly_status', JSON.stringify(weeklyStatus)); }catch(e){}
+        applyWeeklyStatusToProjects();
+        renderProjects();
+        if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
+      }
       if(data.eval_persons){
         try{ localStorage.setItem('eval_v7_persons', JSON.stringify(data.eval_persons)); } catch(e){}
       }
@@ -4646,6 +4688,13 @@ async function sheetsLoadAll(){
       if(data2.activityLog && data2.activityLog.length){
         activityLog = data2.activityLog;
         localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
+        if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
+      }
+      if(data2.weeklyStatus){
+        weeklyStatus = data2.weeklyStatus;
+        try{ localStorage.setItem('teamhub_weekly_status', JSON.stringify(weeklyStatus)); }catch(e){}
+        applyWeeklyStatusToProjects();
+        renderProjects();
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
       }
       if(data2.eval_persons){
@@ -4848,6 +4897,82 @@ const SHEET_NAME_MEMBERS     = 'Members';
 const SHEET_NAME_EVAL        = 'Evaluation';
 const SHEET_NAME_FEEDBACK    = 'Feedback';
 const SHEET_NAME_ACTIVITYLOG = 'ActivityLog';
+const SHEET_NAME_MAPPING = 'ProjectMapping'; // sheet 2 cột: SharePointName | TrackerName
+const TRACKER_SHEET_ID = 'DÁN_ID_GOOGLE_SHEET_TRACKER_TUẦN_VÀO_ĐÂY'; // lấy từ URL sheet họp tuần
+const WEEKLY_BADGE_KEYWORDS = ['DONE','PENDING','URGENT','FULL-TIME','PART-TIME'];
+
+// Tìm tab tuần mới nhất trong Sheet Tracker, tên dạng "Week YYMMDD - Tracker"
+function _getLatestTrackerSheet(ss){
+  const sheets = ss.getSheets();
+  let latest = null, latestNum = -1;
+  sheets.forEach(function(sh){
+    const m = sh.getName().match(/Week\s*(\d{6})/i);
+    if(m){
+      const num = parseInt(m[1],10);
+      if(num > latestNum){ latestNum = num; latest = sh; }
+    }
+  });
+  return latest;
+}
+
+// Đọc trạng thái tuần hiện tại từ Sheet Tracker (của người khác, chỉ cần quyền xem)
+// Trả về: { tenTrackerViếtThường: {projectName, note, badge} }
+function getWeeklyHoldStatus(){
+  try{
+    if(!TRACKER_SHEET_ID || TRACKER_SHEET_ID.indexOf('DÁN_ID')===0) return {};
+    const trackerSS = SpreadsheetApp.openById(TRACKER_SHEET_ID);
+    const sheet = _getLatestTrackerSheet(trackerSS);
+    if(!sheet) return {};
+    const lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+    if(lastRow<1||lastCol<1) return {};
+    const data = sheet.getRange(1,1,lastRow,lastCol).getValues();
+    const result = {};
+    data.forEach(function(row){
+      const projName = (row[0]||'').toString().trim();
+      if(!projName) return;
+      // Tìm cột chứa badge (DONE/PENDING/...) trong hàng này, quét từ phải sang
+      let badge = '', badgeColIdx = -1;
+      for(let c=row.length-1; c>=1; c--){
+        const v = (row[c]||'').toString().trim().toUpperCase();
+        if(WEEKLY_BADGE_KEYWORDS.indexOf(v) >= 0){ badge = row[c].toString().trim(); badgeColIdx = c; break; }
+      }
+      if(!badge) return; // dòng tiêu đề/dòng trống, bỏ qua
+      // Note = cột ngay trước cột badge (thường là cột ghi chú tự do)
+      const note = badgeColIdx>1 ? (row[badgeColIdx-1]||'').toString().trim() : '';
+      result[projName.toLowerCase()] = { projectName: projName, note: note, badge: badge };
+    });
+    return result;
+  } catch(e){ return {}; }
+}
+
+// Đọc bảng ánh xạ tên: trả về { tenSharePointViếtThường: tenTrackerGốc }
+function getProjectMapping(){
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_MAPPING);
+  if(!sheet || sheet.getLastRow() < 2) return {};
+  const rows = sheet.getRange(2,1,sheet.getLastRow()-1,2).getValues();
+  const map = {};
+  rows.forEach(function(r){
+    const sp = (r[0]||'').toString().trim();
+    const tk = (r[1]||'').toString().trim();
+    if(sp && tk) map[sp.toLowerCase()] = tk;
+  });
+  return map;
+}
+
+// Gộp mapping + Tracker tuần → trả về theo tên SharePoint (viết thường) để loadAll() dùng
+function buildWeeklyStatusBySharePointName(){
+  try{
+    const mapping = getProjectMapping();
+    const holdData = getWeeklyHoldStatus();
+    const out = {};
+    Object.keys(mapping).forEach(function(spKey){
+      const trackerName = mapping[spKey];
+      const info = holdData[trackerName.toLowerCase()];
+      if(info) out[spKey] = info;
+    });
+    return out;
+  } catch(e){ return {}; }
+}
 
 function doPost(e){
   try{
@@ -4950,7 +5075,8 @@ function loadAll(){
         };
       });
   }
-  return { projects, members, eval_persons, eval_data, activityLog };
+  const weeklyStatus = buildWeeklyStatusBySharePointName();
+  return { projects, members, eval_persons, eval_data, activityLog, weeklyStatus };
 }
 
 function saveAll(data){
