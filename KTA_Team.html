@@ -976,19 +976,20 @@ async function runAIAnalysis(isOverride){
       currentLevel: currentLevel || '',
       tasks: tasks,
       i3Items: i3Items,
-      i2Items: i2Items
+      i2Items: i2Items,
+      includeRemarks: true
     });
     if(!res || !res.ok){
       alert('Lỗi gọi AI: ' + (res && res.error ? res.error : 'không rõ nguyên nhân') + '\n\nKiểm tra lại đã cấu hình ANTHROPIC_API_KEY trong Apps Script Script Properties chưa.');
       return;
     }
-    applyAISuggestions(res.data || res.suggestions);
+    applyAISuggestions(res);
 
     // Ghi nhận đã dùng quota quý này
     log[key] = { quarter: quarterKey, date: new Date().toISOString().slice(0,10), byAdmin: !!isOverride };
     _saveAiQuotaLog(log);
     updateAIAnalysisBar(currentPersonName);
-    alert('✓ AI đã gợi ý xong. Xem các mục được đánh dấu "🤖 AI gợi ý" ở Input 2/Input 3, có thể sửa lại nếu không đồng ý.');
+    alert('✓ AI đã phân tích xong.\n- Điểm I2/I3: xem mục đánh dấu "🤖 AI gợi ý" (viền cam), có thể tự sửa lại nếu không đồng ý.\n- Nhận xét: xem box "🤖 Nhận xét từ Thư viện AI" ở tab Kết quả & Nhận xét (chuẩn hoá theo level, không sửa riêng từng người).');
   } catch(ex){
     alert('Lỗi khi chạy phân tích AI: ' + ex.message);
   } finally {
@@ -1000,7 +1001,7 @@ async function runAIAnalysis(isOverride){
 // hoặc ô lần trước cũng là gợi ý AI (chưa bị người dùng tự sửa tay đè lên), để không mất điểm đã chấm tay.
 function applyAISuggestions(data){
   if(!data) return;
-  const suggestions = data.suggestions || data; // { itemId: { score, reason } } — score: số 1-5 cho I3, hoặc text (VD "Working Level") cho I2
+  const suggestions = data.suggestions || {};
   Object.keys(suggestions).forEach(function(itemId){
     const sug = suggestions[itemId];
     const sel = document.getElementById('s3-'+itemId) || document.getElementById('s2-'+itemId);
@@ -1014,6 +1015,34 @@ function applyAISuggestions(data){
     sel.title = '🤖 AI gợi ý: ' + (sug.reason || '');
     sel.dispatchEvent(new Event('change'));
   });
+
+  if(data.remarks) renderAIRemarks(data.remarks);
+}
+
+// Hiển thị nhận xét AI chọn từ thư viện (khoá cứng, không sửa được) — box riêng, tách biệt với tag tự động hiện có
+function renderAIRemarks(remarks){
+  let box = document.getElementById('ai-remarks-box');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'ai-remarks-box';
+    box.style.cssText = 'margin-top:14px;padding:14px 16px;border-radius:var(--border-radius-md);border:0.5px solid #E8C97A;background:#FEFAF0';
+    const commentBox = document.getElementById('comment-box');
+    if(commentBox && commentBox.parentNode) commentBox.parentNode.insertBefore(box, commentBox.nextSibling);
+  }
+  box.style.display = 'block';
+  const strengths = remarks.strengths || [];
+  const development = remarks.development || [];
+  const listHtml = function(items, color){
+    if(!items.length) return '<div style="font-size:11px;color:var(--color-text-tertiary);font-style:italic">Chưa đủ bằng chứng để chọn nhận xét.</div>';
+    return '<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--color-text-secondary);line-height:1.7">' +
+      items.map(function(it){ return '<li>'+escapeHtml(it.text)+'</li>'; }).join('') + '</ul>';
+  };
+  box.innerHTML =
+    '<div style="font-size:12px;font-weight:600;color:#8A6D1A;margin-bottom:4px">🤖 Nhận xét từ Thư viện AI (khoá cứng — chuẩn hoá theo level)</div>' +
+    '<div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:10px">Được chọn tự động từ kho câu nhận xét dùng chung cho level '+escapeHtml(currentLevel||'')+', đảm bảo đồng nhất giữa các nhân sự có biểu hiện tương tự.</div>' +
+    (remarks.summary ? '<div style="font-size:12px;color:var(--color-text-primary);margin-bottom:10px;font-style:italic">"' + escapeHtml(remarks.summary) + '" <span style="font-size:10px;color:var(--color-text-tertiary);font-style:normal">(tóm tắt riêng, không thuộc thư viện)</span></div>' : '') +
+    '<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:#3B6D11;margin-bottom:4px">Điểm mạnh</div>' + listHtml(strengths) + '</div>' +
+    '<div><div style="font-size:11px;font-weight:600;color:#BA7517;margin-bottom:4px">Định hướng phát triển</div>' + listHtml(development) + '</div>';
 }
 
 // Render Activity Log tab
