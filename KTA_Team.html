@@ -731,6 +731,8 @@ try{ weeklyStatus = JSON.parse(localStorage.getItem('teamhub_weekly_status')) ||
 
 // Ghi chú tuần này theo tên dự án (viết thường) — chỉ để hiện tooltip, không lưu vào project object
 let weeklyNoteByProject = {};
+// Giai đoạn hiện tại (DD/Plancheck/CD/CD (Final)/ID/CA) dò từ ghi chú Tracker tuần
+let weeklyPhaseByProject = {};
 
 // Quy đổi badge Tracker tuần → Status thật của dự án trong app
 const WEEKLY_TO_STATUS_MAP = { 'DONE':'Complete', 'PENDING':'Hold', 'URGENT':'Deadline', 'FULL-TIME':'Priorities', 'PART-TIME':'Non-Urgent' };
@@ -739,6 +741,7 @@ const WEEKLY_TO_STATUS_MAP = { 'DONE':'Complete', 'PENDING':'Hold', 'URGENT':'De
 function applyWeeklyStatusToProjects(){
   if(!weeklyStatus || !projects || !projects.length) return;
   weeklyNoteByProject = {};
+  weeklyPhaseByProject = {};
   projects.forEach(function(p){
     const key = (p.name||'').toLowerCase().trim();
     const w = weeklyStatus[key];
@@ -746,6 +749,7 @@ function applyWeeklyStatusToProjects(){
       const mapped = WEEKLY_TO_STATUS_MAP[w.badge.toString().toUpperCase()];
       if(mapped){ p.status = mapped; }
       if(w.note) weeklyNoteByProject[key] = w.note;
+      if(w.phase) weeklyPhaseByProject[key] = w.phase;
     }
   });
 }
@@ -890,11 +894,11 @@ function _saveAiQuotaLog(log){
   try{ localStorage.setItem(_getAiQuotaKey(), JSON.stringify(log)); }catch(e){}
 }
 
-// Cập nhật hiển thị thanh AI (quota còn/hết) khi chọn người
+// Cập nhật hiển thị thanh AI (quota còn/hết) khi chọn người — CHỈ Admin mới thấy/dùng được
 function updateAIAnalysisBar(personName){
   const bar = document.getElementById('ai-analysis-bar');
   if(!bar) return;
-  if(!personName){ bar.style.display='none'; return; }
+  if(!personName || typeof sheetsRole==='undefined' || sheetsRole!=='admin'){ bar.style.display='none'; return; }
   bar.style.display='flex';
 
   const quarterKey = _getCurrentQuarterKey();
@@ -956,8 +960,7 @@ async function runAIAnalysis(isOverride){
       return;
     }
     const cfg = getSheetsConfig();
-    const pw = getAdminPw();
-    // Gửi kèm định nghĩa các mục I3 (điểm 1-5) và I2 (Basic/Working/Advanced/Lead) để AI biết chính xác đang chấm mục nào
+    const pw = getRolePw();
     const i3Items = i3data.flatMap(function(sec){
       return sec.items.map(function(it){
         return { id: it.id, name: it.name, section: sec.s, type: 'i3', scale: '1-5', descs: it.descs };
@@ -1840,10 +1843,11 @@ function renderProjects(){
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
     const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
+    const wPhase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? (weeklyPhaseByProject[p.name.toLowerCase().trim()]||'') : '';
     return `
     <tr>
       <td>
-        <div class="pm-proj-name">${escapeHtml(p.name)}</div>
+        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#185FA5;font-weight:600;vertical-align:middle" title="Giai đoạn hiện tại (dò từ ghi chú Tracker tuần)">${escapeHtml(wPhase)}</span>`:''}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
@@ -2504,7 +2508,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 <div id="ai-analysis-bar" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:1rem;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)">
   <span style="font-size:12px;color:var(--color-text-secondary);flex:1;min-width:200px">🤖 <b>Gợi ý AI</b> cho Input 2/Input 3 — dựa trên description, notes, category từ ActivityLog</span>
   <span id="ai-quota-status" style="font-size:11px;color:var(--color-text-tertiary)"></span>
-  <button id="ai-run-btn" onclick="runAIAnalysis(false)" style="font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🤖 Phân tích AI</button>
+  <button id="ai-run-btn" onclick="runAIAnalysis(false)" class="admin-only" style="font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🤖 Phân tích AI</button>
   <button id="ai-override-btn" onclick="runAIAnalysis(true)" class="admin-only" style="display:none;font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid #C0392B;background:#FAECE7;color:#C0392B;cursor:pointer;font-weight:500;white-space:nowrap">⚠️ Admin: Chạy đè giới hạn quý</button>
 </div>
 
