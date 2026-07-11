@@ -462,13 +462,31 @@ function saveMember(){
 
   if(editId){
     const m = members.find(x=>x.id===editId);
-    if(m){ m.name=name; m.level=level; m.team=team; m.joinDate=joinDate; m.active=active; m.notes=notes; }
+    if(m){
+      const levelChanged = m.level !== level;
+      m.name=name; m.team=team; m.joinDate=joinDate; m.active=active; m.notes=notes;
+      if(levelChanged){
+        if(!m.levelHistory || !m.levelHistory.length) m.levelHistory = getSortedLevelHistory(m);
+        const today = new Date().toISOString().slice(0,10);
+        if(!m.levelHistory.some(e=>e.from===today)){
+          m.levelHistory.push({ level, from: today });
+          m.levelHistory.sort((a,b)=> (a.from||'').localeCompare(b.from||''));
+        } else {
+          // Đã có mốc đúng hôm nay (VD vừa thêm qua panel lịch sử) → cập nhật luôn mốc đó
+          m.levelHistory.forEach(e=>{ if(e.from===today) e.level = level; });
+        }
+        m.level = getCurrentLevelOfMember(m);
+      } else {
+        m.level = level;
+      }
+    }
   } else {
     const dup = members.find(x=>x.name.trim().toLowerCase()===name.toLowerCase() && x.active!==false);
     if(dup && !confirm('Đã có nhân sự tên "'+name+'" trong danh sách. Vẫn thêm?')) return;
     members.push({
       id:'mbr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-      name, level, team, joinDate, active, notes, createdAt:Date.now()
+      name, level, team, joinDate, active, notes, createdAt:Date.now(),
+      levelHistory: [{ level, from: joinDate || new Date().toISOString().slice(0,10) }]
     });
   }
   persistMembers();
@@ -492,6 +510,90 @@ function deleteMember(id){
 
 const MB_LEVEL_CLASS={'Staff':'mb-lv-staff','Senior':'mb-lv-senior','Key Member':'mb-lv-key','Leader':'mb-lv-leader'};
 const MB_TEAM_CLASS={'Liam':'mb-team-liam','Stuart':'mb-team-stuart','Nina':'mb-team-nina'};
+
+// ═══════════ LỊCH SỬ LEVEL (levelHistory) ═══════════
+// Mỗi member có thể có m.levelHistory = [{level, from}], sắp theo from tăng dần.
+// Nếu chưa có (data cũ), tự suy ra 1 mốc duy nhất từ m.level + joinDate khi cần dùng.
+let _expandedLevelHistoryIds = new Set();
+
+function getSortedLevelHistory(m){
+  const hist = (m.levelHistory && m.levelHistory.length)
+    ? m.levelHistory.slice()
+    : [{ level: m.level, from: m.joinDate || '2020-01-01' }];
+  return hist.sort((a,b)=> (a.from||'').localeCompare(b.from||''));
+}
+function getLevelAtDate(m, dateStr){
+  const hist = getSortedLevelHistory(m);
+  const d = dateStr || new Date().toISOString().slice(0,10);
+  let result = hist[0].level;
+  hist.forEach(e=>{ if((e.from||'') <= d) result = e.level; });
+  return result;
+}
+function getCurrentLevelOfMember(m){
+  return getLevelAtDate(m, new Date().toISOString().slice(0,10));
+}
+function fmtDateVN(d){
+  if(!d) return '—';
+  try{ return new Date(d+'T00:00:00').toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+  catch(e){ return d; }
+}
+function toggleMemberLevelHistory(id){
+  if(_expandedLevelHistoryIds.has(id)) _expandedLevelHistoryIds.delete(id);
+  else _expandedLevelHistoryIds.add(id);
+  renderMembers();
+}
+function renderLevelHistoryPanelHtml(m){
+  const hist = getSortedLevelHistory(m);
+  const todayStr = new Date().toISOString().slice(0,10);
+  const isAdmin = (typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader');
+  let html = '<div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">📜 Lịch sử Level — '+_mbEscape(m.name)+'</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">';
+  hist.forEach((e,i)=>{
+    const nextFrom = hist[i+1] ? hist[i+1].from : null;
+    const rangeLabel = nextFrom ? ('từ '+fmtDateVN(e.from)+' đến '+fmtDateVN(nextFrom)) : ('từ '+fmtDateVN(e.from)+' — hiện tại');
+    const lvCls = MB_LEVEL_CLASS[e.level]||'';
+    html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px">'
+      + '<span class="mb-badge '+lvCls+'">'+e.level+'</span>'
+      + '<span style="color:var(--color-text-tertiary)">'+rangeLabel+'</span>'
+      + (isAdmin && hist.length>1 ? '<button class="mb-icon-btn" style="margin-left:auto" onclick="removeLevelHistoryEntry(\''+m.id+'\','+i+')" title="Xoá mốc này">🗑</button>' : '')
+      + '</div>';
+  });
+  html += '</div>';
+  if(isAdmin){
+    html += '<div style="display:flex;gap:8px;align-items:center;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);flex-wrap:wrap">'
+      + '<select id="mb-hist-newlevel-'+m.id+'" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-tertiary)">'
+      + ['Staff','Senior','Key Member','Leader'].map(l=>'<option value="'+l+'">'+l+'</option>').join('')
+      + '</select>'
+      + '<input type="date" id="mb-hist-newdate-'+m.id+'" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-tertiary)">'
+      + '<button class="mb-add-btn" style="font-size:11px;padding:5px 10px" onclick="addLevelHistoryEntry(\''+m.id+'\')">+ Thêm thay đổi level</button>'
+      + '</div>';
+  }
+  return html;
+}
+function addLevelHistoryEntry(id){
+  const m = members.find(x=>x.id===id);
+  if(!m) return;
+  const newLevel = document.getElementById('mb-hist-newlevel-'+id).value;
+  const newDate = document.getElementById('mb-hist-newdate-'+id).value;
+  if(!newDate){ alert('Vui lòng chọn ngày bắt đầu hiệu lực.'); return; }
+  if(!m.levelHistory || !m.levelHistory.length) m.levelHistory = getSortedLevelHistory(m);
+  if(m.levelHistory.some(e=>e.from===newDate)){ alert('Đã có 1 mốc thay đổi vào đúng ngày này rồi.'); return; }
+  m.levelHistory.push({ level: newLevel, from: newDate });
+  m.levelHistory.sort((a,b)=> (a.from||'').localeCompare(b.from||''));
+  m.level = getCurrentLevelOfMember(m); // đồng bộ field level hiện tại để tương thích các chỗ code cũ
+  persistMembers();
+  renderMembers();
+}
+function removeLevelHistoryEntry(id, idx){
+  const m = members.find(x=>x.id===id);
+  if(!m || !m.levelHistory) return;
+  if(m.levelHistory.length<=1){ alert('Phải giữ lại ít nhất 1 mốc level.'); return; }
+  if(!confirm('Xoá mốc level này?')) return;
+  m.levelHistory.splice(idx,1);
+  m.level = getCurrentLevelOfMember(m);
+  persistMembers();
+  renderMembers();
+}
 
 function renderMembers(){
   const fTeam   = document.getElementById('mb-filter-team').value;
@@ -547,15 +649,20 @@ function renderMembers(){
     const aLbl  = m.active!==false?'Đang làm':'Đã nghỉ';
     const sen   = calcMemberSeniority(m.joinDate);
     const jFmt  = m.joinDate?new Date(m.joinDate).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}):'—';
-    return `<tr style="${m.active===false?'opacity:0.55':''}">
+    const isExpanded = _expandedLevelHistoryIds.has(m.id);
+    const rowHtml = `<tr style="${m.active===false?'opacity:0.55':''}">
       <td><div class="mb-name">${_mbEscape(m.name)}</div>${m.notes?`<div class="mb-note">${_mbEscape(m.notes)}</div>`:''}</td>
-      <td><span class="mb-badge ${lvCls}">${m.level}</span></td>
+      <td><span class="mb-badge ${lvCls}" style="cursor:pointer" onclick="toggleMemberLevelHistory('${m.id}')" title="Xem/sửa lịch sử level">${m.level} <span style="font-size:9px">${isExpanded?'▴':'▾'}</span></span></td>
       <td><span class="mb-badge ${tmCls}">${m.team}</span></td>
       <td style="font-size:12px;color:var(--color-text-secondary)">${jFmt}</td>
       <td style="font-size:12px;color:var(--color-text-secondary)">${sen}</td>
       <td><span class="mb-badge ${aCls}">${aLbl}</span></td>
       <td>${isAdmin?`<div class="mb-row-actions"><button class="mb-icon-btn" onclick="openMemberModal('${m.id}')" title="Sửa">✎</button><button class="mb-icon-btn" onclick="deleteMember('${m.id}')" title="Xoá">🗑</button></div>`:''}</td>
     </tr>`;
+    const historyRowHtml = isExpanded
+      ? `<tr class="mb-level-history-row"><td colspan="7" style="background:var(--color-background-secondary);padding:14px 16px">${renderLevelHistoryPanelHtml(m)}</td></tr>`
+      : '';
+    return rowHtml + historyRowHtml;
   }).join('');
 }
 
@@ -1044,8 +1151,8 @@ function renderAIRemarks(remarks){
     box = document.createElement('div');
     box.id = 'ai-remarks-box';
     box.style.cssText = 'margin-top:14px;padding:14px 16px;border-radius:var(--border-radius-md);border:0.5px solid #E8C97A;background:#FEFAF0';
-    const commentBox = document.getElementById('comment-box');
-    if(commentBox && commentBox.parentNode) commentBox.parentNode.insertBefore(box, commentBox.nextSibling);
+    const summaryPanel = document.getElementById('summary-panel');
+    if(summaryPanel && summaryPanel.parentNode) summaryPanel.parentNode.insertBefore(box, summaryPanel);
   }
   box.style.display = 'block';
   const strengths = remarks.strengths || [];
@@ -2414,14 +2521,6 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 .ev-wrap .breakdown-item{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
 .ev-wrap .breakdown-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
 .ev-wrap .breakdown-val{font-size:18px;font-weight:500}
-.ev-wrap .comment-box{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
-.ev-wrap .comment-section{padding:12px 14px;border-top:0.5px solid var(--color-border-tertiary)}
-.ev-wrap .comment-section:first-child{border-top:none}
-.ev-wrap .comment-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
-.ev-wrap .comment-tags{display:flex;flex-wrap:wrap;gap:6px}
-.ev-wrap .tag{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary);line-height:1.4}
-.ev-wrap .tag-pos{background:#EAF3DE;border-color:#639922;color:#3B6D11}
-.ev-wrap .tag-dev{background:#E6F1FB;border-color:#378ADD;color:#185FA5}
 .ev-wrap .i3-detail-box{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
 .ev-wrap .i3d-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
 .ev-wrap .i3d-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
@@ -2530,7 +2629,28 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 <!-- INPUT 3 -->
 <div class="panel active" id="t3">
 
-  <!-- Project count — moved up top for visibility -->
+  <div class="info-box" id="level-info">Chọn level để xem tiêu chí yêu cầu tương ứng.</div>
+  <div style="font-size:11px;color:var(--color-text-tertiary);margin:-8px 0 1rem">📌 Level lấy tự động theo khai báo &amp; lịch sử ở tab Nhân sự. Cần đổi level của người này? Vào tab Nhân sự → bấm badge Level → thêm mốc thay đổi mới.</div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="metric-label">Level đang đánh giá</div><div class="metric-value" id="i3lv" style="font-size:15px;padding-top:3px">–</div></div>
+    <div class="metric"><div class="metric-label">Điểm I3</div><div class="metric-value" id="i3score">–</div><div class="metric-sub">/ 10.0 điểm</div></div>
+    <div class="metric"><div class="metric-label">Đã chấm</div><div class="metric-value" id="i3cnt">0 / 7</div></div>
+    <div class="metric"><div class="metric-label">Tiến độ</div><div class="metric-value" id="i3pct">0%</div><div class="prog-bar"><div class="prog-fill" id="i3bar" style="width:0%;background:#378ADD"></div></div></div>
+  </div>
+  <div id="i3sections"></div>
+</div>
+
+<!-- INPUT 2 -->
+<div class="panel" id="t2">
+  <div class="info-box">Kỹ năng cá nhân — dùng để tham khảo định hướng phát triển, không tính vào điểm tổng.</div>
+  <div id="i2sections"></div>
+</div>
+
+<!-- RESULT -->
+<div class="panel" id="result">
+
+  <!-- Project count — moved từ Input 3 sang đây để tiện theo dõi cùng kết quả tổng -->
   <div style="border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);margin-bottom:1rem;overflow:hidden">
     <div class="proj-count-row" style="border-bottom:0.5px solid transparent" id="proj-count-toprow">
       <span class="proj-count-label">📁 Dự án đã thực hiện:</span>
@@ -2557,47 +2677,6 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
     </div>
   </div>
 
-  <div style="margin-bottom:1rem">
-    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;font-weight:500">Chọn level cần đánh giá:</div>
-    <div class="level-selector">
-      <div class="lv-btn" id="btn-Staff" onclick="setLevel('Staff')">
-        <div class="lv-btn-name">Staff</div>
-        <div class="lv-btn-sub">Mức 1–2</div>
-      </div>
-      <div class="lv-btn" id="btn-Senior" onclick="setLevel('Senior')">
-        <div class="lv-btn-name">Senior</div>
-        <div class="lv-btn-sub">Mức 3</div>
-      </div>
-      <div class="lv-btn" id="btn-KeyMember" onclick="setLevel('Key Member')">
-        <div class="lv-btn-name">Key Member</div>
-        <div class="lv-btn-sub">Mức 4</div>
-      </div>
-      <div class="lv-btn" id="btn-Leader" onclick="setLevel('Leader')">
-        <div class="lv-btn-name">Leader</div>
-        <div class="lv-btn-sub">Mức 5</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="info-box" id="level-info">Chọn level để xem tiêu chí yêu cầu tương ứng.</div>
-
-  <div class="summary-grid">
-    <div class="metric"><div class="metric-label">Level đang đánh giá</div><div class="metric-value" id="i3lv" style="font-size:15px;padding-top:3px">–</div></div>
-    <div class="metric"><div class="metric-label">Điểm I3</div><div class="metric-value" id="i3score">–</div><div class="metric-sub">/ 10.0 điểm</div></div>
-    <div class="metric"><div class="metric-label">Đã chấm</div><div class="metric-value" id="i3cnt">0 / 7</div></div>
-    <div class="metric"><div class="metric-label">Tiến độ</div><div class="metric-value" id="i3pct">0%</div><div class="prog-bar"><div class="prog-fill" id="i3bar" style="width:0%;background:#378ADD"></div></div></div>
-  </div>
-  <div id="i3sections"></div>
-</div>
-
-<!-- INPUT 2 -->
-<div class="panel" id="t2">
-  <div class="info-box">Kỹ năng cá nhân — dùng để tham khảo định hướng phát triển, không tính vào điểm tổng.</div>
-  <div id="i2sections"></div>
-</div>
-
-<!-- RESULT -->
-<div class="panel" id="result">
   <div class="result-hero">
     <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:center">
       <div>
@@ -2621,17 +2700,6 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="comment-box" id="comment-box" style="display:none">
-    <div class="comment-section">
-      <div class="comment-title">Điểm mạnh & Ghi nhận</div>
-      <div class="comment-tags" id="tags-pos"></div>
-    </div>
-    <div class="comment-section">
-      <div class="comment-title">Định hướng phát triển</div>
-      <div class="comment-tags" id="tags-dev"></div>
     </div>
   </div>
 
@@ -2956,20 +3024,6 @@ function renderCareerFramework(currentLevel, nextLevel, assessment){
 
 // Lưu kết quả đối chiếu scope gần nhất theo người (để giữ khi chuyển tab qua lại)
 let _lastScopeAssessment = null;
-
-// Keywords mapped by category and level context
-const KEYWORDS_POS = {
-  Staff:['Tiếp thu feedback nhanh, làm việc cần cù và có trách nhiệm','Hoàn thành tốt các dự án được giao','Thành thạo workflow và công cụ Revit phục vụ công việc hằng ngày','Luôn chủ động trong các dự án đã thực hiện'],
-  Senior:['Tinh thần trách nhiệm cao và cực kỳ chủ động','Làm việc độc lập và teamwork tốt trong các dự án cần support','Thực hiện nhiều dự án với nhiều mức độ và phối hợp tốt với leader','Chủ động QA/QC, chất lượng bản vẽ ổn định','Chủ động đọc SOP, học hỏi nhanh và giải quyết nhiều vấn đề phức tạp','Logic tốt, có khả năng xử lý độc lập các tình huống thông thường lẫn phức tạp'],
-  'Key Member':['Kinh nghiệm dày dặn với số lượng dự án đa dạng từ basic đến phức tạp','Hỗ trợ đội ngũ thông qua backup dự án, training và chia sẻ kiến thức','Thành viên rất tin cậy trong đội ngũ','Được KTA đánh giá tốt về cách làm việc và tinh thần trách nhiệm','Có chuyên môn ngoài thực tế và link vào model','Đa năng trong công việc','Tham gia hỗ trợ training cho thành viên mới'],
-  Leader:['Tinh thần trách nhiệm cao, chủ động và logic tốt ở tầm định hướng team','Hỗ trợ đội ngũ toàn diện: backup dự án, training và chia sẻ kiến thức','Được đánh giá rất tốt về phong cách làm việc và khả năng lãnh đạo','Có chuyên môn sâu và khả năng xây dựng SOP, thiết lập tiêu chuẩn cho team'],
-};
-const KEYWORDS_DEV = {
-  Staff:['Cần mở rộng năng lực QA/QC cá nhân và hoàn thiện workflow cá nhân','Tiếp tục duy trì phong độ và hoàn thành tốt dự án đang nắm','Nâng cao kiến thức MEP và khả năng coordinate để phát hiện clash sớm'],
-  Senior:['Phát triển năng lực QA/QC cho bản thân và đồng đội','Nâng cao kiến thức MEP và khả năng coordinate để phát hiện clash sớm','Chủ động cập nhật và chia sẻ kiến thức để training cho nhân sự mới','Tăng cường vai trò backup dự án và hỗ trợ team hiệu quả hơn'],
-  'Key Member':['Thể hiện vai trò Key Member thông qua ownership và ảnh hưởng tích cực đến đội ngũ','Phát triển năng lực QA/QC và xử lý các vấn đề kỹ thuật phức tạp hơn','Chủ động học hỏi để mở rộng năng lực sang các mảng kỹ thuật chuyên sâu','Tăng khả năng hỗ trợ, hướng dẫn và giải đáp thắc mắc cho các thành viên khác','Sắp xếp thời gian hiệu quả để đảm nhận vai trò backup dự án và hỗ trợ team'],
-  Leader:['Tiếp tục phát triển khả năng định hướng workflow và kỹ thuật cho team','Nếu cần có thể phối hợp leader để định hướng workflow cho phù hợp','Phát triển năng lực QA/QC đội ngũ và xây dựng SOP mới'],
-};
 
 const i3data=[
   {s:'1. Technical Performance',items:[
@@ -3345,6 +3399,14 @@ function onPersonNameSelect(name){
 
   if(typeof updateAIAnalysisBar==='function') updateAIAnalysisBar(name);
   if(typeof _lastScopeAssessment!=='undefined') _lastScopeAssessment = null;
+
+  // Level giờ được khai báo & kiểm soát tại tab Nhân sự (kèm lịch sử) — tự động áp dụng ở đây,
+  // không cần bấm chọn tay nữa. Nút level vẫn giữ lại để override thủ công nếu thực sự cần.
+  const matchedMember = (members||[]).find(mm => mm.name.trim().toLowerCase()===name.trim().toLowerCase());
+  if(matchedMember && typeof getCurrentLevelOfMember==='function'){
+    const officialLevel = getCurrentLevelOfMember(matchedMember);
+    if(officialLevel && typeof setLevel==='function') setLevel(officialLevel);
+  }
 }
 
 // Populate person dropdown from all members in projects
@@ -3763,7 +3825,6 @@ function updateResult(){
     document.getElementById('r-i3b').textContent='–';
     document.getElementById('r-i4b').textContent='–';
     document.getElementById('r-lv').innerHTML='–';
-    document.getElementById('comment-box').style.display='none';
     document.getElementById('summary-panel').style.display='none';
     document.getElementById('i3-detail-box').style.display='none';
     return;
@@ -3878,24 +3939,6 @@ function updateResult(){
       </div>`;
   }
 
-  // ── Comments ──
-  const lv=currentLevel;
-  const posKw=KEYWORDS_POS[lv]||[];
-  const devKw=KEYWORDS_DEV[lv]||[];
-  const minMuc=LEVEL_MIN[lv];
-  const strongItems=scored.filter(i=>scores3[i.id]>=minMuc+1);
-  const weakItems=scored.filter(i=>scores3[i.id]<minMuc);
-  const posCount=strongItems.length>=3?posKw.length:Math.min(posKw.length,strongItems.length+2);
-  const devCount=weakItems.length>=2?Math.min(devKw.length,4):Math.min(devKw.length,3);
-
-  let posHtml=posKw.slice(0,posCount).map(k=>`<span class="tag tag-pos">${k}</span>`).join('');
-  if(projStats && projStats.totalProjects>0){
-    posHtml+=`<span class="tag tag-pos">Đã thực hiện ${projStats.totalProjects} dự án (Main: ${projStats.mainCount} · Backup: ${projStats.backupCount}) · Điểm dự án: ${projScore10.toFixed(1)}/10</span>`;
-  }
-
-  document.getElementById('tags-pos').innerHTML=posHtml;
-  document.getElementById('tags-dev').innerHTML=devKw.slice(0,devCount).map(k=>`<span class="tag tag-dev">${k}</span>`).join('');
-  document.getElementById('comment-box').style.display='block';
   renderI3Detail();
   renderSummary();
   // Update Key++ roadmap
