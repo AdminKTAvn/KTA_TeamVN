@@ -1028,6 +1028,13 @@ function applyAISuggestions(data){
   });
 
   if(data.remarks) renderAIRemarks(data.remarks);
+  if(data.scopeAssessment){
+    _lastScopeAssessment = data.scopeAssessment;
+    const LEVEL_ORDER_SC = ['Staff','Senior','Key Member','Leader'];
+    const curIdxSC = LEVEL_ORDER_SC.indexOf(currentLevel);
+    const nextLevelSC = (curIdxSC>=0 && curIdxSC<3) ? LEVEL_ORDER_SC[curIdxSC+1] : null;
+    renderCareerFramework(currentLevel, nextLevelSC, _lastScopeAssessment);
+  }
 }
 
 // Hiển thị nhận xét AI chọn từ thư viện (khoá cứng, không sửa được) — box riêng, tách biệt với tag tự động hiện có
@@ -2902,26 +2909,53 @@ const CAREER_FRAMEWORK = {
   ],
 };
 
-// Hiển thị scope trách nhiệm của level hiện tại + level kế tiếp, để nhân sự tự soi định hướng phát triển
-function renderCareerFramework(currentLevel, nextLevel){
+// Hiển thị scope trách nhiệm của level hiện tại + level kế tiếp.
+// assessment (tuỳ chọn): kết quả AI đối chiếu, dạng {currentLevel:[{text,status,evidence}], nextLevel:[...]}
+function renderCareerFramework(currentLevel, nextLevel, assessment){
   const box = document.getElementById('sp-career-framework');
   if(!box) return;
   if(!currentLevel || !CAREER_FRAMEWORK[currentLevel]){ box.style.display='none'; return; }
   box.style.display = 'block';
-  const listHtml = function(items){
+
+  const STATUS_ICON = { met: '✅', partial: '🟡', insufficient_evidence: '⚪' };
+  const STATUS_LABEL = { met: 'Đạt — có bằng chứng', partial: 'Một phần', insufficient_evidence: 'Chưa đủ dữ liệu' };
+
+  const listHtmlPlain = function(items){
     return '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--color-text-secondary);line-height:1.7">' +
       items.map(function(t){ return '<li>'+t+'</li>'; }).join('') + '</ul>';
   };
+  const listHtmlAssessed = function(items){
+    return '<div style="margin-top:6px;display:flex;flex-direction:column;gap:8px">' +
+      items.map(function(it){
+        const icon = STATUS_ICON[it.status] || '⚪';
+        const label = STATUS_LABEL[it.status] || 'Chưa đủ dữ liệu';
+        return '<div style="font-size:12px;color:var(--color-text-secondary);line-height:1.5">' +
+          '<span title="'+label+'">'+icon+'</span> ' + escapeHtml(it.text) +
+          (it.evidence ? '<div style="font-size:11px;color:var(--color-text-tertiary);margin-left:20px;margin-top:2px;font-style:italic">→ '+escapeHtml(it.evidence)+'</div>' : '') +
+        '</div>';
+      }).join('') + '</div>';
+  };
+
   let html = '<div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);padding:14px 16px">';
   html += '<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px">📐 Scope trách nhiệm — '+currentLevel+' (level hiện tại)</div>';
-  html += listHtml(CAREER_FRAMEWORK[currentLevel]);
+  html += (assessment && assessment.currentLevel && assessment.currentLevel.length)
+    ? listHtmlAssessed(assessment.currentLevel)
+    : listHtmlPlain(CAREER_FRAMEWORK[currentLevel]);
   if(nextLevel && CAREER_FRAMEWORK[nextLevel]){
     html += '<div style="font-size:12px;font-weight:600;color:#185FA5;margin-top:14px;margin-bottom:2px">🚀 Định hướng — '+nextLevel+' (level tiếp theo)</div>';
-    html += listHtml(CAREER_FRAMEWORK[nextLevel]);
+    html += (assessment && assessment.nextLevel && assessment.nextLevel.length)
+      ? listHtmlAssessed(assessment.nextLevel)
+      : listHtmlPlain(CAREER_FRAMEWORK[nextLevel]);
+  }
+  if(assessment){
+    html += '<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:12px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)">🤖 Đã đối chiếu với ActivityLog bằng AI — ✅ Đạt · 🟡 Một phần · ⚪ Chưa đủ dữ liệu</div>';
   }
   html += '</div>';
   box.innerHTML = html;
 }
+
+// Lưu kết quả đối chiếu scope gần nhất theo người (để giữ khi chuyển tab qua lại)
+let _lastScopeAssessment = null;
 
 // Keywords mapped by category and level context
 const KEYWORDS_POS = {
@@ -3310,6 +3344,7 @@ function onPersonNameSelect(name){
   }
 
   if(typeof updateAIAnalysisBar==='function') updateAIAnalysisBar(name);
+  if(typeof _lastScopeAssessment!=='undefined') _lastScopeAssessment = null;
 }
 
 // Populate person dropdown from all members in projects
@@ -3778,7 +3813,7 @@ function updateResult(){
   const curIdx = LEVEL_ORDER.indexOf(currentLevel);
   const nextLevel = curIdx < 3 ? LEVEL_ORDER[curIdx+1] : null;
   const allComplete = scored.length===all.length;
-  renderCareerFramework(currentLevel, nextLevel);
+  renderCareerFramework(currentLevel, nextLevel, _lastScopeAssessment);
 
   // ── Update UI ──
   document.getElementById('r-i3b').textContent = i3score.toFixed(1)+' / 10';
