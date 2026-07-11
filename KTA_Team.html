@@ -875,6 +875,147 @@ function toggleAlTrendExpand(){
   if(typeof currentPersonName !== 'undefined' && currentPersonName) renderActivityLog(currentPersonName);
 }
 
+// ═══════════ AI ANALYSIS: gợi ý điểm Input 2/Input 3 từ ActivityLog (giới hạn 1 lần/quý/người) ═══════════
+
+function _getCurrentQuarterKey(){
+  const now = new Date();
+  const q = Math.floor(now.getMonth()/3) + 1;
+  return 'Q' + q + '-' + now.getFullYear();
+}
+function _getAiQuotaKey(){ return 'teamhub_ai_analysis_log'; }
+function _getAiQuotaLog(){
+  try{ return JSON.parse(localStorage.getItem(_getAiQuotaKey())) || {}; }catch(e){ return {}; }
+}
+function _saveAiQuotaLog(log){
+  try{ localStorage.setItem(_getAiQuotaKey(), JSON.stringify(log)); }catch(e){}
+}
+
+// Cập nhật hiển thị thanh AI (quota còn/hết) khi chọn người
+function updateAIAnalysisBar(personName){
+  const bar = document.getElementById('ai-analysis-bar');
+  if(!bar) return;
+  if(!personName){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+
+  const quarterKey = _getCurrentQuarterKey();
+  const log = _getAiQuotaLog();
+  const key = personName.trim().toLowerCase();
+  const record = log[key];
+  const usedThisQuarter = record && record.quarter === quarterKey;
+
+  const statusEl = document.getElementById('ai-quota-status');
+  const runBtn = document.getElementById('ai-run-btn');
+  const overrideBtn = document.getElementById('ai-override-btn');
+
+  if(usedThisQuarter){
+    statusEl.textContent = '✓ Đã phân tích ' + quarterKey + ' (' + (record.date||'') + (record.byAdmin?', ghi đè bởi Admin':'') + ')';
+    runBtn.disabled = true;
+    runBtn.style.opacity = '0.5';
+    runBtn.style.cursor = 'not-allowed';
+    if(overrideBtn) overrideBtn.style.display = (typeof sheetsRole!=='undefined' && sheetsRole==='admin') ? 'inline-block' : 'none';
+  } else {
+    statusEl.textContent = 'Chưa phân tích ' + quarterKey;
+    runBtn.disabled = false;
+    runBtn.style.opacity = '1';
+    runBtn.style.cursor = 'pointer';
+    if(overrideBtn) overrideBtn.style.display = 'none';
+  }
+}
+
+// Chạy phân tích AI cho người đang chọn. isOverride=true chỉ dùng khi Admin bấm nút đè giới hạn quý.
+async function runAIAnalysis(isOverride){
+  if(!currentPersonName){ alert('Vui lòng chọn nhân viên trước.'); return; }
+  const quarterKey = _getCurrentQuarterKey();
+  const log = _getAiQuotaLog();
+  const key = currentPersonName.trim().toLowerCase();
+
+  if(!isOverride && log[key] && log[key].quarter === quarterKey){
+    alert('Đã phân tích AI cho ' + currentPersonName + ' trong ' + quarterKey + ' rồi. Đợi quý sau, hoặc nhờ Admin bấm "Chạy đè giới hạn quý".');
+    return;
+  }
+  if(isOverride && (typeof sheetsRole==='undefined' || sheetsRole!=='admin')){
+    alert('Chỉ Admin mới được đè giới hạn quý.');
+    return;
+  }
+  if(isOverride && !confirm('Chạy phân tích AI đè giới hạn quý cho ' + currentPersonName + '? Việc này sẽ tính vào chi phí API ngoài định mức thường.')){
+    return;
+  }
+
+  const runBtn = document.getElementById('ai-run-btn');
+  const statusEl = document.getElementById('ai-quota-status');
+  if(runBtn){ runBtn.disabled = true; runBtn.textContent = '⏳ Đang phân tích...'; }
+  if(statusEl) statusEl.textContent = 'Đang gửi dữ liệu tới AI...';
+
+  try{
+    // Gom toàn bộ task của người này từ ActivityLog làm ngữ cảnh
+    const tasks = activityLog.filter(function(t){
+      return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === currentPersonName.toLowerCase().trim(); });
+    });
+    if(!tasks.length){
+      alert('Chưa có dữ liệu ActivityLog nào cho ' + currentPersonName + ' để phân tích.');
+      return;
+    }
+    const cfg = getSheetsConfig();
+    const pw = getAdminPw();
+    // Gửi kèm định nghĩa các mục I3 (điểm 1-5) và I2 (Basic/Working/Advanced/Lead) để AI biết chính xác đang chấm mục nào
+    const i3Items = i3data.flatMap(function(sec){
+      return sec.items.map(function(it){
+        return { id: it.id, name: it.name, section: sec.s, type: 'i3', scale: '1-5', descs: it.descs };
+      });
+    });
+    const i2Items = i2data.flatMap(function(sec){
+      return sec.items.map(function(it){
+        return { id: it.id, name: it.name, section: sec.s, type: 'i2', target: it.target,
+                 options: ['Basic Awareness','Working Level','Advanced Level','Lead Level'] };
+      });
+    });
+    const res = await sheetsRequest(null, {
+      action: 'aiAnalyzePerson',
+      password: pw,
+      personName: currentPersonName,
+      currentLevel: currentLevel || '',
+      tasks: tasks,
+      i3Items: i3Items,
+      i2Items: i2Items
+    });
+    if(!res || !res.ok){
+      alert('Lỗi gọi AI: ' + (res && res.error ? res.error : 'không rõ nguyên nhân') + '\n\nKiểm tra lại đã cấu hình ANTHROPIC_API_KEY trong Apps Script Script Properties chưa.');
+      return;
+    }
+    applyAISuggestions(res.data || res.suggestions);
+
+    // Ghi nhận đã dùng quota quý này
+    log[key] = { quarter: quarterKey, date: new Date().toISOString().slice(0,10), byAdmin: !!isOverride };
+    _saveAiQuotaLog(log);
+    updateAIAnalysisBar(currentPersonName);
+    alert('✓ AI đã gợi ý xong. Xem các mục được đánh dấu "🤖 AI gợi ý" ở Input 2/Input 3, có thể sửa lại nếu không đồng ý.');
+  } catch(ex){
+    alert('Lỗi khi chạy phân tích AI: ' + ex.message);
+  } finally {
+    if(runBtn){ runBtn.disabled = false; runBtn.textContent = '🤖 Phân tích AI'; }
+  }
+}
+
+// Áp gợi ý AI vào dropdown I2 (id="s2-<id>") / I3 (id="s3-<id>") — chỉ điền vào ô đang TRỐNG
+// hoặc ô lần trước cũng là gợi ý AI (chưa bị người dùng tự sửa tay đè lên), để không mất điểm đã chấm tay.
+function applyAISuggestions(data){
+  if(!data) return;
+  const suggestions = data.suggestions || data; // { itemId: { score, reason } } — score: số 1-5 cho I3, hoặc text (VD "Working Level") cho I2
+  Object.keys(suggestions).forEach(function(itemId){
+    const sug = suggestions[itemId];
+    const sel = document.getElementById('s3-'+itemId) || document.getElementById('s2-'+itemId);
+    if(!sel || !sug || sug.score===undefined || sug.score===null || sug.score==='') return;
+    const hasManualValue = sel.value && sel.getAttribute('data-ai-suggested') !== '1';
+    if(hasManualValue) return; // người dùng đã tự chấm tay, không ghi đè
+    sel.value = sug.score;
+    sel.setAttribute('data-ai-suggested','1');
+    sel.style.borderColor = '#BA7517';
+    sel.style.background = '#FEF6DC';
+    sel.title = '🤖 AI gợi ý: ' + (sug.reason || '');
+    sel.dispatchEvent(new Event('change'));
+  });
+}
+
 // Render Activity Log tab
 function renderActivityLog(personName){
   const el = document.getElementById('al-content');
@@ -1907,15 +2048,51 @@ function getRoleMultiplier(role){
   return map[role] || 0.3;
 }
 
+// Status multiplier — chỉ áp dụng khi dự án CHƯA có ActivityLog thật (fallback),
+// vì Status giờ tự động cập nhật theo Tracker tuần nên phản ánh đúng mức độ đang chạy/hold
+const STATUS_MULTIPLIER = {
+  'Complete':    1.0,
+  'Deadline':    1.0,
+  'Priorities':  1.0,   // FULL-TIME theo Tracker tuần
+  'Non-Urgent':  0.7,   // PART-TIME theo Tracker tuần
+  'Hold':        0.2,
+};
+function getStatusMultiplier(status){
+  return STATUS_MULTIPLIER[status] !== undefined ? STATUS_MULTIPLIER[status] : 1.0;
+}
+
+// Tổng Contribution Score (tất cả người) của 1 dự án trong ActivityLog — dùng làm mẫu số tính % đóng góp
+function calcProjectTotalContribution(projectName){
+  return activityLog
+    .filter(function(t){ return t.projectName === projectName; })
+    .reduce(function(sum, t){ return sum + (AL_IMPACT_WEIGHT[t.impact] || 1); }, 0);
+}
+
 // Calculate single project score for a person
-function calcProjectScore(proj, personLevel, role){
+// Ưu tiên dùng % đóng góp thật từ ActivityLog nếu dự án đã có data; nếu chưa, dùng RoleMultiplier tĩnh × StatusMultiplier
+function calcProjectScore(proj, personLevel, role, personName){
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
   const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
+  const projValue = base + cxBonus;
+
+  const hasActivityData = personName && typeof activityLog!=='undefined' &&
+    activityLog.some(function(t){ return t.projectName === proj.name; });
+
+  if(hasActivityData){
+    const personContribution = calcContributionPerProject(personName, proj.name);
+    const totalContribution = calcProjectTotalContribution(proj.name);
+    const ratio = (personContribution && totalContribution > 0)
+      ? Math.min(1, personContribution.score / totalContribution)
+      : 0;
+    return projValue * ratio * levelMult;
+  }
+
+  // Fallback: chưa có ActivityLog cho dự án này → dùng công thức cũ + StatusMultiplier
   const roleMult = getRoleMultiplier(role);
-  // Điểm = (Base + CxBonus) × LevelMult × RoleMult
-  return (base + cxBonus) * levelMult * roleMult;
+  const statusMult = getStatusMultiplier(proj.status);
+  return projValue * levelMult * roleMult * statusMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
@@ -1977,11 +2154,15 @@ function calcPersonProjectScore(personName, personLevel){
 
   const addProjects = (list, role) => {
     list.forEach(p=>{
-      const score = calcProjectScore(p, personLevel, role);
+      const score = calcProjectScore(p, personLevel, role, personName);
       totalRaw += score;
+      const hasActivityData = typeof activityLog!=='undefined' &&
+        activityLog.some(t=>t.projectName===p.name);
       breakdown.push({
         name: p.name, size: p.size, role, score: score.toFixed(2),
-        relation: getProjectLevelRelation(p.size, personLevel)
+        relation: getProjectLevelRelation(p.size, personLevel),
+        source: hasActivityData ? 'activitylog' : 'fallback',
+        status: p.status
       });
     });
   };
@@ -2289,6 +2470,13 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
   <div class="tab" onclick="switchTab('t2')">Input 2 — Kỹ năng (tham khảo)</div>
   <div class="tab" onclick="switchTab('result')">Kết quả & Nhận xét</div>
   <div class="tab" onclick="switchTab('activity')">📋 Activity Log</div>
+</div>
+
+<div id="ai-analysis-bar" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:1rem;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)">
+  <span style="font-size:12px;color:var(--color-text-secondary);flex:1;min-width:200px">🤖 <b>Gợi ý AI</b> cho Input 2/Input 3 — dựa trên description, notes, category từ ActivityLog</span>
+  <span id="ai-quota-status" style="font-size:11px;color:var(--color-text-tertiary)"></span>
+  <button id="ai-run-btn" onclick="runAIAnalysis(false)" style="font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🤖 Phân tích AI</button>
+  <button id="ai-override-btn" onclick="runAIAnalysis(true)" class="admin-only" style="display:none;font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid #C0392B;background:#FAECE7;color:#C0392B;cursor:pointer;font-weight:500;white-space:nowrap">⚠️ Admin: Chạy đè giới hạn quý</button>
 </div>
 
 <!-- INPUT 3 -->
@@ -2733,7 +2921,7 @@ function renderI3(){
           <textarea class="note-area" id="textarea3-${item.id}" placeholder="Mục khác: dẫn chứng cụ thể, ví dụ minh họa..." oninput="onNote3('${item.id}')">${savedNote}</textarea>
         </div>
         <div>
-          <select class="score-select" id="s3-${item.id}" onchange="onI3('${item.id}')">
+          <select class="score-select" id="s3-${item.id}" onchange="onI3('${item.id}', event)">
             <option value="">— Chọn mức —</option>${opts}
           </select>
           <div id="lv3-${item.id}" style="margin-top:6px">${badgeHtml}</div>
@@ -2773,9 +2961,17 @@ function _autoSavePerson(name){
   // Không gọi renderPersonList() ở đây để tránh conflict khi đang nhập
 }
 
-function onI3(id){
-  const v=parseInt(document.getElementById('s3-'+id).value);
+function onI3(id, evt){
+  const sel3 = document.getElementById('s3-'+id);
+  const v=parseInt(sel3.value);
   if(v) scores3[id]=v; else delete scores3[id];
+  // Nếu người dùng thật sự tự tay đổi (không phải AI dispatch) → gỡ nhãn "AI gợi ý"
+  if(evt && evt.isTrusted){
+    sel3.removeAttribute('data-ai-suggested');
+    sel3.style.borderColor = '';
+    sel3.style.background = '';
+    sel3.title = '';
+  }
   // Đánh dấu có thay đổi chưa lưu (không auto-save)
   _isDirty = true;
   const item=i3data.flatMap(s=>s.items).find(i=>i.id===id);
@@ -2854,8 +3050,11 @@ function renderProjListTable(breakdown, totalRaw){
     const rc = ROLE_COLOR[p.role] || ROLE_COLOR.support;
     const cx = cxMap[p.name] || 'Simple';
     const rowBg = i%2===0 ? '' : 'background:var(--color-background-secondary)';
+    const srcDot = p.source==='activitylog'
+      ? `<span title="Tính từ % đóng góp thật (ActivityLog)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;vertical-align:middle"></span>`
+      : `<span title="Ước lượng theo vai trò + Status (chưa có ActivityLog cho dự án này)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#BA7517;margin-right:5px;vertical-align:middle"></span>`;
     return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
-      <td style="padding:5px 10px;color:var(--color-text-primary)">${p.name}</td>
+      <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}</td>
       <td style="padding:5px 6px;text-align:center">
         <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${SIZE_BG[p.size]||'#eee'};font-weight:500">${p.size}</span>
       </td>
@@ -3015,6 +3214,8 @@ function onPersonNameSelect(name){
     autoFillProjectCount(false, name);
     updateKeyPlusRoadmap(0, 0);
   }
+
+  if(typeof updateAIAnalysisBar==='function') updateAIAnalysisBar(name);
 }
 
 // Populate person dropdown from all members in projects
@@ -4129,7 +4330,7 @@ function renderI2(){
     const rows=sec.items.map(item=>`
       <div style="display:grid;grid-template-columns:1fr 160px 60px;align-items:center;gap:8px;padding:8px 14px;border-top:0.5px solid var(--color-border-tertiary)">
         <div><div class="item-name">${item.name}</div><div class="item-note">Yêu cầu: ${item.target}</div></div>
-        <select class="score-select" id="s2-${item.id}" onchange="onI2('${item.id}','${item.target}')">
+        <select class="score-select" id="s2-${item.id}" onchange="onI2('${item.id}','${item.target}', event)">
           <option value="">— Chọn mức —</option>
           <option value="Basic Awareness">Basic Awareness (2.5)</option>
           <option value="Working Level">Working Level (5.0)</option>
@@ -4143,9 +4344,16 @@ function renderI2(){
   });
 }
 
-function onI2(id,target){
-  const v=document.getElementById('s2-'+id).value;
+function onI2(id,target,evt){
+  const sel2 = document.getElementById('s2-'+id);
+  const v=sel2.value;
   if(v) scores2[id]=I2LEVELS[v]; else delete scores2[id];
+  if(evt && evt.isTrusted){
+    sel2.removeAttribute('data-ai-suggested');
+    sel2.style.borderColor = '';
+    sel2.style.background = '';
+    sel2.title = '';
+  }
   const d=document.getElementById('s2d-'+id);
   if(v){const tv=I2LEVELS[target];const s=I2LEVELS[v];d.textContent=s.toFixed(1);d.style.color=s>=tv?'#3B6D11':s>=tv*.6?'#BA7517':'#A32D2D';}
   else{d.textContent='–';d.style.color='var(--color-text-secondary)';}
@@ -5053,6 +5261,8 @@ function loadAll(){
       impact:      headers.indexOf('impact'),
       knowledge:   headers.indexOf('knowledge'),
       description: headers.indexOf('description'),
+      notes:       headers.indexOf('notes'),
+      taskStatus:  headers.indexOf('taskStatus'),
     };
     activityLog = rows
       .filter(function(r){ return idx.projectName>=0 && r[idx.projectName]; })
@@ -5072,6 +5282,8 @@ function loadAll(){
           impact:      idx.impact>=0 ? r[idx.impact].toString().trim() : '',
           knowledge:   idx.knowledge>=0 ? r[idx.knowledge].toString().trim() : '',
           description: idx.description>=0 ? r[idx.description].toString().trim() : '',
+          notes:       idx.notes>=0 ? r[idx.notes].toString().trim() : '',
+          taskStatus:  idx.taskStatus>=0 ? r[idx.taskStatus].toString().trim() : '',
         };
       });
   }
