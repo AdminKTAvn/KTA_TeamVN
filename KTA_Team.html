@@ -972,6 +972,9 @@ async function runAIAnalysis(isOverride){
                  options: ['Basic Awareness','Working Level','Advanced Level','Lead Level'] };
       });
     });
+    const LEVEL_ORDER_AI = ['Staff','Senior','Key Member','Leader'];
+    const curIdxAI = LEVEL_ORDER_AI.indexOf(currentLevel);
+    const nextLevelAI = (curIdxAI>=0 && curIdxAI<3) ? LEVEL_ORDER_AI[curIdxAI+1] : null;
     const res = await sheetsRequest(null, {
       action: 'aiAnalyzePerson',
       password: pw,
@@ -980,7 +983,12 @@ async function runAIAnalysis(isOverride){
       tasks: tasks,
       i3Items: i3Items,
       i2Items: i2Items,
-      includeRemarks: true
+      includeRemarks: true,
+      careerFramework: {
+        currentLevelScope: CAREER_FRAMEWORK[currentLevel] || [],
+        nextLevel: nextLevelAI || '',
+        nextLevelScope: nextLevelAI ? (CAREER_FRAMEWORK[nextLevelAI] || []) : []
+      }
     });
     if(!res || !res.ok){
       alert('Lỗi gọi AI: ' + (res && res.error ? res.error : 'không rõ nguyên nhân') + '\n\nKiểm tra lại đã cấu hình ANTHROPIC_API_KEY trong Apps Script Script Properties chưa.');
@@ -2644,6 +2652,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
       <div class="summary-text" id="sp-summary-text"></div>
       <ul class="summary-bullets" id="sp-bullets"></ul>
       <div id="sp-prereq" style="display:none;margin-top:14px;border-radius:10px;border:0.5px solid #EF9F27;background:#FAEEDA;padding:14px 16px"></div>
+      <div id="sp-career-framework" style="display:none;margin-top:14px"></div>
     </div>
   </div>
 
@@ -2861,6 +2870,58 @@ const LEVEL_INFO={
   'Key Member':'Key Member: Dự án lớn · Backcheck & training thành viên · Yêu cầu tối thiểu Mức 4 mỗi tiêu chí',
   Leader:'Leader: Phụ trách team · Định hướng kỹ thuật · Phát triển đội ngũ · Yêu cầu Mức 5 mỗi tiêu chí',
 };
+
+// Career Framework — scope trách nhiệm chi tiết từng level, dùng để:
+// (1) hiển thị cho nhân sự tự soi mình đang ở đâu / cần gì để lên level tiếp theo
+// (2) làm ngữ cảnh cho AI khi chấm điểm/viết nhận xét, phân biệt rạch ròi ranh giới giữa các level
+const CAREER_FRAMEWORK = {
+  Staff: [
+    'Chịu trách nhiệm cho công việc cá nhân được giao.',
+    'Thực hiện các task hoặc scope nhỏ trong dự án.',
+    'Có thể được giao phụ trách các dự án đơn giản để phát triển năng lực.',
+    'Vẫn cần được hỗ trợ, hướng dẫn hoặc backcheck từ Key Member hoặc Leader.',
+  ],
+  Senior: [
+    'Chịu trách nhiệm cho một dự án nhỏ đến trung bình.',
+    'Bắt đầu biết cách quản lý công việc, tiến độ và chất lượng dự án.',
+    'Có khả năng làm việc độc lập và xử lý phần lớn các vấn đề thường gặp.',
+    'Vẫn cần hỗ trợ hoặc review trong các trường hợp phức tạp hơn.',
+  ],
+  'Key Member': [
+    'Chịu trách nhiệm cho các dự án lớn hơn hoặc các vấn đề kỹ thuật phức tạp.',
+    'Thành thạo workflow, quản lý công việc, tiến độ và cho ra chất lượng dự án tốt, đồng đều và ổn định.',
+    'Có khả năng backcheck, support và training các thành viên khác.',
+    'Có khả năng set up, quản lý và triển khai dự án độc lập.',
+  ],
+  Leader: [
+    'Chịu trách nhiệm cao nhất về dự án, nhân sự và kết quả chung của team.',
+    'Quản lý chất lượng, nguồn lực, tiến độ và định hướng phát triển đội ngũ.',
+    'Set up dự án, QA/QC và đảm bảo chất lượng kỹ thuật của team.',
+    'Xây dựng SOP, template, training và phát triển năng lực thành viên.',
+    'Đại diện team làm việc, trao đổi thông tin và giải quyết các vấn đề với client và công ty.',
+  ],
+};
+
+// Hiển thị scope trách nhiệm của level hiện tại + level kế tiếp, để nhân sự tự soi định hướng phát triển
+function renderCareerFramework(currentLevel, nextLevel){
+  const box = document.getElementById('sp-career-framework');
+  if(!box) return;
+  if(!currentLevel || !CAREER_FRAMEWORK[currentLevel]){ box.style.display='none'; return; }
+  box.style.display = 'block';
+  const listHtml = function(items){
+    return '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--color-text-secondary);line-height:1.7">' +
+      items.map(function(t){ return '<li>'+t+'</li>'; }).join('') + '</ul>';
+  };
+  let html = '<div style="border-radius:10px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);padding:14px 16px">';
+  html += '<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px">📐 Scope trách nhiệm — '+currentLevel+' (level hiện tại)</div>';
+  html += listHtml(CAREER_FRAMEWORK[currentLevel]);
+  if(nextLevel && CAREER_FRAMEWORK[nextLevel]){
+    html += '<div style="font-size:12px;font-weight:600;color:#185FA5;margin-top:14px;margin-bottom:2px">🚀 Định hướng — '+nextLevel+' (level tiếp theo)</div>';
+    html += listHtml(CAREER_FRAMEWORK[nextLevel]);
+  }
+  html += '</div>';
+  box.innerHTML = html;
+}
 
 // Keywords mapped by category and level context
 const KEYWORDS_POS = {
@@ -3717,6 +3778,7 @@ function updateResult(){
   const curIdx = LEVEL_ORDER.indexOf(currentLevel);
   const nextLevel = curIdx < 3 ? LEVEL_ORDER[curIdx+1] : null;
   const allComplete = scored.length===all.length;
+  renderCareerFramework(currentLevel, nextLevel);
 
   // ── Update UI ──
   document.getElementById('r-i3b').textContent = i3score.toFixed(1)+' / 10';
