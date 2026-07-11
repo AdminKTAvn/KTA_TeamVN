@@ -2473,7 +2473,8 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
           <div style="font-size:13px;font-weight:600;color:var(--color-text-primary)">📊 Hiệu suất tháng <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(Contribution Score — dùng cho thưởng)</span></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <select id="mp-month-select" onchange="renderMonthlyPerformance()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)"></select>
-            <button id="mp-freeze-btn" class="admin-only" onclick="doFreezeMonthlyPerformance()" style="display:none;font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🔒 Chốt sổ tháng trước</button>
+            <input type="month" id="mp-freeze-month-input" class="admin-only" style="display:none;font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)" title="Để trống = chốt tháng trước (mặc định). Chọn tháng cụ thể để chốt/test tháng đó.">
+            <button id="mp-freeze-btn" class="admin-only" onclick="doFreezeMonthlyPerformance()" style="display:none;font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🔒 Chốt sổ</button>
           </div>
         </div>
         <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Đã chốt sổ tự động vào ngày 1 mỗi tháng cho tháng liền trước · Xếp hạng riêng trong từng level · Số liệu không đổi sau khi chốt</div>
@@ -6048,6 +6049,8 @@ function renderMonthlyPerformance(){
 
   const isAdmin = (typeof sheetsRole!=='undefined') && sheetsRole==='admin';
   if(freezeBtn) freezeBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  const monthInput = document.getElementById('mp-freeze-month-input');
+  if(monthInput) monthInput.style.display = isAdmin ? 'inline-block' : 'none';
 
   const months = Array.from(new Set((monthlyPerformance||[]).map(r=>r.month))).sort().reverse();
   if(!months.length){
@@ -6103,14 +6106,20 @@ function _mpFmtMonth(m){
 
 async function doFreezeMonthlyPerformance(){
   if(typeof sheetsRole==='undefined' || sheetsRole!=='admin'){ alert('Chỉ Admin mới được chốt sổ.'); return; }
-  if(!confirm('Chốt sổ Hiệu suất tháng TRƯỚC (tháng liền kề đã qua)? Số liệu sau khi chốt sẽ không đổi nữa dù ActivityLog có cập nhật thêm.')) return;
+  const monthInput = document.getElementById('mp-freeze-month-input');
+  const customMonth = monthInput ? monthInput.value : ''; // dạng yyyy-MM, rỗng = mặc định tháng trước
+  const monthLabel = customMonth ? _mpFmtMonth(customMonth) : 'tháng trước (mặc định)';
+  if(!confirm('Chốt sổ Hiệu suất '+monthLabel+'? Số liệu sau khi chốt sẽ không đổi nữa dù ActivityLog có cập nhật thêm.')) return;
   const btn = document.getElementById('mp-freeze-btn');
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Đang chốt sổ...'; }
   try{
     const pw = getRolePw();
-    const res = await sheetsRequest(null, { action: 'freezeMonthlyPerformance', password: pw });
+    const payload = { action: 'freezeMonthlyPerformance', password: pw };
+    if(customMonth) payload.month = customMonth;
+    const res = await sheetsRequest(null, payload);
     if(!res || !res.ok){ alert('Lỗi: ' + (res && res.error ? res.error : 'không rõ nguyên nhân')); return; }
     if(res.alreadyFrozen){ alert('Tháng này đã được chốt sổ trước đó rồi (tháng '+res.month+').'); }
+    else if(res.count === 0){ alert('Đã chạy chốt sổ tháng '+res.month+', nhưng KHÔNG tìm thấy dữ liệu ActivityLog nào trong tháng đó — kiểm tra lại đã chọn đúng tháng có data chưa.'); }
     else { alert('✓ Đã chốt sổ tháng '+res.month+' — '+res.count+' bản ghi.'); }
     if(typeof sheetsLoadAllFresh==='function') await sheetsLoadAllFresh();
     else if(typeof sheetsLoadAll==='function') await sheetsLoadAll();
@@ -6118,7 +6127,7 @@ async function doFreezeMonthlyPerformance(){
   } catch(ex){
     alert('Lỗi khi chốt sổ: ' + ex.message);
   } finally {
-    if(btn){ btn.disabled = false; btn.textContent = '🔒 Chốt sổ tháng trước'; }
+    if(btn){ btn.disabled = false; btn.textContent = '🔒 Chốt sổ'; }
   }
 }
 
