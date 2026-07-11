@@ -1090,6 +1090,7 @@ async function runAIAnalysis(isOverride){
       tasks: tasks,
       i3Items: i3Items,
       i2Items: i2Items,
+      i2LevelDescriptions: I2_LEVEL_DESCS,
       includeRemarks: true,
       careerFramework: {
         currentLevelScope: CAREER_FRAMEWORK[currentLevel] || [],
@@ -3042,6 +3043,14 @@ const i3data=[
 ];
 
 const I2LEVELS={'Basic Awareness':2.5,'Working Level':5,'Advanced Level':7.5,'Lead Level':10};
+// Proficiency Scale — định nghĩa chung áp dụng cho mọi mục I2 (dùng làm ngữ cảnh cho AI, giống nguyên lý I3)
+const I2_LEVEL_DESCS = {
+  'Basic Awareness': 'Hiểu nguyên tắc và workflow cơ bản, có thể thực hiện với guideline/support từ team.',
+  'Working Level': 'Có thể tự triển khai và xử lý các trường hợp thông thường trong project workflow.',
+  'Advanced Level': 'Có khả năng review, coordinate và xử lý các technical issues phức tạp.',
+  'Lead Level': 'Có khả năng định hướng workflow, technical approach và training team.',
+};
+
 const i2data=[
   {s:'Phần 1: Building Code & Life Safety',p:1,items:[{id:'i11',name:'1.1 Occupancy & Construction Type',target:'Working Level'},{id:'i12',name:'1.2 Egress',target:'Working Level'},{id:'i13',name:'1.3 Fire / Life Safety',target:'Basic Awareness'}]},
   {s:'Phần 2: Accessibility Compliance',p:1,items:[{id:'i21',name:'2.1 General Accessibility',target:'Working Level'},{id:'i22',name:'2.2 Apartment Unit Accessibility',target:'Working Level'}]},
