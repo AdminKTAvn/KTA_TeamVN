@@ -860,7 +860,15 @@ function applyWeeklyStatusToProjects(){
       const mapped = WEEKLY_TO_STATUS_MAP[w.badge.toString().toUpperCase()];
       if(mapped){ p.status = mapped; }
       if(w.note) weeklyNoteByProject[key] = w.note;
-      if(w.phase) weeklyPhaseByProject[key] = w.phase;
+      if(w.phase){
+        // Có dò được giai đoạn mới trong ghi chú tuần này → cập nhật + ghi nhớ lâu dài vào chính project
+        weeklyPhaseByProject[key] = w.phase;
+        p.lastKnownPhase = w.phase;
+      } else if(p.lastKnownPhase){
+        // Tuần này KHÔNG dò được giai đoạn (VD chỉ ghi "on hold") → giữ nguyên giai đoạn đã ghi nhớ trước đó,
+        // KHÔNG để tính vống thành 100% chỉ vì thiếu từ khoá trong ghi chú tuần này.
+        weeklyPhaseByProject[key] = p.lastKnownPhase;
+      }
     }
   });
 }
@@ -874,9 +882,14 @@ function calcContributionPerProject(personName, projectName){
       (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
   });
   if(!tasks.length) return null;
+  // Nếu 1 task gán chung cho nhiều người, mỗi người chỉ nhận weight/N — tránh tính dư khi cộng tổng cả dự án
   const score = tasks.reduce(function(sum, t){
-    return sum + (AL_IMPACT_WEIGHT[t.impact] || 1);
+    const numAssignees = (t.assignedTo||[]).length || 1;
+    return sum + (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
   }, 0);
+  // Ngày hoạt động gần nhất của người này trên dự án — dùng để "đóng băng" tỷ lệ đúng lúc họ rời dự án,
+  // không bị pha loãng bởi việc người khác làm thêm sau đó.
+  const lastDate = tasks.reduce(function(max, t){ return (t.date||'') > max ? (t.date||'') : max; }, '');
   const byImpact = { Major:0, Medium:0, Minor:0 };
   tasks.forEach(function(t){ if(byImpact[t.impact]!==undefined) byImpact[t.impact]++; });
   const categories = [];
@@ -887,7 +900,7 @@ function calcContributionPerProject(personName, projectName){
     .filter(function(t){ return t.description && t.description.trim(); })
     .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: t.description.trim() }; })
     .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails };
+  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails, lastDate };
 }
 
 // Tính toàn bộ Contribution cho 1 người
@@ -962,7 +975,8 @@ function calcWeeklyTrend(personName){
     const wk = _biweekStartKey(t.date);
     if(!wk) return;
     if(!byPeriod[wk]) byPeriod[wk] = { score:0, tasks:0 };
-    byPeriod[wk].score += (AL_IMPACT_WEIGHT[t.impact] || 1);
+    const numAssignees = (t.assignedTo||[]).length || 1;
+    byPeriod[wk].score += (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
     byPeriod[wk].tasks += 1;
   });
   return Object.keys(byPeriod).sort().map(function(wk){
@@ -1497,6 +1511,7 @@ function _extractCandidatesFromExistingData(){
   .pm-team-liam{background:#F5E2DE;color:#8B2E1F}
   .pm-team-stuart{background:#F1E8FA;color:#6B2FA0}
   .pm-team-nina{background:#FDE8F1;color:#A02A6B}
+  .pm-status-notstarted{background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px dashed var(--color-border-tertiary)}
   .pm-status-complete{background:#EAF3DE;color:#3B6D11}
   .pm-status-hold{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
   .pm-status-nonurgent{background:#E6F1FB;color:#185FA5}
@@ -1563,6 +1578,7 @@ function _extractCandidatesFromExistingData(){
       </select>
       <select class="pm-filter-select" id="pm-filter-status" onchange="renderProjects()">
         <option value="">Tất cả trạng thái</option>
+        <option value="Not Started">Chưa bắt đầu</option>
         <option value="Complete">Complete</option>
         <option value="Hold">Hold</option>
         <option value="Non-Urgent">Non-Urgent</option>
@@ -1646,11 +1662,25 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-field">
         <label>Tình trạng hoạt động</label>
         <select id="pm-f-status">
+          <option value="Not Started">Chưa bắt đầu</option>
           <option value="Complete">Complete</option>
           <option value="Hold">Hold</option>
           <option value="Non-Urgent">Non-Urgent</option>
           <option value="Priorities">Priorities</option>
           <option value="Deadline">Deadline</option>
+        </select>
+      </div>
+
+      <div class="pm-field">
+        <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(dùng để tính % điểm — tự động cập nhật theo Tracker tuần sau này nếu dò được, đây chỉ là giá trị khởi điểm/ghi đè tay khi cần)</span></label>
+        <select id="pm-f-phase">
+          <option value="">— Chưa xác định (mặc định tính 100%) —</option>
+          <option value="Setup">Setup dự án (17%)</option>
+          <option value="Background">Background (33%)</option>
+          <option value="DD">DD (50%)</option>
+          <option value="CD">CD (67%)</option>
+          <option value="Plancheck">Plan Check (83%)</option>
+          <option value="CD (Final)">CD (Final) (100%)</option>
         </select>
       </div>
 
@@ -1789,6 +1819,7 @@ function openProjectModal(editId){
     document.getElementById('pm-edit-id').value=editId;
     document.getElementById('pm-f-name').value=p.name;
     document.getElementById('pm-f-status').value=p.status;
+    document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
     document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
     document.getElementById('pm-team-'+p.team.toLowerCase()).checked=true;
@@ -1804,7 +1835,8 @@ function openProjectModal(editId){
     document.getElementById('pm-edit-id').value='';
     document.getElementById('pm-f-name').value='';
     document.getElementById('pm-f-notes').value='';
-    document.getElementById('pm-f-status').value='Priorities';
+    document.getElementById('pm-f-status').value='Not Started';
+    document.getElementById('pm-f-phase').value='';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
     createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   []);
@@ -1826,6 +1858,7 @@ function saveProject(){
   const membersMain   = getMsValues('pm-ms-main');
   const membersBackup = getMsValues('pm-ms-backup');
   const status = document.getElementById('pm-f-status').value;
+  const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
   const editId = document.getElementById('pm-edit-id').value;
 
@@ -1851,6 +1884,7 @@ function saveProject(){
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes;
+      if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
       p.doneCycleMembers = doneCycleMembers;
     }
@@ -1860,6 +1894,7 @@ function saveProject(){
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
       status, notes, createdAt: Date.now(),
+      lastKnownPhase: phase || '',
       complexity, complexityLevel, complexityCount: cxCount,
       cxTotal: CX_KEYS.length,
       doneCycleMembers
@@ -1891,7 +1926,7 @@ function deleteProject(id){
 }
 
 const STATUS_LABEL_CLASS = {
-  'Complete':'pm-status-complete','Hold':'pm-status-hold','Non-Urgent':'pm-status-nonurgent',
+  'Not Started':'pm-status-notstarted','Complete':'pm-status-complete','Hold':'pm-status-hold','Non-Urgent':'pm-status-nonurgent',
   'Priorities':'pm-status-priorities','Deadline':'pm-status-deadline'
 };
 const SIZE_CLASS = {'Small':'pm-size-small','Medium':'pm-size-medium','Large':'pm-size-large'};
@@ -1970,7 +2005,7 @@ function renderProjects(){
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
     const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
-    const wPhase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? (weeklyPhaseByProject[p.name.toLowerCase().trim()]||'') : '';
+    const wPhase = ((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[p.name.toLowerCase().trim()] : '') || p.lastKnownPhase || '';
     return `
     <tr>
       <td>
@@ -2004,14 +2039,20 @@ function getPersonProjectStats(personName){
   const lower = personName.trim().toLowerCase();
   // Dùng global projects, fallback localStorage nếu rỗng hoặc không tìm thấy người
   let _proj = projects && projects.length ? projects : [];
-  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower)||(p.membersBackup||[]).some(m=>m.toLowerCase()===lower))){
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower))){
     try{
       const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
       if(local.length > _proj.length) _proj = local;
     }catch(e){}
   }
+  const hasEvidenceOn = function(p){
+    return typeof activityLog!=='undefined' && activityLog.some(function(t){
+      return t.projectName===p.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+    });
+  };
   const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
-  const asBackup = _proj.filter(p=>(p.membersBackup||[]).some(m=>m.toLowerCase()===lower) && !(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  // SP giờ tự động dò từ ActivityLog (không phải Main nhưng có task thật), không dựa vào danh sách Backup tĩnh nữa
+  const asBackup = _proj.filter(p=> !(p.membersMain||[]).some(m=>m.toLowerCase()===lower) && hasEvidenceOn(p));
   const involved = [...asMain, ...asBackup];
 
   const bySize = {Small:0,Medium:0,Large:0};
@@ -2211,6 +2252,7 @@ function getRoleMultiplier(role){
 // Status multiplier — chỉ áp dụng khi dự án CHƯA có ActivityLog thật (fallback),
 // vì Status giờ tự động cập nhật theo Tracker tuần nên phản ánh đúng mức độ đang chạy/hold
 const STATUS_MULTIPLIER = {
+  'Not Started': 0,     // Dự án đã gắn tên nhưng CHƯA từng chạy task nào — không tính điểm cho tới khi có data thật
   'Complete':    1.0,
   'Deadline':    1.0,
   'Priorities':  1.0,   // FULL-TIME theo Tracker tuần
@@ -2222,37 +2264,114 @@ function getStatusMultiplier(status){
 }
 
 // Tổng Contribution Score (tất cả người) của 1 dự án trong ActivityLog — dùng làm mẫu số tính % đóng góp
-function calcProjectTotalContribution(projectName){
+// Tổng Contribution Score (tất cả người) của 1 dự án — có thể giới hạn "tính đến đúng ngày X"
+// (dùng để đóng băng tỷ lệ của 1 người tại đúng thời điểm họ còn hoạt động, không bị pha loãng bởi việc làm thêm sau đó)
+// LƯU Ý: đây là tổng theo TASK (mỗi task tính 1 lần, không chia theo số người) — vì tổng các phần chia đều
+// của N người trên 1 task cộng lại vẫn đúng bằng full weight của task đó, nên không cần chia ở đây.
+function calcProjectTotalContribution(projectName, upToDate){
   return activityLog
-    .filter(function(t){ return t.projectName === projectName; })
+    .filter(function(t){
+      if(t.projectName !== projectName) return false;
+      if(upToDate && (t.date||'') > upToDate) return false;
+      return true;
+    })
     .reduce(function(sum, t){ return sum + (AL_IMPACT_WEIGHT[t.impact] || 1); }, 0);
 }
 
+// % hoàn thành dự án theo giai đoạn hiện tại (dò từ ghi chú Tracker tuần, weeklyPhaseByProject) — chia đều 6 mốc
+const PHASE_COMPLETION_PCT = {
+  'Setup':       0.17,
+  'Background':  0.33,
+  'DD':          0.50,
+  'CD':          0.67,
+  'Plancheck':   0.83,
+  'CD (Final)':  1.00,
+};
+// Lấy % hoàn thành hiện tại của 1 dự án theo giai đoạn đã dò được — nếu chưa dò được giai đoạn nào, mặc định 100%
+// (không phạt điểm khi hệ thống không có đủ thông tin để biết đang ở giai đoạn nào)
+function getProjectPhaseCompletionPct(projName){
+  const key = (projName||'').toLowerCase().trim();
+  let phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
+  // Lớp bảo vệ thêm: nếu weeklyPhaseByProject chưa có (VD dự án tạm thời không xuất hiện trong lần đọc Tracker gần nhất),
+  // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống 100%.
+  if(!phase && typeof projects!=='undefined' && projects){
+    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
+  }
+  if(!phase) return 1.0;
+  return PHASE_COMPLETION_PCT[phase] !== undefined ? PHASE_COMPLETION_PCT[phase] : 1.0;
+}
+
+// Contribution Score tối thiểu để nhận đủ 100% phần vai trò của mình (Main hoặc SP) — thấp hơn thì scale theo tỷ lệ, chống farm rẻ
+const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2 task Major, hoặc 6 task Minor
+
 // Calculate single project score for a person
-// Ưu tiên dùng % đóng góp thật từ ActivityLog nếu dự án đã có data; nếu chưa, dùng RoleMultiplier tĩnh × StatusMultiplier
+// Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
+// SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
+// đều tự động được coi là SP. Không có bằng chứng thật = 0 điểm, bất kể vai trò gì.
 function calcProjectScore(proj, personLevel, role, personName){
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
   const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
-  const projValue = base + cxBonus;
+  const phasePct = getProjectPhaseCompletionPct(proj.name);
+  const projValue = (base + cxBonus) * phasePct;
 
-  const hasActivityData = personName && typeof activityLog!=='undefined' &&
-    activityLog.some(function(t){ return t.projectName === proj.name; });
+  if(!personName || typeof activityLog==='undefined') return 0;
+  const lower = personName.toLowerCase().trim();
 
-  if(hasActivityData){
-    const personContribution = calcContributionPerProject(personName, proj.name);
-    const totalContribution = calcProjectTotalContribution(proj.name);
-    const ratio = (personContribution && totalContribution > 0)
-      ? Math.min(1, personContribution.score / totalContribution)
-      : 0;
-    return projValue * ratio * levelMult;
+  // Contribution Score của 1 người trên dự án này — task gán chung nhiều người thì chia đều weight/N
+  const getScoreFor = function(name){
+    return activityLog
+      .filter(function(t){
+        return t.projectName === proj.name &&
+          (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === name.toLowerCase().trim(); });
+      })
+      .reduce(function(sum, t){
+        const numAssignees = (t.assignedTo||[]).length || 1;
+        return sum + (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
+      }, 0);
+  };
+
+  const mainList = proj.membersMain || [];
+  const myScore = getScoreFor(personName);
+  if(myScore === 0) return 0; // Không có bằng chứng thật cho dự án này → 0 điểm, bất kể Status/vai trò gì
+
+  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
+
+  // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
+  const allContributorNames = [];
+  activityLog.forEach(function(t){
+    if(t.projectName !== proj.name) return;
+    (t.assignedTo||[]).forEach(function(a){
+      const clean = a.trim();
+      if(clean && !allContributorNames.some(function(n){ return n.toLowerCase()===clean.toLowerCase(); })) allContributorNames.push(clean);
+    });
+  });
+
+  const mainsWithEvidence = mainList.filter(function(name){ return getScoreFor(name) > 0; });
+  // SP = bất kỳ ai xuất hiện trong ActivityLog của dự án nhưng KHÔNG nằm trong danh sách Main — tự động, không cần gán tay
+  const supportsWithEvidence = allContributorNames.filter(function(name){
+    const isMain = mainList.some(function(m){ return m.toLowerCase().trim() === name.toLowerCase().trim(); });
+    return !isMain && getScoreFor(name) > 0;
+  });
+
+  let baseShare = 0;
+  if(isMainRole){
+    const mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0; // Có SP thật thì Main còn 70%, không thì Main trọn 100%
+    baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
+  } else if(myScore > 0){
+    // Không phải Main nhưng có task thật → tự động là SP
+    baseShare = supportsWithEvidence.length > 0 ? 0.3 / supportsWithEvidence.length : 0;
+  } else {
+    return 0;
   }
 
-  // Fallback: chưa có ActivityLog cho dự án này → dùng công thức cũ + StatusMultiplier
-  const roleMult = getRoleMultiplier(role);
-  const statusMult = getStatusMultiplier(proj.status);
-  return projValue * levelMult * roleMult * statusMult;
+  // Scale theo Contribution Score thật — dưới ngưỡng thì chưa nhận đủ 100% phần của mình
+  const fullnessFactor = Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
+  const myRatio = baseShare * fullnessFactor;
+
+  return projValue * myRatio * levelMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
@@ -2290,23 +2409,22 @@ function calcPersonProjectScore(personName, personLevel){
   const lower = personName.trim().toLowerCase();
   // Fallback localStorage nếu global projects không có người này
   let _proj = projects && projects.length ? projects : [];
-  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower)||(p.membersBackup||[]).some(m=>m.toLowerCase()===lower))){
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower))){
     try{
       const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
       if(local.length > _proj.length) _proj = local;
     }catch(e){}
   }
-  const mainSolo = _proj.filter(p=>
-    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
-    (p.membersBackup||[]).length===0
-  );
-  const mainWithSupport = _proj.filter(p=>
-    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
-    (p.membersBackup||[]).length>0
-  );
-  const supportOnly = _proj.filter(p=>
-    !(p.membersMain||[]).some(m=>m.toLowerCase()===lower) &&
-    (p.membersBackup||[]).some(m=>m.toLowerCase()===lower)
+  const hasEvidenceOn = function(p){
+    return typeof activityLog!=='undefined' && activityLog.some(function(t){
+      return t.projectName===p.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+    });
+  };
+  // Dự án người này được gán chính thức là Main (tab Quản lý dự án)
+  const asMain = _proj.filter(p => (p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower));
+  // Dự án người này KHÔNG phải Main, nhưng có task thật trong ActivityLog → tự động là SP, không cần gán tay
+  const asAutoSupport = _proj.filter(p =>
+    !(p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower) && hasEvidenceOn(p)
   );
 
   let totalRaw = 0;
@@ -2318,18 +2436,21 @@ function calcPersonProjectScore(personName, personLevel){
       totalRaw += score;
       const hasActivityData = typeof activityLog!=='undefined' &&
         activityLog.some(t=>t.projectName===p.name);
+      const phasePct = getProjectPhaseCompletionPct(p.name);
+      const phaseKey = ((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[p.name.toLowerCase().trim()] : null) || p.lastKnownPhase || null;
       breakdown.push({
         name: p.name, size: p.size, role, score: score.toFixed(2),
         relation: getProjectLevelRelation(p.size, personLevel),
         source: hasActivityData ? 'activitylog' : 'fallback',
-        status: p.status
+        status: p.status,
+        phase: phaseKey || null,
+        phasePct: phasePct
       });
     });
   };
 
-  addProjects(mainSolo, 'main_solo');
-  addProjects(mainWithSupport, 'main_with_support');
-  addProjects(supportOnly, 'support');
+  addProjects(asMain, 'main');
+  addProjects(asAutoSupport, 'support_auto');
 
   const benchmark = LEVEL_BENCHMARK[personLevel] || 25;
   const projScore10 = Math.min(10, (totalRaw / benchmark) * 10);
@@ -2338,9 +2459,9 @@ function calcPersonProjectScore(personName, personLevel){
     totalRaw: totalRaw.toFixed(2),
     projScore10: projScore10.toFixed(1),
     benchmark,
-    totalProjects: mainSolo.length + mainWithSupport.length + supportOnly.length,
-    mainCount: mainSolo.length + mainWithSupport.length,
-    backupCount: supportOnly.length,
+    totalProjects: asMain.length + asAutoSupport.length,
+    mainCount: asMain.length,
+    backupCount: asAutoSupport.length,
     breakdown
   };
 }
@@ -2473,8 +2594,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
           <div style="font-size:13px;font-weight:600;color:var(--color-text-primary)">📊 Hiệu suất tháng <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(Contribution Score — dùng cho thưởng)</span></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <select id="mp-month-select" onchange="renderMonthlyPerformance()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)"></select>
-            <input type="month" id="mp-freeze-month-input" class="admin-only" style="display:none;font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)" title="Để trống = chốt tháng trước (mặc định). Chọn tháng cụ thể để chốt/test tháng đó.">
-            <button id="mp-freeze-btn" class="admin-only" onclick="doFreezeMonthlyPerformance()" style="display:none;font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🔒 Chốt sổ</button>
+            <button id="mp-freeze-btn" class="admin-only" onclick="doFreezeMonthlyPerformance()" style="display:none;font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #378ADD;background:#E6F1FB;color:#185FA5;cursor:pointer;font-weight:500;white-space:nowrap">🔒 Chốt sổ tháng trước</button>
           </div>
         </div>
         <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">Đã chốt sổ tự động vào ngày 1 mỗi tháng cho tháng liền trước · Xếp hạng riêng trong từng level · Số liệu không đổi sau khi chốt</div>
@@ -3232,16 +3352,12 @@ function toggleProjList(){
 
 // Role display helpers
 const ROLE_LABEL = {
-  main_solo: 'Main (solo)',
-  main_with_support: 'Main + backup',
-  support: 'Backup',
-  support_promoted: 'Backup → Main'
+  main: 'Main',
+  support_auto: 'SP (tự động)'
 };
 const ROLE_COLOR = {
-  main_solo: {bg:'#1A1A18', color:'#fff'},
-  main_with_support: {bg:'#EAF3DE', color:'#3B6D11'},
-  support: {bg:'var(--color-background-secondary)', color:'var(--color-text-secondary)'},
-  support_promoted: {bg:'#FDE8F1', color:'#A02A6B'}
+  main: {bg:'#1A1A18', color:'#fff'},
+  support_auto: {bg:'var(--color-background-secondary)', color:'var(--color-text-secondary)'}
 };
 const CX_COLOR = {Simple:'#185FA5', Moderate:'#BA7517', Complex:'#A32D2D'};
 const SIZE_BG = {Small:'#F1EFE8', Medium:'#E6F1FB', Large:'#EAF3DE'};
@@ -3263,8 +3379,11 @@ function renderProjListTable(breakdown, totalRaw){
     const srcDot = p.source==='activitylog'
       ? `<span title="Tính từ % đóng góp thật (ActivityLog)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;vertical-align:middle"></span>`
       : `<span title="Ước lượng theo vai trò + Status (chưa có ActivityLog cho dự án này)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#BA7517;margin-right:5px;vertical-align:middle"></span>`;
+    const phaseBadge = (p.phasePct !== undefined && p.phasePct < 1)
+      ? `<span title="Dự án đang ở giai đoạn ${p.phase||'?'} — chỉ tính ${Math.round(p.phasePct*100)}% tổng điểm, nhận đủ khi dự án Complete" style="font-size:9px;padding:1px 5px;border-radius:6px;background:#E6F1FB;color:#185FA5;margin-left:6px;font-weight:600;white-space:nowrap">${p.phase||'?'} · ${Math.round(p.phasePct*100)}%</span>`
+      : '';
     return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
-      <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}</td>
+      <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}${phaseBadge}</td>
       <td style="padding:5px 6px;text-align:center">
         <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${SIZE_BG[p.size]||'#eee'};font-weight:500">${p.size}</span>
       </td>
@@ -5569,11 +5688,12 @@ function userPortalSearch(){
   if(!name) return;
   const lower = name.toLowerCase();
 
-  // Find projects
-  const myProjects = (projects||[]).filter(p =>
-    (p.membersMain||[]).some(m=>m.toLowerCase()===lower) ||
-    (p.membersBackup||[]).some(m=>m.toLowerCase()===lower)
-  );
+  // Find projects — gồm cả Main chính thức lẫn dự án tự động dò được là SP (có task thật trong ActivityLog)
+  const myProjects = (projects||[]).filter(p => {
+    const isMain = (p.membersMain||[]).some(m=>m.toLowerCase()===lower);
+    const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>t.projectName===p.name && (t.assignedTo||[]).some(a=>a.toLowerCase().trim()===lower));
+    return isMain || hasEvidence;
+  });
 
   // Find eval data
   const evalKey = 'eval_v7_person_' + lower.replace(/\s+/g,'_');
@@ -6049,8 +6169,6 @@ function renderMonthlyPerformance(){
 
   const isAdmin = (typeof sheetsRole!=='undefined') && sheetsRole==='admin';
   if(freezeBtn) freezeBtn.style.display = isAdmin ? 'inline-block' : 'none';
-  const monthInput = document.getElementById('mp-freeze-month-input');
-  if(monthInput) monthInput.style.display = isAdmin ? 'inline-block' : 'none';
 
   const months = Array.from(new Set((monthlyPerformance||[]).map(r=>r.month))).sort().reverse();
   if(!months.length){
@@ -6098,20 +6216,15 @@ function _mpFmtMonth(m){
 
 async function doFreezeMonthlyPerformance(){
   if(typeof sheetsRole==='undefined' || sheetsRole!=='admin'){ alert('Chỉ Admin mới được chốt sổ.'); return; }
-  const monthInput = document.getElementById('mp-freeze-month-input');
-  const customMonth = monthInput ? monthInput.value : ''; // dạng yyyy-MM, rỗng = mặc định tháng trước
-  const monthLabel = customMonth ? _mpFmtMonth(customMonth) : 'tháng trước (mặc định)';
-  if(!confirm('Chốt sổ Hiệu suất '+monthLabel+'? Số liệu sau khi chốt sẽ không đổi nữa dù ActivityLog có cập nhật thêm.')) return;
+  if(!confirm('Chốt sổ Hiệu suất tháng TRƯỚC (tháng liền kề đã qua)? Số liệu sau khi chốt sẽ không đổi nữa dù ActivityLog có cập nhật thêm.')) return;
   const btn = document.getElementById('mp-freeze-btn');
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Đang chốt sổ...'; }
   try{
     const pw = getRolePw();
-    const payload = { action: 'freezeMonthlyPerformance', password: pw };
-    if(customMonth) payload.month = customMonth;
-    const res = await sheetsRequest(null, payload);
+    const res = await sheetsRequest(null, { action: 'freezeMonthlyPerformance', password: pw });
     if(!res || !res.ok){ alert('Lỗi: ' + (res && res.error ? res.error : 'không rõ nguyên nhân')); return; }
     if(res.alreadyFrozen){ alert('Tháng này đã được chốt sổ trước đó rồi (tháng '+res.month+').'); }
-    else if(res.count === 0){ alert('Đã chạy chốt sổ tháng '+res.month+', nhưng KHÔNG tìm thấy dữ liệu ActivityLog nào trong tháng đó — kiểm tra lại đã chọn đúng tháng có data chưa.'); }
+    else if(res.count === 0){ alert('Đã chạy chốt sổ tháng '+res.month+', nhưng KHÔNG tìm thấy dữ liệu ActivityLog nào trong tháng đó.'); }
     else { alert('✓ Đã chốt sổ tháng '+res.month+' — '+res.count+' bản ghi.'); }
     if(typeof sheetsLoadAllFresh==='function') await sheetsLoadAllFresh();
     else if(typeof sheetsLoadAll==='function') await sheetsLoadAll();
@@ -6119,7 +6232,7 @@ async function doFreezeMonthlyPerformance(){
   } catch(ex){
     alert('Lỗi khi chốt sổ: ' + ex.message);
   } finally {
-    if(btn){ btn.disabled = false; btn.textContent = '🔒 Chốt sổ'; }
+    if(btn){ btn.disabled = false; btn.textContent = '🔒 Chốt sổ tháng trước'; }
   }
 }
 
