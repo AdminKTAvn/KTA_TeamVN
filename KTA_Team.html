@@ -1077,13 +1077,24 @@ async function runAIAnalysis(isOverride){
 
   try{
     // Gom toàn bộ task của người này từ ActivityLog làm ngữ cảnh
-    // Gắn thêm Giai đoạn hiện tại của dự án (VD "50% CD") vào từng task để AI hiểu đúng bối cảnh công việc —
-    // KHÔNG dùng để tính điểm, chỉ để AI tham khảo (VD task "backcheck plan checker comment" hợp lý hơn khi dự án đang ở Plan Check/CD)
+    // Gắn thêm Giai đoạn hiện tại của dự án (VD "50% CD") và Loại dự án (Kiến trúc/Nội thất/CA) vào từng
+    // task để AI hiểu đúng bối cảnh công việc — KHÔNG dùng để tính điểm, chỉ để AI tham khảo khi nhận xét
+    // (VD task "backcheck plan checker comment" hợp lý hơn khi dự án đang ở Plan Check/CD; hoặc để AI đánh
+    // giá mức độ MỞ RỘNG PHẠM VI công việc — ai từng làm đa dạng cả Kiến trúc/Nội thất/CA thể hiện phạm vi
+    // rộng hơn người chỉ luôn làm 1 loại).
     const tasks = activityLog.filter(function(t){
       return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === currentPersonName.toLowerCase().trim(); });
     }).map(function(t){
-      return Object.assign({}, t, { projectPhase: getProjectPhaseLabel(t.projectName) });
+      const proj = (typeof projects!=='undefined' && projects) ? projects.find(function(p){ return (p.name||'').toLowerCase().trim() === (t.projectName||'').toLowerCase().trim(); }) : null;
+      const pType = proj ? (proj.projectType || 'ARCH_FULL') : null;
+      return Object.assign({}, t, {
+        projectPhase: getProjectPhaseLabel(t.projectName),
+        projectType: pType ? (PROJECT_TYPE_LABEL[pType] || pType) : ''
+      });
     });
+    // Tổng hợp các LOẠI DỰ ÁN khác nhau người này đã từng có task thật (dùng để AI đánh giá phạm vi mở rộng
+    // công việc so với các member khác — ai từng trải đa dạng loại hình thể hiện phạm vi rộng hơn)
+    const distinctProjectTypes = Array.from(new Set(tasks.map(function(t){ return t.projectType; }).filter(Boolean)));
     if(!tasks.length){
       alert('Chưa có dữ liệu ActivityLog nào cho ' + currentPersonName + ' để phân tích.');
       return;
@@ -1110,6 +1121,7 @@ async function runAIAnalysis(isOverride){
       personName: currentPersonName,
       currentLevel: currentLevel || '',
       tasks: tasks,
+      distinctProjectTypes: distinctProjectTypes,
       i3Items: i3Items,
       i2Items: i2Items,
       i2LevelDescriptions: I2_LEVEL_DESCS,
@@ -1692,17 +1704,18 @@ function _extractCandidatesFromExistingData(){
           <option value="50% CD">50% CD (77%)</option>
           <option value="Plan Check">Plan Check (78%)</option>
           <option value="75% CD">75% CD — đủ điều kiện 1 chu kỳ (88%)</option>
-          <option value="100% CD">🎁 100% CD — phát sinh thêm (90%)</option>
-          <option value="CA">🎁 CA — phát sinh thêm / hoặc dự án chỉ làm CA (100%)</option>
+          <option value="100% CD">100% CD — phát sinh thêm (90%)</option>
+          <option value="CA">CA — phát sinh thêm / hoặc dự án chỉ làm CA (100%)</option>
         </select>
       </div>
 
       <div class="pm-field">
-        <label>Loại dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ảnh hưởng cách tính điểm)</span></label>
-        <label class="pm-cx-item" style="max-width:480px">
-          <input type="checkbox" id="pm-f-caonly" onchange="updateComplexityPreview()">
-          <span>🏗️ Dự án CHỈ làm CA (Construction Administration) — không build từ đầu, khách hàng chỉ thuê hỗ trợ thi công. Khi tick, điểm sẽ tính theo <b>khối lượng ActivityLog tích lũy</b> thay vì % giai đoạn Setup→CD thông thường (xem giải thích khi hover ô Điểm).</span>
-        </label>
+        <label>Loại dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ảnh hưởng tỷ lệ tính tổng điểm dự án — phạm vi công việc rộng/hẹp khác nhau)</span></label>
+        <select id="pm-f-projecttype">
+          <option value="ARCH_FULL">Thực hiện trọn bộ hồ sơ kiến trúc (100%)</option>
+          <option value="INTERIOR_FULL">Thực hiện trọn bộ hồ sơ nội thất (80%)</option>
+          <option value="CA_SUPPORT">Chỉ hỗ trợ giai đoạn thi công — CA (60%)</option>
+        </select>
       </div>
 
       <div class="pm-field">
@@ -1842,7 +1855,7 @@ function openProjectModal(editId){
     document.getElementById('pm-f-status').value=p.status;
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
-    document.getElementById('pm-f-caonly').checked = !!p.isCAOnly;
+    document.getElementById('pm-f-projecttype').value = p.projectType || 'ARCH_FULL';
     document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
     document.getElementById('pm-team-'+p.team.toLowerCase()).checked=true;
     const cx = p.complexity||{};
@@ -1857,7 +1870,7 @@ function openProjectModal(editId){
     document.getElementById('pm-edit-id').value='';
     document.getElementById('pm-f-name').value='';
     document.getElementById('pm-f-notes').value='';
-    document.getElementById('pm-f-caonly').checked = false;
+    document.getElementById('pm-f-projecttype').value = 'ARCH_FULL';
     document.getElementById('pm-f-status').value='Not Started';
     document.getElementById('pm-f-phase').value='';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
@@ -1883,7 +1896,7 @@ function saveProject(){
   const status = document.getElementById('pm-f-status').value;
   const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
-  const isCAOnly = document.getElementById('pm-f-caonly').checked;
+  const projectType = document.getElementById('pm-f-projecttype').value;
   const editId = document.getElementById('pm-edit-id').value;
 
   if(!name){ alert('Vui lòng nhập tên dự án.'); return; }
@@ -1912,7 +1925,7 @@ function saveProject(){
       p.name=name; p.size=sizeEl.value; p.team=teamEl.value;
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
-      p.status=status; p.notes=notes; p.isCAOnly=isCAOnly;
+      p.status=status; p.notes=notes; p.projectType=projectType;
       if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
@@ -1922,7 +1935,7 @@ function saveProject(){
       id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
-      status, notes, createdAt: Date.now(), isCAOnly,
+      status, notes, createdAt: Date.now(), projectType,
       lastKnownPhase: phase || '',
       doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
       complexity, complexityLevel, complexityCount: cxCount,
@@ -2045,10 +2058,14 @@ function renderProjects(){
     const wPhaseSrcLabel = {activitylog:'Dò tự động từ ActivityLog thật (task đã log)', weekly:'Dò từ ghi chú Tracker tuần', manual:'Set tay (chưa có bằng chứng tự động)'}[wPhaseSrc] || '';
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
     const wPhaseBonus = wPhase && isBonusPhase(wPhase)
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FDE8F1;color:#A02A6B;font-weight:600;vertical-align:middle" title="Giai đoạn phát sinh thêm, không bắt buộc — dự án chỉ cần đạt 75% CD là đã đủ điều kiện tính 1 chu kỳ để lên level. Tuy nhiên điểm tích lũy VẪN được cộng đầy đủ theo khối lượng thật khi đi tới các mốc này">🎁 Bonus</span>`
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FDE8F1;color:#A02A6B;font-weight:600;vertical-align:middle" title="Giai đoạn phát sinh thêm, không bắt buộc — dự án chỉ cần đạt 75% CD là đã đủ điều kiện tính 1 chu kỳ để lên level. Tuy nhiên điểm tích lũy VẪN được cộng đầy đủ theo khối lượng thật khi đi tới các mốc này">Bonus</span>`
       : '';
     const wPhaseCycle = wPhase && phaseQualifiesForCycle(wPhase)
       ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Dự án đã đạt tối thiểu 75% CD — ĐỦ ĐIỀU KIỆN tính 1 chu kỳ dự án cho Main (để xét Done Cycle/lên level), TÁCH BIỆT với điểm tích lũy đang tính bên dưới">✅ Đủ chu kỳ</span>`
+      : '';
+    const pType = p.projectType || 'ARCH_FULL';
+    const typeBadge = pType !== 'ARCH_FULL'
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#F0E9FB;color:#6B3FA0;font-weight:600;vertical-align:middle" title="Loại dự án: ${PROJECT_TYPE_LABEL[pType]} — nhân hệ số ×${PROJECT_TYPE_MULTIPLIER[pType]} vào tổng điểm dự án (phạm vi công việc hẹp hơn dự án kiến trúc trọn bộ)">${PROJECT_TYPE_LABEL[pType]} ×${PROJECT_TYPE_MULTIPLIER[pType]}</span>`
       : '';
     const noLog = projectHasNoActivityLog(p);
     const reviewBadge = noLog
@@ -2063,7 +2080,7 @@ function renderProjects(){
     return `
     <tr>
       <td>
-        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}</div>
+        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
@@ -2525,100 +2542,29 @@ function getProjectPhaseSource(projName){
 // Contribution Score tối thiểu để nhận đủ 100% phần vai trò của mình (Main hoặc SP) — thấp hơn thì scale theo tỷ lệ, chống farm rẻ
 const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2 task Major, hoặc 6 task Minor
 
-// ═══════════ CÔNG THỨC RIÊNG cho dự án CHỈ làm CA (isCAOnly=true) ═══════════
-// LÝ DO cần công thức khác: bảng %GiaiĐoạn (Setup→CA) mô tả TIẾN TRÌNH build từ đầu. Một dự án chỉ nhận
-// hỗ trợ thi công (không qua Setup/DD/CD) thì luôn "đứng ở" giai đoạn CA ngay từ ngày đầu — nếu dùng
-// chung công thức, dự án sẽ luôn = 100% giá trị bất kể mới nhận 1 RFI hay đã hỗ trợ suốt cả năm, không
-// phản ánh đúng khối lượng thật đã làm.
-//
-// Thay vào đó: tính theo KHỐI LƯỢNG THẬT đã tích lũy trong ActivityLog (RFI, submittal review, site
-// visit... đã log) — công việc CA vốn dàn trải liên tục theo thời gian thi công, giống bản chất của
-// Contribution Score hơn là 1 mốc giai đoạn tức thời.
-//
-// Base + CxBonus giữ NGUYÊN như dự án thường (KHÔNG giảm) — vì dự án CA-only tuy khối lượng ít hơn
-// nhưng thường PHỨC TẠP hơn (nhận dữ liệu từ bên thứ 3, phải làm lại theo chuẩn KTA để xử lý tiếp) —
-// độ khó này đã được phản ánh qua CxBonus (tick độ phức tạp) khi tạo dự án, không cần giảm Base thêm.
-//
-//   CA_Base   = Base[Size] + CxBonus                                     (giống hệt dự án thường)
-//   ActivityFactor = min(1, ContributionScore_thật_trên_dự_án / CA_ONLY_FULL_THRESHOLD)   (thay cho %GiaiĐoạn)
-//   Điểm = CA_Base × ActivityFactor × %VaiTrò (Main/SP, auto dò như công thức chính) × LevelMultiplier
-//
-// Vai trò Main/SP vẫn tự động dò từ ActivityLog giống hệt công thức chính — chỉ thay phần "%GiaiĐoạn"
-// bằng "%KhốiLượngThật" (ActivityFactor), vì CA không có các mốc giai đoạn rời rạc như DD/CD.
-const CA_ONLY_FULL_THRESHOLD = 15;  // Contribution Score để được tính ĐỦ 100% giá trị CA-only — ƯỚC LƯỢNG BAN ĐẦU, tương tự MIN_SCORE_FOR_FULL_SHARE (=6) nhưng cao hơn vì CA kéo dài hơn 1 đợt task thông thường, chờ hiệu chỉnh khi có data thật
-
-function calcCAOnlyProjectScore(proj, personLevel, role, personName, explainOut){
-  const base = SIZE_BASE[proj.size] || 2;
-  const cxTotal = proj.cxTotal || CX_KEYS.length;
-  const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
-  const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
-  const caBase = base + cxBonus; // giống hệt dự án thường — không giảm
-
-  if(explainOut){
-    explainOut.mode = 'ca_only';
-    explainOut.base = base;
-    explainOut.cxCount = proj.complexityCount||0;
-    explainOut.cxTotal = cxTotal;
-    explainOut.cxBonus = cxBonus;
-    explainOut.caBase = caBase;
-    explainOut.caFullThreshold = CA_ONLY_FULL_THRESHOLD;
-    explainOut.levelMult = levelMult;
-    explainOut.size = proj.size;
-    explainOut.personLevel = personLevel;
-  }
-
-  if(!personName || typeof activityLog==='undefined') return 0;
-  const lower = personName.toLowerCase().trim();
-  const mainList = proj.membersMain || [];
-  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
-
-  const getScoreFor = function(name){
-    return activityLog
-      .filter(function(t){ return t.projectName===proj.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===name.toLowerCase().trim(); }); })
-      .reduce(function(sum,t){ const n=(t.assignedTo||[]).length||1; return sum + (AL_IMPACT_WEIGHT[t.impact]||1)/n; }, 0);
-  };
-  const myScore = getScoreFor(personName);
-  const activityFactor = Math.min(1, myScore / CA_ONLY_FULL_THRESHOLD);
-  if(explainOut){ explainOut.myScore = myScore; explainOut.activityFactor = activityFactor; }
-
-  if(myScore === 0) return 0; // không có bằng chứng thật trên dự án này -> 0 điểm, giữ đúng triết lý chung toàn hệ thống
-
-  const allContributorNames = [];
-  activityLog.forEach(function(t){
-    if(t.projectName !== proj.name) return;
-    (t.assignedTo||[]).forEach(function(a){
-      const clean = a.trim();
-      if(clean && !allContributorNames.some(function(n){ return n.toLowerCase()===clean.toLowerCase(); })) allContributorNames.push(clean);
-    });
-  });
-  const mainsWithEvidence = mainList.filter(function(name){ return getScoreFor(name) > 0; });
-  const supportsWithEvidence = allContributorNames.filter(function(name){
-    const isMain = mainList.some(function(m){ return m.toLowerCase().trim() === name.toLowerCase().trim(); });
-    return !isMain && getScoreFor(name) > 0;
-  });
-
-  let baseShare = 0;
-  let mainPool = null;
-  if(isMainRole){
-    mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0;
-    baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
-  } else if(myScore > 0){
-    baseShare = supportsWithEvidence.length > 0 ? 0.3 / supportsWithEvidence.length : 0;
-  } else {
-    return 0;
-  }
-
-  if(explainOut){
-    explainOut.isMainRole = isMainRole;
-    explainOut.mainPool = mainPool;
-    explainOut.mainsCount = mainsWithEvidence.length;
-    explainOut.spCount = supportsWithEvidence.length;
-    explainOut.baseShare = baseShare;
-  }
-
-  return caBase * activityFactor * baseShare * levelMult;
+// ═══ Hệ số theo LOẠI DỰ ÁN (thay cho checkbox CA-only cũ) ═══
+// Phạm vi công việc khác nhau giữa các loại dự án — dùng để tính tỷ lệ trên TỔNG ĐIỂM dự án:
+//   - Thực hiện trọn bộ hồ sơ kiến trúc (ARCH_FULL)     = 100%
+//   - Thực hiện trọn bộ hồ sơ nội thất (INTERIOR_FULL)   = 80%
+//   - Chỉ hỗ trợ giai đoạn thi công — CA (CA_SUPPORT)    = 60%
+// Áp dụng nhân trực tiếp vào projValue (cùng chỗ với %GiaiĐoạn) — KHÔNG cần công thức riêng nữa,
+// dự án CA_SUPPORT vẫn dùng chung thang %GiaiĐoạn bình thường (sẽ luôn ở phase "CA" = 100%), chỉ
+// nhân thêm hệ số loại dự án này để phản ánh phạm vi công việc hẹp hơn so với 1 dự án kiến trúc trọn bộ.
+// Trường này cũng dùng làm dữ liệu tham khảo khi đánh giá mức độ mở rộng phạm vi công việc của 1 người
+// so với các member khác (VD ai từng làm ARCH_FULL thể hiện phạm vi rộng hơn CA_SUPPORT).
+const PROJECT_TYPE_MULTIPLIER = {
+  'ARCH_FULL':     1.0,
+  'INTERIOR_FULL': 0.8,
+  'CA_SUPPORT':    0.6,
+};
+const PROJECT_TYPE_LABEL = {
+  'ARCH_FULL':     'Trọn bộ hồ sơ kiến trúc',
+  'INTERIOR_FULL': 'Trọn bộ hồ sơ nội thất',
+  'CA_SUPPORT':    'Chỉ hỗ trợ thi công (CA)',
+};
+function getProjectTypeMultiplier(projectType){
+  return PROJECT_TYPE_MULTIPLIER[projectType] !== undefined ? PROJECT_TYPE_MULTIPLIER[projectType] : 1.0;
 }
-// ═══════════ /CÔNG THỨC RIÊNG CA-only ═══════════
 
 // Calculate single project score for a person
 // Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
@@ -2630,17 +2576,16 @@ function calcCAOnlyProjectScore(proj, personLevel, role, personName, explainOut)
 // chỉ Main được tính (chia đều nếu nhiều Main), vì không có data để tự dò SP.
 // Ngay khi có ActivityLog thật cho dự án đó, tự động chuyển hẳn sang công thức chính (auto dò SP theo % thật).
 //
-// Dự án isCAOnly=true → rẽ hẳn sang calcCAOnlyProjectScore() (công thức khối lượng thật, không dùng %GiaiĐoạn)
+// Dự án CA_SUPPORT/INTERIOR_FULL → KHÔNG rẽ công thức riêng nữa, dùng chung công thức chuẩn bên dưới,
+// chỉ nhân thêm hệ số Loại dự án (PROJECT_TYPE_MULTIPLIER) vào projValue — xem giải thích phía trên.
 function calcProjectScore(proj, personLevel, role, personName, explainOut){
-  if(proj.isCAOnly){
-    return calcCAOnlyProjectScore(proj, personLevel, role, personName, explainOut);
-  }
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
   const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
   const phasePct = getProjectPhaseCompletionPct(proj.name);
-  const projValue = (base + cxBonus) * phasePct;
+  const typeMult = getProjectTypeMultiplier(proj.projectType);
+  const projValue = (base + cxBonus) * phasePct * typeMult;
 
   if(explainOut){
     explainOut.mode_top = 'standard';
@@ -2650,6 +2595,8 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.cxBonus = cxBonus;
     explainOut.phasePct = phasePct;
     explainOut.phaseSource = getProjectPhaseSource(proj.name);
+    explainOut.projectType = proj.projectType || 'ARCH_FULL';
+    explainOut.typeMult = typeMult;
     explainOut.projValue = projValue;
     explainOut.levelMult = levelMult;
     explainOut.size = proj.size;
@@ -3737,32 +3684,14 @@ function buildScoreTooltip(p){
   lines.push(`${p.name} — ${p.size} · ${ROLE_LABEL[p.role]||p.role}`);
   lines.push('');
 
-  if(e.mode === 'ca_only'){
-    lines.push('🏗️ Dự án CHỈ làm CA — tính theo khối lượng ActivityLog thật (không dùng %GiaiĐoạn):');
-    lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')} (giống dự án thường, không giảm)`);
-    lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
-    lines.push(`= Giá trị trần dự án CA-only này = ${(e.caBase??0).toFixed(2)}`);
-    lines.push(`Contribution Score thật của bạn trên dự án = ${(e.myScore??0).toFixed(1)}`);
-    lines.push(`× Hệ số khối lượng (Score/${e.caFullThreshold} ngưỡng đầy đủ, tối đa 1) = ×${(e.activityFactor??0).toFixed(2)}`);
-    if(e.baseShare !== undefined){
-      if(e.isMainRole){
-        lines.push(`× Tỷ trọng Main: pool ${Math.round((e.mainPool||0)*100)}% ÷ ${e.mainsCount} Main có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
-      } else {
-        lines.push(`× Tỷ trọng SP (tự động): pool 30% ÷ ${e.spCount} SP có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
-      }
-    }
-    lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
-    lines.push('');
-    lines.push(`= ${p.score} điểm`);
-    return lines.join('\n');
-  }
-
   lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')}`);
   lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
   lines.push(`= Giá trị gốc = ${((e.base||0)+(e.cxBonus||0)).toFixed(2)}`);
   const phaseSrcLabel = {activitylog:'dò từ ActivityLog thật', weekly:'dò từ ghi chú Tracker tuần', manual:'set tay', none:'mặc định (chưa dò được)'}[e.phaseSource] || '';
-  const bonusNote = p.phase && isBonusPhase(p.phase) ? ' 🎁 [giai đoạn phát sinh thêm — không bắt buộc để đủ điều kiện 1 chu kỳ lên level (75% CD đã đủ), nhưng vẫn cộng điểm tích lũy đầy đủ theo khối lượng thật]' : '';
-  lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''}${bonusNote} = ${(e.projValue??0).toFixed(2)}`);
+  const bonusNote = p.phase && isBonusPhase(p.phase) ? ' [giai đoạn phát sinh thêm — không bắt buộc để đủ điều kiện 1 chu kỳ lên level (75% CD đã đủ), nhưng vẫn cộng điểm tích lũy đầy đủ theo khối lượng thật]' : '';
+  lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''}${bonusNote}`);
+  const typeLabel = PROJECT_TYPE_LABEL[e.projectType] || 'Trọn bộ hồ sơ kiến trúc';
+  lines.push(`× Loại dự án: ${typeLabel} (×${e.typeMult??1}) = ${(e.projValue??0).toFixed(2)}`);
 
   if(e.mode === 'fallback'){
     lines.push('');
