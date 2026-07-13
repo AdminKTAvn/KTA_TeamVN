@@ -2327,7 +2327,10 @@ const STATUS_MULTIPLIER = {
   'Deadline':    1.0,
   'Priorities':  1.0,   // FULL-TIME theo Tracker tuần
   'Non-Urgent':  0.7,   // PART-TIME theo Tracker tuần
-  'Hold':        0.2,
+  // Hold = TẠM DỪNG ĐỂ NGHỈ, KHÔNG PHẢI xoá bớt tiến độ đã làm. Giá trị dự án đã được tính đúng theo
+  // % Giai đoạn đã đạt tới thời điểm dừng (VD Hold ở Plan Check 78% thì vẫn tính 78%, không phạt thêm) —
+  // nên KHÔNG nhân giảm lần nữa ở đây, để 1.0 giống Complete/Deadline/Priorities.
+  'Hold':        1.0,
 };
 function getStatusMultiplier(status){
   return STATUS_MULTIPLIER[status] !== undefined ? STATUS_MULTIPLIER[status] : 1.0;
