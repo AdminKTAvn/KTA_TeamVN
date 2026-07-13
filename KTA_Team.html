@@ -734,7 +734,7 @@ function msToggle(cid, name){
   container.dataset.selected=JSON.stringify(selected);
   _syncMsDisplay(cid, selected);
   _syncMsOpts(cid, selected);
-  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected,[]);
+  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected, document.getElementById('pm-edit-id')?.value || null);
 }
 
 function msRemove(cid, name){
@@ -745,7 +745,7 @@ function msRemove(cid, name){
   container.dataset.selected=JSON.stringify(selected);
   _syncMsDisplay(cid, selected);
   _syncMsOpts(cid, selected);
-  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected,[]);
+  if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected, document.getElementById('pm-edit-id')?.value || null);
 }
 
 function _syncMsDisplay(cid, selected){
@@ -1664,7 +1664,7 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field" id="pm-done-cycles-field" style="display:none">
-        <label>✅ Nhân sự Main đã hoàn thành chu kỳ dự án này</label>
+        <label>🔄 Chu kỳ dự án theo nhân sự Main <span style="font-weight:400;color:var(--color-text-tertiary)">(TỰ ĐỘNG — không cần tick tay. ✅ = đã đủ điều kiện 1 chu kỳ, tính khi dự án đạt tối thiểu <b>75% CD</b> và có bằng chứng ActivityLog thật của người đó)</span></label>
         <div id="pm-done-cycles-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
       </div>
 
@@ -1681,19 +1681,28 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field">
-        <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(dùng để tính % điểm — tự động cập nhật theo Tracker tuần sau này nếu dò được, đây chỉ là giá trị khởi điểm/ghi đè tay khi cần. % theo khối lượng deliverable thật trong SOP Master Tracker)</span></label>
+        <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ưu tiên tự động dò từ ActivityLog/Tracker tuần — ô này chỉ dùng khi chưa có bằng chứng tự động. % dùng để TÍCH LŨY ĐIỂM, tăng dần theo khối lượng thật; "đủ chu kỳ để lên level" là điều kiện RIÊNG, xem tại ô Chu kỳ dự án bên dưới)</span></label>
         <select id="pm-f-phase">
           <option value="">— Chưa xác định (mặc định tính 100%) —</option>
           <option value="Setup">Setup dự án (5%)</option>
-          <option value="Background">Background (15%)</option>
-          <option value="50% DD">50% DD (35%)</option>
-          <option value="100% DD">100% DD (52%)</option>
-          <option value="25% CD">25% CD (79%)</option>
-          <option value="50% CD">50% CD (86%)</option>
-          <option value="Plan Check">Plan Check (87%)</option>
-          <option value="75% CD">75% CD (98%)</option>
-          <option value="100% CD">100% CD — Final (100%)</option>
+          <option value="Background">Background (14%)</option>
+          <option value="50% DD">50% DD (32%)</option>
+          <option value="100% DD">100% DD (47%)</option>
+          <option value="25% CD">25% CD (71%)</option>
+          <option value="50% CD">50% CD (77%)</option>
+          <option value="Plan Check">Plan Check (78%)</option>
+          <option value="75% CD">75% CD — đủ điều kiện 1 chu kỳ (88%)</option>
+          <option value="100% CD">🎁 100% CD — phát sinh thêm (90%)</option>
+          <option value="CA">🎁 CA — phát sinh thêm / hoặc dự án chỉ làm CA (100%)</option>
         </select>
+      </div>
+
+      <div class="pm-field">
+        <label>Loại dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ảnh hưởng cách tính điểm)</span></label>
+        <label class="pm-cx-item" style="max-width:480px">
+          <input type="checkbox" id="pm-f-caonly" onchange="updateComplexityPreview()">
+          <span>🏗️ Dự án CHỈ làm CA (Construction Administration) — không build từ đầu, khách hàng chỉ thuê hỗ trợ thi công. Khi tick, điểm sẽ tính theo <b>khối lượng ActivityLog tích lũy</b> thay vì % giai đoạn Setup→CD thông thường (xem giải thích khi hover ô Điểm).</span>
+        </label>
       </div>
 
       <div class="pm-field">
@@ -1833,6 +1842,7 @@ function openProjectModal(editId){
     document.getElementById('pm-f-status').value=p.status;
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
+    document.getElementById('pm-f-caonly').checked = !!p.isCAOnly;
     document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
     document.getElementById('pm-team-'+p.team.toLowerCase()).checked=true;
     const cx = p.complexity||{};
@@ -1840,20 +1850,21 @@ function openProjectModal(editId){
     updateComplexityPreview();
     createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   p.membersMain||[]);
     createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', p.membersBackup||[]);
-    // Populate done-cycles checkboxes for existing project
-    renderDoneCyclesCheckboxes(p.membersMain||[], p.doneCycleMembers||[]);
+    // Hiển thị tự động trạng thái Chu kỳ dự án cho project đang sửa
+    renderDoneCyclesCheckboxes(p.membersMain||[], editId);
   } else {
     document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
     document.getElementById('pm-edit-id').value='';
     document.getElementById('pm-f-name').value='';
     document.getElementById('pm-f-notes').value='';
+    document.getElementById('pm-f-caonly').checked = false;
     document.getElementById('pm-f-status').value='Not Started';
     document.getElementById('pm-f-phase').value='';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
     createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   []);
     createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', []);
-    renderDoneCyclesCheckboxes([], []);
+    renderDoneCyclesCheckboxes([], null);
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked=false; });
     updateComplexityPreview();
   }
@@ -1872,6 +1883,7 @@ function saveProject(){
   const status = document.getElementById('pm-f-status').value;
   const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
+  const isCAOnly = document.getElementById('pm-f-caonly').checked;
   const editId = document.getElementById('pm-edit-id').value;
 
   if(!name){ alert('Vui lòng nhập tên dự án.'); return; }
@@ -1883,10 +1895,15 @@ function saveProject(){
   const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
   const complexityLevel = calcComplexityLevel(cxCount);
 
-  // Get done cycle members from checkboxes
-  const doneCycleMembers = membersMain.filter(m=>{
+  // Thu thập tick tay "Chu kỳ dự án" — CHỈ có ý nghĩa khi dự án chưa có ActivityLog (lúc đó UI hiện
+  // checkbox thật). Nếu dự án đã có ActivityLog, UI hiện badge tự động (không có checkbox) nên đoạn
+  // này không tìm thấy phần tử nào và bỏ qua — giữ nguyên hành vi tự động, không ghi đè gì cả.
+  const doneCycleMembersManual = membersMain.filter(function(m){
     const cb = document.getElementById('dcm-'+m.toLowerCase().replace(/\s+/g,'_'));
     return cb && cb.checked;
+  });
+  const hasAnyDcmCheckbox = membersMain.some(function(m){
+    return !!document.getElementById('dcm-'+m.toLowerCase().replace(/\s+/g,'_'));
   });
 
   if(editId){
@@ -1895,32 +1912,30 @@ function saveProject(){
       p.name=name; p.size=sizeEl.value; p.team=teamEl.value;
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
-      p.status=status; p.notes=notes;
+      p.status=status; p.notes=notes; p.isCAOnly=isCAOnly;
       if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
+      if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
-      p.doneCycleMembers = doneCycleMembers;
     }
   } else {
     projects.push({
       id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
-      status, notes, createdAt: Date.now(),
+      status, notes, createdAt: Date.now(), isCAOnly,
       lastKnownPhase: phase || '',
+      doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
       complexity, complexityLevel, complexityCount: cxCount,
-      cxTotal: CX_KEYS.length,
-      doneCycleMembers
+      cxTotal: CX_KEYS.length
     });
   }
 
   persistProjects();
   closeProjectModal();
   renderProjects();
-  // Cập nhật hiển thị Chu kỳ Done nếu đang xem nhân viên trong tab Đánh giá
+  // Cập nhật hiển thị Chu kỳ Done (tự động) nếu đang xem nhân viên trong tab Đánh giá
   if(currentPersonName){
-    const autoDoneCycles = projects.filter(function(p){
-      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
-    }).length;
+    const autoDoneCycles = getAutoDoneCycleProjects(currentPersonName).length;
     const dcInp = document.getElementById('done-cycles-input');
     if(dcInp) dcInp.value = autoDoneCycles;
     const dcDisplay = document.getElementById('done-cycles-display');
@@ -2029,19 +2044,26 @@ function renderProjects(){
     const wPhaseSrc = getProjectPhaseSource(p.name);
     const wPhaseSrcLabel = {activitylog:'Dò tự động từ ActivityLog thật (task đã log)', weekly:'Dò từ ghi chú Tracker tuần', manual:'Set tay (chưa có bằng chứng tự động)'}[wPhaseSrc] || '';
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
+    const wPhaseBonus = wPhase && isBonusPhase(wPhase)
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FDE8F1;color:#A02A6B;font-weight:600;vertical-align:middle" title="Giai đoạn phát sinh thêm, không bắt buộc — dự án chỉ cần đạt 75% CD là đã đủ điều kiện tính 1 chu kỳ để lên level. Tuy nhiên điểm tích lũy VẪN được cộng đầy đủ theo khối lượng thật khi đi tới các mốc này">🎁 Bonus</span>`
+      : '';
+    const wPhaseCycle = wPhase && phaseQualifiesForCycle(wPhase)
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Dự án đã đạt tối thiểu 75% CD — ĐỦ ĐIỀU KIỆN tính 1 chu kỳ dự án cho Main (để xét Done Cycle/lên level), TÁCH BIỆT với điểm tích lũy đang tính bên dưới">✅ Đủ chu kỳ</span>`
+      : '';
     const noLog = projectHasNoActivityLog(p);
     const reviewBadge = noLog
       ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Dự án chưa từng có task thật nào trong ActivityLog — điểm đang tính hoàn toàn theo Status/Giai đoạn set tay bên cạnh, cần rà lại định kỳ">⚠ Chưa có ActivityLog</span>`
       : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật trong ActivityLog — điểm tự động tính theo % đóng góp thật, Giai đoạn set tay bên cạnh không còn ảnh hưởng">✓ Có ActivityLog</span>`;
     const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
-      const label = ph ? (ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (100%) —';
+      const bonusTag = ph && isBonusPhase(ph) ? '🎁 ' : '';
+      const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (100%) —';
       const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
       return `<option value="${ph}"${sel}>${label}</option>`;
     }).join('');
     return `
     <tr>
       <td>
-        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>`:''}</div>
+        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
@@ -2326,24 +2348,76 @@ function calcProjectTotalContribution(projectName, upToDate){
     .reduce(function(sum, t){ return sum + (AL_IMPACT_WEIGHT[t.impact] || 1); }, 0);
 }
 
-// % hoàn thành dự án theo giai đoạn hiện tại (dò từ ghi chú Tracker tuần, weeklyPhaseByProject)
+// % hoàn thành dự án theo giai đoạn hiện tại (dò từ ActivityLog/Tracker tuần/set tay) — dùng để TÍCH LŨY ĐIỂM.
 // Cập nhật theo SOP "Master Deliverable Tracker" thật (2025_0630) — đếm số lượng sheet/deliverable
-// bắt buộc ("O") tại từng mốc / tổng 150 loại sheet trong checklist, làm căn cứ % khối lượng thực tế:
-//   50% DD = 53/150 (35.3%) · 100% DD = 78/150 (52.0%) · 25% CD = 118/150 (78.7%)
-//   50% CD = 129/150 (86.0%) · Plan Check = 129/150 (86.0%, cùng bộ hồ sơ 50% CD)
-//   75% CD = 147/150 (98.0%) · 100% CD = 149/150 (99.3%, làm tròn 100%)
-// Setup/Background nằm TRƯỚC khi có sheet nào trong checklist này, nên ước lượng thấp (5%/15%)
+// bắt buộc ("O") tại từng mốc / tổng 150 loại sheet trong checklist, làm căn cứ % khối lượng thực tế.
+//
+// LƯU Ý QUAN TRỌNG: đây là thang TĂNG DẦN theo khối lượng công việc thật đã hoàn thành — KHÔNG được cap
+// bằng nhau giữa các mốc, vì điểm phản ánh công sức tích lũy theo thời gian (làm tới 75% CD ít việc hơn
+// làm tới 100% CD hay CA, nên điểm phải ít hơn tương ứng). Việc "đủ điều kiện tính 1 chu kỳ dự án" để xét
+// lên level là MỘT KHÁI NIỆM HOÀN TOÀN KHÁC — xem CYCLE_COMPLETE_MIN_PHASE bên dưới, không liên quan gì
+// tới thang điểm này.
+//   50% DD 32% · 100% DD 47% · 25% CD 71% · 50% CD 77% · Plan Check 78% · 75% CD 88% · 100% CD 90% · CA 100%
 const PHASE_COMPLETION_PCT = {
   'Setup':       0.05,
-  'Background':  0.15,
-  '50% DD':      0.35,
-  '100% DD':     0.52,
-  '25% CD':      0.79,
-  '50% CD':      0.86,
-  'Plan Check':  0.87,
-  '75% CD':      0.98,
-  '100% CD':     1.00,
+  'Background':  0.14,
+  '50% DD':      0.32,
+  '100% DD':     0.47,
+  '25% CD':      0.71,
+  '50% CD':      0.77,
+  'Plan Check':  0.78,
+  '75% CD':      0.88,
+  '100% CD':     0.90,
+  'CA':          1.00,
 };
+// Giai đoạn "phát sinh thêm" — không phải dự án nào cũng đi tới đây, tùy yêu cầu khách hàng.
+// CHỈ mang ý nghĩa "không bắt buộc", KHÔNG có nghĩa là bị giới hạn điểm — vẫn cộng điểm tích lũy đầy đủ
+// theo đúng % thực tế ở trên khi dự án thật sự đạt tới các mốc này.
+const BONUS_PHASES = ['100% CD', 'CA'];
+function isBonusPhase(phase){ return BONUS_PHASES.indexOf(phase) >= 0; }
+
+// ═══ KHÁI NIỆM RIÊNG: "Chu kỳ dự án" — điều kiện xét lên level, TÁCH BIỆT với thang điểm ở trên ═══
+// Đạt TỐI THIỂU giai đoạn này trở lên (theo thứ tự Setup→CA) là ĐỦ ĐIỀU KIỆN tính 1 chu kỳ dự án hoàn
+// chỉnh cho mục đích xét Done Cycle / lên level — dù điểm tích lũy vẫn tiếp tục tăng nếu dự án đi xa hơn
+// (100% CD, CA). Hai khái niệm KHÔNG dùng chung 1 con số.
+const CYCLE_COMPLETE_MIN_PHASE = '75% CD';
+const PHASE_ORDER = Object.keys(PHASE_COMPLETION_PCT);
+function phaseQualifiesForCycle(phase){
+  if(!phase) return false;
+  const idx = PHASE_ORDER.indexOf(phase);
+  const minIdx = PHASE_ORDER.indexOf(CYCLE_COMPLETE_MIN_PHASE);
+  return idx >= 0 && idx >= minIdx;
+}
+
+// ═══ Xác định "Chu kỳ dự án" theo TỪNG NHÂN SỰ ═══
+// Dự án ĐÃ có ActivityLog thật → TỰ ĐỘNG hoàn toàn, không tick tay: (1) là Main, (2) dự án đạt tối thiểu
+// giai đoạn CYCLE_COMPLETE_MIN_PHASE, (3) người này có ít nhất 1 task thật trên dự án trong ActivityLog.
+// Dự án CHƯA có ActivityLog nào (dữ liệu lịch sử cũ trước khi hệ thống log hoạt động) → dùng danh sách
+// TICK TAY p.doneCycleMembers do Admin set thủ công (vì không có bằng chứng tự động để đối chiếu).
+// Ngay khi dự án bắt đầu có ActivityLog thật, hệ thống tự chuyển hẳn sang chế độ tự động, tick tay cũ
+// không còn được dùng nữa (nhưng vẫn giữ trong data, không xoá, để tham khảo lịch sử nếu cần).
+function personHasAutoDoneCycle(personName, proj){
+  if(!personName || !proj) return false;
+  const lower = personName.toLowerCase().trim();
+  const isMain = (proj.membersMain||[]).some(function(m){ return m.toLowerCase().trim()===lower; });
+  if(!isMain) return false;
+  const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return t.projectName===proj.name; });
+  if(hasLog){
+    const phase = getProjectPhaseLabel(proj.name);
+    if(!phaseQualifiesForCycle(phase)) return false;
+    return activityLog.some(function(t){
+      return t.projectName===proj.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+    });
+  }
+  // Chưa có ActivityLog — dùng giá trị tick tay của Admin cho data lịch sử
+  return (proj.doneCycleMembers||[]).some(function(m){ return m.toLowerCase().trim()===lower; });
+}
+
+// Danh sách dự án mà 1 người ĐÃ TỰ ĐỘNG đủ điều kiện tính 1 chu kỳ hoàn thành (thay hoàn toàn cho doneCycleMembers thủ công cũ)
+function getAutoDoneCycleProjects(personName){
+  if(!personName || typeof projects==='undefined' || !projects) return [];
+  return projects.filter(function(p){ return personHasAutoDoneCycle(personName, p); });
+}
 // Dò giai đoạn dự án từ text (mô tả/ghi chú task, hoặc ghi chú Tracker tuần) — kiểm tra cụm từ dài/cụ thể
 // (có %) trước, sau đó mới tới viết tắt trần trụi (DD/CD/ID/CA) dùng word-boundary để tránh dính nhầm.
 // Danh sách 'phase' PHẢI khớp CHÍNH XÁC với key trong PHASE_COMPLETION_PCT ở trên và với PHASE_PATTERNS
@@ -2360,8 +2434,8 @@ const PHASE_PATTERNS = [
   { phase: 'Background', regex: /\bbackground\b/i },
   { phase: '50% DD',     regex: /\bdd\b/i },
   { phase: '50% CD',     regex: /\bcd\b/i },
+  { phase: 'CA',         regex: /\bca\b/i }, // CA (Construction Administration) — mốc kết thúc, giờ có % riêng trong PHASE_COMPLETION_PCT
   { phase: 'ID',         regex: /\bid\b/i },
-  { phase: 'CA',         regex: /\bca\b/i },
 ];
 function detectPhaseFromText(text){
   if(!text) return '';
@@ -2445,6 +2519,101 @@ function getProjectPhaseSource(projName){
 // Contribution Score tối thiểu để nhận đủ 100% phần vai trò của mình (Main hoặc SP) — thấp hơn thì scale theo tỷ lệ, chống farm rẻ
 const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2 task Major, hoặc 6 task Minor
 
+// ═══════════ CÔNG THỨC RIÊNG cho dự án CHỈ làm CA (isCAOnly=true) ═══════════
+// LÝ DO cần công thức khác: bảng %GiaiĐoạn (Setup→CA) mô tả TIẾN TRÌNH build từ đầu. Một dự án chỉ nhận
+// hỗ trợ thi công (không qua Setup/DD/CD) thì luôn "đứng ở" giai đoạn CA ngay từ ngày đầu — nếu dùng
+// chung công thức, dự án sẽ luôn = 100% giá trị bất kể mới nhận 1 RFI hay đã hỗ trợ suốt cả năm, không
+// phản ánh đúng khối lượng thật đã làm.
+//
+// Thay vào đó: tính theo KHỐI LƯỢNG THẬT đã tích lũy trong ActivityLog (RFI, submittal review, site
+// visit... đã log) — công việc CA vốn dàn trải liên tục theo thời gian thi công, giống bản chất của
+// Contribution Score hơn là 1 mốc giai đoạn tức thời.
+//
+// Base + CxBonus giữ NGUYÊN như dự án thường (KHÔNG giảm) — vì dự án CA-only tuy khối lượng ít hơn
+// nhưng thường PHỨC TẠP hơn (nhận dữ liệu từ bên thứ 3, phải làm lại theo chuẩn KTA để xử lý tiếp) —
+// độ khó này đã được phản ánh qua CxBonus (tick độ phức tạp) khi tạo dự án, không cần giảm Base thêm.
+//
+//   CA_Base   = Base[Size] + CxBonus                                     (giống hệt dự án thường)
+//   ActivityFactor = min(1, ContributionScore_thật_trên_dự_án / CA_ONLY_FULL_THRESHOLD)   (thay cho %GiaiĐoạn)
+//   Điểm = CA_Base × ActivityFactor × %VaiTrò (Main/SP, auto dò như công thức chính) × LevelMultiplier
+//
+// Vai trò Main/SP vẫn tự động dò từ ActivityLog giống hệt công thức chính — chỉ thay phần "%GiaiĐoạn"
+// bằng "%KhốiLượngThật" (ActivityFactor), vì CA không có các mốc giai đoạn rời rạc như DD/CD.
+const CA_ONLY_FULL_THRESHOLD = 15;  // Contribution Score để được tính ĐỦ 100% giá trị CA-only — ƯỚC LƯỢNG BAN ĐẦU, tương tự MIN_SCORE_FOR_FULL_SHARE (=6) nhưng cao hơn vì CA kéo dài hơn 1 đợt task thông thường, chờ hiệu chỉnh khi có data thật
+
+function calcCAOnlyProjectScore(proj, personLevel, role, personName, explainOut){
+  const base = SIZE_BASE[proj.size] || 2;
+  const cxTotal = proj.cxTotal || CX_KEYS.length;
+  const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
+  const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
+  const caBase = base + cxBonus; // giống hệt dự án thường — không giảm
+
+  if(explainOut){
+    explainOut.mode = 'ca_only';
+    explainOut.base = base;
+    explainOut.cxCount = proj.complexityCount||0;
+    explainOut.cxTotal = cxTotal;
+    explainOut.cxBonus = cxBonus;
+    explainOut.caBase = caBase;
+    explainOut.caFullThreshold = CA_ONLY_FULL_THRESHOLD;
+    explainOut.levelMult = levelMult;
+    explainOut.size = proj.size;
+    explainOut.personLevel = personLevel;
+  }
+
+  if(!personName || typeof activityLog==='undefined') return 0;
+  const lower = personName.toLowerCase().trim();
+  const mainList = proj.membersMain || [];
+  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
+
+  const getScoreFor = function(name){
+    return activityLog
+      .filter(function(t){ return t.projectName===proj.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===name.toLowerCase().trim(); }); })
+      .reduce(function(sum,t){ const n=(t.assignedTo||[]).length||1; return sum + (AL_IMPACT_WEIGHT[t.impact]||1)/n; }, 0);
+  };
+  const myScore = getScoreFor(personName);
+  const activityFactor = Math.min(1, myScore / CA_ONLY_FULL_THRESHOLD);
+  if(explainOut){ explainOut.myScore = myScore; explainOut.activityFactor = activityFactor; }
+
+  if(myScore === 0) return 0; // không có bằng chứng thật trên dự án này -> 0 điểm, giữ đúng triết lý chung toàn hệ thống
+
+  const allContributorNames = [];
+  activityLog.forEach(function(t){
+    if(t.projectName !== proj.name) return;
+    (t.assignedTo||[]).forEach(function(a){
+      const clean = a.trim();
+      if(clean && !allContributorNames.some(function(n){ return n.toLowerCase()===clean.toLowerCase(); })) allContributorNames.push(clean);
+    });
+  });
+  const mainsWithEvidence = mainList.filter(function(name){ return getScoreFor(name) > 0; });
+  const supportsWithEvidence = allContributorNames.filter(function(name){
+    const isMain = mainList.some(function(m){ return m.toLowerCase().trim() === name.toLowerCase().trim(); });
+    return !isMain && getScoreFor(name) > 0;
+  });
+
+  let baseShare = 0;
+  let mainPool = null;
+  if(isMainRole){
+    mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0;
+    baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
+  } else if(myScore > 0){
+    baseShare = supportsWithEvidence.length > 0 ? 0.3 / supportsWithEvidence.length : 0;
+  } else {
+    return 0;
+  }
+
+  if(explainOut){
+    explainOut.isMainRole = isMainRole;
+    explainOut.mainPool = mainPool;
+    explainOut.mainsCount = mainsWithEvidence.length;
+    explainOut.spCount = supportsWithEvidence.length;
+    explainOut.baseShare = baseShare;
+  }
+
+  return caBase * activityFactor * baseShare * levelMult;
+}
+// ═══════════ /CÔNG THỨC RIÊNG CA-only ═══════════
+
 // Calculate single project score for a person
 // Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
 // SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
@@ -2454,7 +2623,12 @@ const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2
 // dùng "dữ liệu ban đầu" set tay — Status=Complete → 100%, hoặc theo % của "Giai đoạn dự án" bạn tự set —
 // chỉ Main được tính (chia đều nếu nhiều Main), vì không có data để tự dò SP.
 // Ngay khi có ActivityLog thật cho dự án đó, tự động chuyển hẳn sang công thức chính (auto dò SP theo % thật).
+//
+// Dự án isCAOnly=true → rẽ hẳn sang calcCAOnlyProjectScore() (công thức khối lượng thật, không dùng %GiaiĐoạn)
 function calcProjectScore(proj, personLevel, role, personName, explainOut){
+  if(proj.isCAOnly){
+    return calcCAOnlyProjectScore(proj, personLevel, role, personName, explainOut);
+  }
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
   const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
@@ -2463,6 +2637,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const projValue = (base + cxBonus) * phasePct;
 
   if(explainOut){
+    explainOut.mode_top = 'standard';
     explainOut.base = base;
     explainOut.cxCount = proj.complexityCount||0;
     explainOut.cxTotal = cxTotal;
@@ -3457,9 +3632,7 @@ function renderI3(){
 function _autoSavePerson(name){
   if(!name) return;
   const joinDate = (document.getElementById('person-joindate-input')||{}).value||'';
-  const doneCycles = projects.filter(function(p){
-    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
-  }).length;
+  const doneCycles = getAutoDoneCycleProjects(name).length;
   const data = {
     name: name,
     joinDate: joinDate,
@@ -3557,11 +3730,33 @@ function buildScoreTooltip(p){
   const lines = [];
   lines.push(`${p.name} — ${p.size} · ${ROLE_LABEL[p.role]||p.role}`);
   lines.push('');
+
+  if(e.mode === 'ca_only'){
+    lines.push('🏗️ Dự án CHỈ làm CA — tính theo khối lượng ActivityLog thật (không dùng %GiaiĐoạn):');
+    lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')} (giống dự án thường, không giảm)`);
+    lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
+    lines.push(`= Giá trị trần dự án CA-only này = ${(e.caBase??0).toFixed(2)}`);
+    lines.push(`Contribution Score thật của bạn trên dự án = ${(e.myScore??0).toFixed(1)}`);
+    lines.push(`× Hệ số khối lượng (Score/${e.caFullThreshold} ngưỡng đầy đủ, tối đa 1) = ×${(e.activityFactor??0).toFixed(2)}`);
+    if(e.baseShare !== undefined){
+      if(e.isMainRole){
+        lines.push(`× Tỷ trọng Main: pool ${Math.round((e.mainPool||0)*100)}% ÷ ${e.mainsCount} Main có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
+      } else {
+        lines.push(`× Tỷ trọng SP (tự động): pool 30% ÷ ${e.spCount} SP có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
+      }
+    }
+    lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+    lines.push('');
+    lines.push(`= ${p.score} điểm`);
+    return lines.join('\n');
+  }
+
   lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')}`);
   lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
   lines.push(`= Giá trị gốc = ${((e.base||0)+(e.cxBonus||0)).toFixed(2)}`);
   const phaseSrcLabel = {activitylog:'dò từ ActivityLog thật', weekly:'dò từ ghi chú Tracker tuần', manual:'set tay', none:'mặc định (chưa dò được)'}[e.phaseSource] || '';
-  lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''} = ${(e.projValue??0).toFixed(2)}`);
+  const bonusNote = p.phase && isBonusPhase(p.phase) ? ' 🎁 [giai đoạn phát sinh thêm — không bắt buộc để đủ điều kiện 1 chu kỳ lên level (75% CD đã đủ), nhưng vẫn cộng điểm tích lũy đầy đủ theo khối lượng thật]' : '';
+  lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''}${bonusNote} = ${(e.projValue??0).toFixed(2)}`);
 
   if(e.mode === 'fallback'){
     lines.push('');
@@ -3866,9 +4061,7 @@ function savePerson(){
   const data = {
     name, joinDate, currentLevel,
     projCount,
-    doneCycles: projects.filter(function(p){
-      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
-    }).length,
+    doneCycles: getAutoDoneCycleProjects(name).length,
     keyPlusConditions: {
       training: document.getElementById('kp-training')?.checked || false,
       backcheck: document.getElementById('kp-backcheck')?.checked || false,
@@ -4009,10 +4202,8 @@ function loadPerson(name){
     }
   }, 300);
 
-  // BƯỚC 9: doneCycles
-  const autoDoneCycles = projects.filter(function(p){
-    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
-  }).length;
+  // BƯỚC 9: doneCycles (tự động)
+  const autoDoneCycles = getAutoDoneCycleProjects(name).length;
   const dcInp = document.getElementById('done-cycles-input');
   if(dcInp) dcInp.value = autoDoneCycles;
   const dcDisplay = document.getElementById('done-cycles-display');
@@ -5364,10 +5555,8 @@ function _refreshProjectDisplayIfNeeded(){
   if(typeof autoFillProjectCount === 'function'){
     autoFillProjectCount(false, currentPersonName);
   }
-  // Cập nhật doneCycles
-  const dc = projects.filter(function(p){
-    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===currentPersonName.toLowerCase(); });
-  }).length;
+  // Cập nhật doneCycles (tự động)
+  const dc = getAutoDoneCycleProjects(currentPersonName).length;
   const dcInp = document.getElementById('done-cycles-input');
   if(dcInp) dcInp.value = dc;
   const dcDisp = document.getElementById('done-cycles-display');
@@ -6133,23 +6322,45 @@ function applyRoleUI(){
 
 
 
-// ── Render done-cycles checkboxes in project modal ──
-function renderDoneCyclesCheckboxes(members, checked=[]){
+// ── Hiển thị trạng thái "Chu kỳ dự án" theo từng nhân sự Main trong modal Sửa dự án ──
+// HYBRID: dự án ĐÃ có ActivityLog thật → badge TỰ ĐỘNG, read-only (theo personHasAutoDoneCycle()).
+// Dự án CHƯA có ActivityLog nào (data lịch sử cũ) → checkbox TICK TAY cho Admin tự set, vì không có
+// bằng chứng tự động để đối chiếu. Ngay khi dự án bắt đầu có ActivityLog thật, lần mở modal sau sẽ tự
+// chuyển hẳn sang badge tự động.
+function renderDoneCyclesCheckboxes(members, projId){
   const field = document.getElementById('pm-done-cycles-field');
   const box   = document.getElementById('pm-done-cycles-checkboxes');
   if(!field || !box) return;
-  // Accept string (from oninput) or array
   if(typeof members === 'string') members = members.split(',').map(s=>s.trim()).filter(Boolean);
   if(!members.length){ field.style.display='none'; box.innerHTML=''; return; }
   field.style.display='block';
-  const checkedLower = checked.map(c=>c.toLowerCase());
-  box.innerHTML = members.map(m=>{
-    const id = 'dcm-'+m.toLowerCase().replace(/\s+/g,'_');
-    const isChecked = checkedLower.includes(m.toLowerCase());
-    return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
-      <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${m}
-    </label>`;
-  }).join('');
+  const proj = projId ? (projects||[]).find(x=>x.id===projId) : null;
+  const hasLog = proj && typeof activityLog!=='undefined' && activityLog.some(function(t){ return t.projectName===proj.name; });
+
+  if(!proj || hasLog){
+    // Chế độ TỰ ĐỘNG (dự án mới chưa lưu, hoặc đã có ActivityLog thật)
+    box.innerHTML = members.map(function(m){
+      const done = proj ? personHasAutoDoneCycle(m, proj) : false;
+      const bg = done ? '#EAF3DE' : 'var(--color-background-secondary)';
+      const fg = done ? '#3B6D11' : 'var(--color-text-secondary)';
+      const icon = done ? '✅' : '—';
+      const title = done
+        ? 'Tự động: dự án đã đạt tối thiểu 75% CD và có bằng chứng ActivityLog thật của người này — đủ điều kiện 1 chu kỳ'
+        : 'Chưa đủ điều kiện tự động (cần dự án đạt ≥75% CD + có task thật của người này trong ActivityLog)';
+      return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${bg};color:${fg}" title="${title}">${icon} ${escapeHtml(m)}</span>`;
+    }).join('');
+  } else {
+    // Chế độ TICK TAY (dự án cũ, chưa có ActivityLog nào — không có bằng chứng tự động)
+    const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return c.toLowerCase().trim(); });
+    box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Dự án chưa có ActivityLog — tick tay cho data lịch sử (sẽ tự chuyển sang tự động khi có task thật)</div>'
+      + members.map(function(m){
+        const id = 'dcm-'+m.toLowerCase().replace(/\s+/g,'_');
+        const isChecked = checkedLower.indexOf(m.toLowerCase().trim()) >= 0;
+        return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
+          <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
+        </label>`;
+      }).join('');
+  }
 }
 
 
@@ -6191,10 +6402,8 @@ function updateKeyPlusRoadmap(total, projRaw){
     projRaw = ps ? parseFloat(ps.totalRaw) : 0;
   }
 
-  // Lấy số chu kỳ Done của người đang xem
-  const _doneCycles = (typeof projects !== 'undefined') ? projects.filter(function(p){
-    return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===(currentPersonName||'').toLowerCase(); });
-  }).length : 0;
+  // Lấy số chu kỳ Done của người đang xem (tự động)
+  const _doneCycles = (typeof projects !== 'undefined') ? getAutoDoneCycleProjects(currentPersonName||'').length : 0;
 
   // Config theo từng level
   const ROADMAP_CONFIG = {
@@ -6512,9 +6721,7 @@ function renderLeaderboard(){
     var lv = 'Staff';
     try{ var d=JSON.parse(localStorage.getItem(key)); if(d&&d.currentLevel) lv=d.currentLevel; } catch(e){}
     var ps = calcPersonProjectScore(name, lv);
-    var doneCycles = projects.filter(function(p){
-      return (p.doneCycleMembers||[]).some(function(m){ return m.toLowerCase()===name.toLowerCase(); });
-    }).length;
+    var doneCycles = getAutoDoneCycleProjects(name).length;
     projData.push({name:name, level:lv, raw:parseFloat(ps.totalRaw), score:parseFloat(ps.projScore10), doneCycles:doneCycles, mainCount:ps.mainCount, backupCount:ps.backupCount});
   });
   projData.sort(function(a,b){ return b.raw-a.raw || b.doneCycles-a.doneCycles; });
