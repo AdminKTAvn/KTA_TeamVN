@@ -2289,8 +2289,13 @@ const PHASE_COMPLETION_PCT = {
 };
 // Lấy % hoàn thành hiện tại của 1 dự án theo giai đoạn đã dò được — nếu chưa dò được giai đoạn nào, mặc định 100%
 // (không phạt điểm khi hệ thống không có đủ thông tin để biết đang ở giai đoạn nào)
+// Status = "Complete" LUÔN được ưu tiên tính đủ 100%, bất kể giai đoạn đang ghi gì (dự án đã xong hẳn, không còn task nào nữa)
 function getProjectPhaseCompletionPct(projName){
   const key = (projName||'').toLowerCase().trim();
+  if(typeof projects!=='undefined' && projects){
+    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    if(proj && proj.status === 'Complete') return 1.0;
+  }
   let phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
   // Lớp bảo vệ thêm: nếu weeklyPhaseByProject chưa có (VD dự án tạm thời không xuất hiện trong lần đọc Tracker gần nhất),
   // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống 100%.
@@ -2309,6 +2314,11 @@ const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2
 // Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
 // SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
 // đều tự động được coi là SP. Không có bằng chứng thật = 0 điểm, bất kể vai trò gì.
+//
+// FALLBACK cho dự án CHƯA CÓ ActivityLog nào (VD dự án cũ trước khi có hệ thống log):
+// dùng "dữ liệu ban đầu" set tay — Status=Complete → 100%, hoặc theo % của "Giai đoạn dự án" bạn tự set —
+// chỉ Main được tính (chia đều nếu nhiều Main), vì không có data để tự dò SP.
+// Ngay khi có ActivityLog thật cho dự án đó, tự động chuyển hẳn sang công thức chính (auto dò SP theo % thật).
 function calcProjectScore(proj, personLevel, role, personName){
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
@@ -2319,6 +2329,17 @@ function calcProjectScore(proj, personLevel, role, personName){
 
   if(!personName || typeof activityLog==='undefined') return 0;
   const lower = personName.toLowerCase().trim();
+  const mainList = proj.membersMain || [];
+  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
+
+  const hasAnyActivityForProject = activityLog.some(function(t){ return t.projectName === proj.name; });
+
+  if(!hasAnyActivityForProject){
+    // Dự án CHƯA có ActivityLog nào — dùng dữ liệu ban đầu (Status/Giai đoạn set tay), chỉ tính cho Main
+    if(!isMainRole) return 0; // không có data thì không tự dò được SP, chỉ Main mới được tính
+    const mainCount = mainList.length || 1;
+    return projValue * (1/mainCount) * levelMult;
+  }
 
   // Contribution Score của 1 người trên dự án này — task gán chung nhiều người thì chia đều weight/N
   const getScoreFor = function(name){
@@ -2333,11 +2354,8 @@ function calcProjectScore(proj, personLevel, role, personName){
       }, 0);
   };
 
-  const mainList = proj.membersMain || [];
   const myScore = getScoreFor(personName);
   if(myScore === 0) return 0; // Không có bằng chứng thật cho dự án này → 0 điểm, bất kể Status/vai trò gì
-
-  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
 
   // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
   const allContributorNames = [];
