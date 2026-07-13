@@ -1077,8 +1077,12 @@ async function runAIAnalysis(isOverride){
 
   try{
     // Gom toàn bộ task của người này từ ActivityLog làm ngữ cảnh
+    // Gắn thêm Giai đoạn hiện tại của dự án (VD "50% CD") vào từng task để AI hiểu đúng bối cảnh công việc —
+    // KHÔNG dùng để tính điểm, chỉ để AI tham khảo (VD task "backcheck plan checker comment" hợp lý hơn khi dự án đang ở Plan Check/CD)
     const tasks = activityLog.filter(function(t){
       return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === currentPersonName.toLowerCase().trim(); });
+    }).map(function(t){
+      return Object.assign({}, t, { projectPhase: getProjectPhaseLabel(t.projectName) });
     });
     if(!tasks.length){
       alert('Chưa có dữ liệu ActivityLog nào cho ' + currentPersonName + ' để phân tích.');
@@ -1585,6 +1589,10 @@ function _extractCandidatesFromExistingData(){
         <option value="Priorities">Priorities</option>
         <option value="Deadline">Deadline</option>
       </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);cursor:pointer;padding:0 4px">
+        <input type="checkbox" id="pm-filter-needreview" onchange="renderProjects()">
+        ⚠ Chỉ hiện dự án cần rà (chưa có ActivityLog)
+      </label>
     </div>
   </div>
 
@@ -1607,6 +1615,7 @@ function _extractCandidatesFromExistingData(){
           <th>Nhóm</th>
           <th>Nhân sự</th>
           <th>Trạng thái</th>
+          <th>Giai đoạn (set tay)</th>
           <th style="width:70px"></th>
         </tr>
       </thead>
@@ -1672,15 +1681,18 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field">
-        <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(dùng để tính % điểm — tự động cập nhật theo Tracker tuần sau này nếu dò được, đây chỉ là giá trị khởi điểm/ghi đè tay khi cần)</span></label>
+        <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(dùng để tính % điểm — tự động cập nhật theo Tracker tuần sau này nếu dò được, đây chỉ là giá trị khởi điểm/ghi đè tay khi cần. % theo khối lượng deliverable thật trong SOP Master Tracker)</span></label>
         <select id="pm-f-phase">
           <option value="">— Chưa xác định (mặc định tính 100%) —</option>
-          <option value="Setup">Setup dự án (17%)</option>
-          <option value="Background">Background (33%)</option>
-          <option value="DD">DD (50%)</option>
-          <option value="CD">CD (67%)</option>
-          <option value="Plancheck">Plan Check (83%)</option>
-          <option value="CD (Final)">CD (Final) (100%)</option>
+          <option value="Setup">Setup dự án (5%)</option>
+          <option value="Background">Background (15%)</option>
+          <option value="50% DD">50% DD (35%)</option>
+          <option value="100% DD">100% DD (52%)</option>
+          <option value="25% CD">25% CD (79%)</option>
+          <option value="50% CD">50% CD (86%)</option>
+          <option value="Plan Check">Plan Check (87%)</option>
+          <option value="75% CD">75% CD (98%)</option>
+          <option value="100% CD">100% CD — Final (100%)</option>
         </select>
       </div>
 
@@ -1933,13 +1945,21 @@ const SIZE_CLASS = {'Small':'pm-size-small','Medium':'pm-size-medium','Large':'p
 const TEAM_CLASS = {'Liam':'pm-team-liam','Stuart':'pm-team-stuart','Nina':'pm-team-nina'};
 const TEAM_COLOR = {'Liam':'#8B2E1F','Stuart':'#9B5DE0','Nina':'#E0529B'};
 
+// Dự án chưa từng có task thật nào trong ActivityLog — điểm đang phụ thuộc hoàn toàn vào
+// Status/Giai đoạn set tay, nên cần Admin rà soát định kỳ để tránh sai lệch
+function projectHasNoActivityLog(p){
+  return !(typeof activityLog!=='undefined' && activityLog.some(t=>t.projectName===p.name));
+}
+
 function renderProjects(){
   const fTeam=document.getElementById('pm-filter-team').value;
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
+  const fNeedReview=document.getElementById('pm-filter-needreview')?.checked;
 
   const filtered = projects.filter(p=>
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
+    && (!fNeedReview || projectHasNoActivityLog(p))
   );
 
   // ── Stats ──
@@ -2005,18 +2025,35 @@ function renderProjects(){
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
     const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
-    const wPhase = ((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[p.name.toLowerCase().trim()] : '') || p.lastKnownPhase || '';
+    const wPhase = getProjectPhaseLabel(p.name);
+    const wPhaseSrc = getProjectPhaseSource(p.name);
+    const wPhaseSrcLabel = {activitylog:'Dò tự động từ ActivityLog thật (task đã log)', weekly:'Dò từ ghi chú Tracker tuần', manual:'Set tay (chưa có bằng chứng tự động)'}[wPhaseSrc] || '';
+    const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
+    const noLog = projectHasNoActivityLog(p);
+    const reviewBadge = noLog
+      ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Dự án chưa từng có task thật nào trong ActivityLog — điểm đang tính hoàn toàn theo Status/Giai đoạn set tay bên cạnh, cần rà lại định kỳ">⚠ Chưa có ActivityLog</span>`
+      : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật trong ActivityLog — điểm tự động tính theo % đóng góp thật, Giai đoạn set tay bên cạnh không còn ảnh hưởng">✓ Có ActivityLog</span>`;
+    const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
+      const label = ph ? (ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (100%) —';
+      const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
+      return `<option value="${ph}"${sel}>${label}</option>`;
+    }).join('');
     return `
     <tr>
       <td>
-        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#185FA5;font-weight:600;vertical-align:middle" title="Giai đoạn hiện tại (dò từ ghi chú Tracker tuần)">${escapeHtml(wPhase)}</span>`:''}</div>
+        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>`:''}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
       <td><span class="pm-complexity-badge ${cxColorClass(cxCount)}">${cxCount}/6</span></td>
       <td><span class="pm-badge ${TEAM_CLASS[p.team]}">${p.team}</span></td>
       <td class="pm-members">${mainTags}${backupTags}${(!mainTags&&!backupTags)?'—':''}</td>
-      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}"${wNote?` title="Tuần này: ${escapeHtml(wNote)}"`:''}>${p.status}</span></td>
+      <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}"${wNote?` title="Tuần này: ${escapeHtml(wNote)}"`:''}>${p.status}</span>${reviewBadge}</td>
+      <td>
+        <select onchange="quickSetPhase('${p.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${wPhaseSrc==='manual'||wPhaseSrc==='none'?'#FFFDF8':'var(--color-background-secondary)'};color:var(--color-text-primary);max-width:170px" title="Giá trị NỀN/dự phòng — hệ thống ưu tiên dò tự động từ ActivityLog thật trước, sau đó tới ghi chú Tracker tuần. Ô này chỉ có tác dụng khi CẢ HAI nguồn trên đều chưa có bằng chứng.">
+          ${phaseOptions}
+        </select>
+      </td>
       <td>
         <div class="pm-row-actions">
           <button class="pm-icon-btn" onclick="openProjectModal('${p.id}')" title="Sửa">✎</button>
@@ -2026,6 +2063,17 @@ function renderProjects(){
     </tr>
   `;
   }).join('');
+}
+
+// Chỉnh nhanh Giai đoạn ngay trong bảng (không cần mở modal Sửa) — dùng để rà soát hàng loạt
+// các dự án Status="Not Started"/chưa có ActivityLog trước khi có dữ liệu task thật
+function quickSetPhase(id, value){
+  const p = projects.find(x=>x.id===id);
+  if(!p) return;
+  p.lastKnownPhase = value || '';
+  persistProjects();
+  renderProjects();
+  if(currentPersonName && typeof autoFillProjectCount==='function') autoFillProjectCount(true);
 }
 
 function escapeHtml(str){
@@ -2278,25 +2326,85 @@ function calcProjectTotalContribution(projectName, upToDate){
     .reduce(function(sum, t){ return sum + (AL_IMPACT_WEIGHT[t.impact] || 1); }, 0);
 }
 
-// % hoàn thành dự án theo giai đoạn hiện tại (dò từ ghi chú Tracker tuần, weeklyPhaseByProject) — chia đều 6 mốc
+// % hoàn thành dự án theo giai đoạn hiện tại (dò từ ghi chú Tracker tuần, weeklyPhaseByProject)
+// Cập nhật theo SOP "Master Deliverable Tracker" thật (2025_0630) — đếm số lượng sheet/deliverable
+// bắt buộc ("O") tại từng mốc / tổng 150 loại sheet trong checklist, làm căn cứ % khối lượng thực tế:
+//   50% DD = 53/150 (35.3%) · 100% DD = 78/150 (52.0%) · 25% CD = 118/150 (78.7%)
+//   50% CD = 129/150 (86.0%) · Plan Check = 129/150 (86.0%, cùng bộ hồ sơ 50% CD)
+//   75% CD = 147/150 (98.0%) · 100% CD = 149/150 (99.3%, làm tròn 100%)
+// Setup/Background nằm TRƯỚC khi có sheet nào trong checklist này, nên ước lượng thấp (5%/15%)
 const PHASE_COMPLETION_PCT = {
-  'Setup':       0.17,
-  'Background':  0.33,
-  'DD':          0.50,
-  'CD':          0.67,
-  'Plancheck':   0.83,
-  'CD (Final)':  1.00,
+  'Setup':       0.05,
+  'Background':  0.15,
+  '50% DD':      0.35,
+  '100% DD':     0.52,
+  '25% CD':      0.79,
+  '50% CD':      0.86,
+  'Plan Check':  0.87,
+  '75% CD':      0.98,
+  '100% CD':     1.00,
 };
+// Dò giai đoạn dự án từ text (mô tả/ghi chú task, hoặc ghi chú Tracker tuần) — kiểm tra cụm từ dài/cụ thể
+// (có %) trước, sau đó mới tới viết tắt trần trụi (DD/CD/ID/CA) dùng word-boundary để tránh dính nhầm.
+// Danh sách 'phase' PHẢI khớp CHÍNH XÁC với key trong PHASE_COMPLETION_PCT ở trên và với PHASE_PATTERNS
+// bên AppsScript_Backend_v22.gs (dùng để dò từ ghi chú Tracker tuần) — giữ đồng bộ 2 nơi khi chỉnh sửa.
+const PHASE_PATTERNS = [
+  { phase: '100% CD',    regex: /(100\s*%?\s*cd|final\s*cd|cd\s*final|cd\s*resubmittal)/i },
+  { phase: '75% CD',     regex: /75\s*%?\s*cd/i },
+  { phase: 'Plan Check', regex: /plan[\s-]?check/i },
+  { phase: '50% CD',     regex: /50\s*%?\s*cd/i },
+  { phase: '25% CD',     regex: /25\s*%?\s*cd/i },
+  { phase: '100% DD',    regex: /100\s*%?\s*dd/i },
+  { phase: '50% DD',     regex: /50\s*%?\s*dd/i },
+  { phase: 'Setup',      regex: /(project\s*set[\s-]?up|set[\s-]?up\s*project|kick[\s-]?off)/i },
+  { phase: 'Background', regex: /\bbackground\b/i },
+  { phase: '50% DD',     regex: /\bdd\b/i },
+  { phase: '50% CD',     regex: /\bcd\b/i },
+  { phase: 'ID',         regex: /\bid\b/i },
+  { phase: 'CA',         regex: /\bca\b/i },
+];
+function detectPhaseFromText(text){
+  if(!text) return '';
+  for(let i=0; i<PHASE_PATTERNS.length; i++){
+    if(PHASE_PATTERNS[i].regex.test(text)) return PHASE_PATTERNS[i].phase;
+  }
+  return '';
+}
+
+// Dò giai đoạn dự án TRỰC TIẾP TỪ ActivityLog thật — quét mô tả/ghi chú/category của các task đã log,
+// bắt đầu từ task MỚI NHẤT (theo ngày), trả về giai đoạn đầu tiên tìm được từ khoá.
+// Đây là NGUỒN ƯU TIÊN SỐ 1 để xác định giai đoạn — vì phản ánh bằng chứng công việc thật đã ghi nhận,
+// đáng tin hơn ghi chú Tracker tuần (PM nhập tay) hoặc giá trị set tay ban đầu.
+function detectPhaseFromActivityLog(projName){
+  if(typeof activityLog === 'undefined' || !activityLog.length) return '';
+  const key = (projName||'').toLowerCase().trim();
+  if(!key) return '';
+  const tasks = activityLog
+    .filter(function(t){ return (t.projectName||'').toLowerCase().trim() === key; })
+    .slice()
+    .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }); // mới nhất trước
+  for(let i=0; i<tasks.length; i++){
+    const t = tasks[i];
+    const text = [t.description, t.notes, Array.isArray(t.categories)?t.categories.join(' '):t.categories]
+      .filter(Boolean).join(' ');
+    const found = detectPhaseFromText(text);
+    if(found) return found;
+  }
+  return '';
+}
+
 // Lấy % hoàn thành hiện tại của 1 dự án theo giai đoạn đã dò được — nếu chưa dò được giai đoạn nào, mặc định 100%
 // (không phạt điểm khi hệ thống không có đủ thông tin để biết đang ở giai đoạn nào)
 // Status = "Complete" LUÔN được ưu tiên tính đủ 100%, bất kể giai đoạn đang ghi gì (dự án đã xong hẳn, không còn task nào nữa)
+// Thứ tự ưu tiên nguồn giai đoạn: (1) ActivityLog thật → (2) ghi chú Tracker tuần → (3) set tay/ghi nhớ trên project → (4) mặc định 100%
 function getProjectPhaseCompletionPct(projName){
   const key = (projName||'').toLowerCase().trim();
   if(typeof projects!=='undefined' && projects){
     const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
     if(proj && proj.status === 'Complete') return 1.0;
   }
-  let phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
+  let phase = detectPhaseFromActivityLog(projName);
+  if(!phase) phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
   // Lớp bảo vệ thêm: nếu weeklyPhaseByProject chưa có (VD dự án tạm thời không xuất hiện trong lần đọc Tracker gần nhất),
   // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống 100%.
   if(!phase && typeof projects!=='undefined' && projects){
@@ -2305,6 +2413,33 @@ function getProjectPhaseCompletionPct(projName){
   }
   if(!phase) return 1.0;
   return PHASE_COMPLETION_PCT[phase] !== undefined ? PHASE_COMPLETION_PCT[phase] : 1.0;
+}
+
+// Lấy NHÃN giai đoạn hiện tại của 1 dự án (VD "50% CD", "Plan Check"...) — không quy đổi ra %, cùng thứ tự
+// ưu tiên nguồn như getProjectPhaseCompletionPct(). Dùng để hiển thị badge trong bảng dự án và gắn ngữ cảnh cho AI.
+function getProjectPhaseLabel(projName){
+  const key = (projName||'').toLowerCase().trim();
+  if(!key) return '';
+  let phase = detectPhaseFromActivityLog(projName);
+  if(!phase) phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
+  if(!phase && typeof projects!=='undefined' && projects){
+    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
+    if(!phase && proj && proj.status === 'Complete') return '100% CD (Complete)';
+  }
+  return phase || '';
+}
+
+// Cho biết nguồn của giai đoạn đang hiển thị — dùng để chú thích trên UI (badge/tooltip) cho minh bạch
+function getProjectPhaseSource(projName){
+  const key = (projName||'').toLowerCase().trim();
+  if(detectPhaseFromActivityLog(projName)) return 'activitylog';
+  if((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) && weeklyPhaseByProject[key]) return 'weekly';
+  if(typeof projects!=='undefined' && projects){
+    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    if(proj && proj.lastKnownPhase) return 'manual';
+  }
+  return 'none';
 }
 
 // Contribution Score tối thiểu để nhận đủ 100% phần vai trò của mình (Main hoặc SP) — thấp hơn thì scale theo tỷ lệ, chống farm rẻ
@@ -2319,13 +2454,26 @@ const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2
 // dùng "dữ liệu ban đầu" set tay — Status=Complete → 100%, hoặc theo % của "Giai đoạn dự án" bạn tự set —
 // chỉ Main được tính (chia đều nếu nhiều Main), vì không có data để tự dò SP.
 // Ngay khi có ActivityLog thật cho dự án đó, tự động chuyển hẳn sang công thức chính (auto dò SP theo % thật).
-function calcProjectScore(proj, personLevel, role, personName){
+function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const base = SIZE_BASE[proj.size] || 2;
   const cxTotal = proj.cxTotal || CX_KEYS.length;
   const cxBonus = getCxBonus(proj.complexityCount||0, cxTotal);
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
   const phasePct = getProjectPhaseCompletionPct(proj.name);
   const projValue = (base + cxBonus) * phasePct;
+
+  if(explainOut){
+    explainOut.base = base;
+    explainOut.cxCount = proj.complexityCount||0;
+    explainOut.cxTotal = cxTotal;
+    explainOut.cxBonus = cxBonus;
+    explainOut.phasePct = phasePct;
+    explainOut.phaseSource = getProjectPhaseSource(proj.name);
+    explainOut.projValue = projValue;
+    explainOut.levelMult = levelMult;
+    explainOut.size = proj.size;
+    explainOut.personLevel = personLevel;
+  }
 
   if(!personName || typeof activityLog==='undefined') return 0;
   const lower = personName.toLowerCase().trim();
@@ -2336,9 +2484,18 @@ function calcProjectScore(proj, personLevel, role, personName){
 
   if(!hasAnyActivityForProject){
     // Dự án CHƯA có ActivityLog nào — dùng dữ liệu ban đầu (Status/Giai đoạn set tay), chỉ tính cho Main
-    if(!isMainRole) return 0; // không có data thì không tự dò được SP, chỉ Main mới được tính
+    // QUAN TRỌNG: áp dụng STATUS_MULTIPLIER ở đây — Status="Not Started" phải = 0 điểm cho tới khi có ActivityLog thật
+    const statusMult = getStatusMultiplier(proj.status);
     const mainCount = mainList.length || 1;
-    return projValue * (1/mainCount) * levelMult;
+    if(explainOut){
+      explainOut.mode = 'fallback';
+      explainOut.status = proj.status;
+      explainOut.statusMult = statusMult;
+      explainOut.mainCount = mainCount;
+      explainOut.isMainRole = isMainRole;
+    }
+    if(!isMainRole) return 0; // không có data thì không tự dò được SP, chỉ Main mới được tính
+    return projValue * (1/mainCount) * levelMult * statusMult;
   }
 
   // Contribution Score của 1 người trên dự án này — task gán chung nhiều người thì chia đều weight/N
@@ -2355,6 +2512,7 @@ function calcProjectScore(proj, personLevel, role, personName){
   };
 
   const myScore = getScoreFor(personName);
+  if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
   if(myScore === 0) return 0; // Không có bằng chứng thật cho dự án này → 0 điểm, bất kể Status/vai trò gì
 
   // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
@@ -2375,8 +2533,9 @@ function calcProjectScore(proj, personLevel, role, personName){
   });
 
   let baseShare = 0;
+  let mainPool = null;
   if(isMainRole){
-    const mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0; // Có SP thật thì Main còn 70%, không thì Main trọn 100%
+    mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0; // Có SP thật thì Main còn 70%, không thì Main trọn 100%
     baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
   } else if(myScore > 0){
     // Không phải Main nhưng có task thật → tự động là SP
@@ -2388,6 +2547,16 @@ function calcProjectScore(proj, personLevel, role, personName){
   // Scale theo Contribution Score thật — dưới ngưỡng thì chưa nhận đủ 100% phần của mình
   const fullnessFactor = Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
   const myRatio = baseShare * fullnessFactor;
+
+  if(explainOut){
+    explainOut.isMainRole = isMainRole;
+    explainOut.mainPool = mainPool;
+    explainOut.mainsCount = mainsWithEvidence.length;
+    explainOut.spCount = supportsWithEvidence.length;
+    explainOut.baseShare = baseShare;
+    explainOut.fullnessFactor = fullnessFactor;
+    explainOut.myRatio = myRatio;
+  }
 
   return projValue * myRatio * levelMult;
 }
@@ -2450,19 +2619,21 @@ function calcPersonProjectScore(personName, personLevel){
 
   const addProjects = (list, role) => {
     list.forEach(p=>{
-      const score = calcProjectScore(p, personLevel, role, personName);
+      const explain = {};
+      const score = calcProjectScore(p, personLevel, role, personName, explain);
       totalRaw += score;
       const hasActivityData = typeof activityLog!=='undefined' &&
         activityLog.some(t=>t.projectName===p.name);
       const phasePct = getProjectPhaseCompletionPct(p.name);
-      const phaseKey = ((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[p.name.toLowerCase().trim()] : null) || p.lastKnownPhase || null;
+      const phaseKey = getProjectPhaseLabel(p.name);
       breakdown.push({
         name: p.name, size: p.size, role, score: score.toFixed(2),
         relation: getProjectLevelRelation(p.size, personLevel),
         source: hasActivityData ? 'activitylog' : 'fallback',
         status: p.status,
         phase: phaseKey || null,
-        phasePct: phasePct
+        phasePct: phasePct,
+        explain: explain
       });
     });
   };
@@ -3380,6 +3551,47 @@ const ROLE_COLOR = {
 const CX_COLOR = {Simple:'#185FA5', Moderate:'#BA7517', Complex:'#A32D2D'};
 const SIZE_BG = {Small:'#F1EFE8', Medium:'#E6F1FB', Large:'#EAF3DE'};
 
+// Dựng chuỗi tooltip giải thích công thức tính điểm 1 dự án (hiện khi hover vào cột Điểm)
+function buildScoreTooltip(p){
+  const e = p.explain || {};
+  const lines = [];
+  lines.push(`${p.name} — ${p.size} · ${ROLE_LABEL[p.role]||p.role}`);
+  lines.push('');
+  lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')}`);
+  lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
+  lines.push(`= Giá trị gốc = ${((e.base||0)+(e.cxBonus||0)).toFixed(2)}`);
+  const phaseSrcLabel = {activitylog:'dò từ ActivityLog thật', weekly:'dò từ ghi chú Tracker tuần', manual:'set tay', none:'mặc định (chưa dò được)'}[e.phaseSource] || '';
+  lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''} = ${(e.projValue??0).toFixed(2)}`);
+
+  if(e.mode === 'fallback'){
+    lines.push('');
+    lines.push('⚠ Chưa có ActivityLog — tính theo Status/Giai đoạn set tay:');
+    lines.push(`× Trạng thái "${e.status}" (hệ số ×${e.statusMult})`);
+    if(e.statusMult === 0){
+      lines.push('→ Status = Chưa bắt đầu ⇒ 0 điểm (không tính cho tới khi có ActivityLog thật)');
+    } else {
+      lines.push(`÷ Số Main (${e.mainCount} người)`);
+      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+    }
+  } else if(e.mode === 'activitylog'){
+    lines.push('');
+    lines.push('✓ Đã có ActivityLog thật — tính theo % đóng góp:');
+    lines.push(`Contribution Score của bạn trên dự án = ${(e.myScore??0).toFixed(1)}`);
+    if(e.baseShare !== undefined){
+      if(e.isMainRole){
+        lines.push(`× Tỷ trọng Main: pool ${Math.round((e.mainPool||0)*100)}% ÷ ${e.mainsCount} Main có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
+      } else {
+        lines.push(`× Tỷ trọng SP (tự động): pool 30% ÷ ${e.spCount} SP có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
+      }
+      lines.push(`× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE} ngưỡng, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
+      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+    }
+  }
+  lines.push('');
+  lines.push(`= ${p.score} điểm`);
+  return lines.join('\n');
+}
+
 function renderProjListTable(breakdown, totalRaw){
   const tbody = document.getElementById('proj-list-body');
   const tfoot = document.getElementById('proj-list-foot');
@@ -3409,13 +3621,14 @@ function renderProjListTable(breakdown, totalRaw){
         <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${rc.bg};color:${rc.color};font-weight:500;white-space:nowrap">${ROLE_LABEL[p.role]||p.role}</span>
       </td>
       <td style="padding:5px 6px;text-align:center;font-size:11px;color:${CX_COLOR[cx]||'inherit'};font-weight:500">${cx}</td>
-      <td style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-primary)">${p.score}</td>
+      <td style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-primary);cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(p).replace(/"/g,'&quot;')}">${p.score}</td>
     </tr>`;
   }).join('');
 
+  const totalTooltip = `Tổng điểm thô = tổng điểm từng dự án bên trên\n(rê chuột vào từng dòng để xem công thức chi tiết)`;
   tfoot.innerHTML = `<tr style="border-top:1px solid var(--color-border-secondary);background:var(--color-background-secondary)">
     <td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
-    <td style="padding:5px 10px;text-align:right;font-weight:600;color:var(--color-text-primary)">${parseFloat(totalRaw).toFixed(2)}</td>
+    <td style="padding:5px 10px;text-align:right;font-weight:600;color:var(--color-text-primary);cursor:help" title="${totalTooltip}">${parseFloat(totalRaw).toFixed(2)}</td>
   </tr>`;
 }
 
