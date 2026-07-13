@@ -1683,7 +1683,7 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-field">
         <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ưu tiên tự động dò từ ActivityLog/Tracker tuần — ô này chỉ dùng khi chưa có bằng chứng tự động. % dùng để TÍCH LŨY ĐIỂM, tăng dần theo khối lượng thật; "đủ chu kỳ để lên level" là điều kiện RIÊNG, xem tại ô Chu kỳ dự án bên dưới)</span></label>
         <select id="pm-f-phase">
-          <option value="">— Chưa xác định (mặc định tính 100%) —</option>
+          <option value="">— Chưa xác định (0% — cần set Giai đoạn hoặc có ActivityLog) —</option>
           <option value="Setup">Setup dự án (5%)</option>
           <option value="Background">Background (14%)</option>
           <option value="50% DD">50% DD (32%)</option>
@@ -2056,7 +2056,7 @@ function renderProjects(){
       : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật trong ActivityLog — điểm tự động tính theo % đóng góp thật, Giai đoạn set tay bên cạnh không còn ảnh hưởng">✓ Có ActivityLog</span>`;
     const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
       const bonusTag = ph && isBonusPhase(ph) ? '🎁 ' : '';
-      const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (100%) —';
+      const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (0%) —';
       const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
       return `<option value="${ph}"${sel}>${label}</option>`;
     }).join('');
@@ -2470,10 +2470,13 @@ function detectPhaseFromActivityLog(projName){
   return '';
 }
 
-// Lấy % hoàn thành hiện tại của 1 dự án theo giai đoạn đã dò được — nếu chưa dò được giai đoạn nào, mặc định 100%
-// (không phạt điểm khi hệ thống không có đủ thông tin để biết đang ở giai đoạn nào)
-// Status = "Complete" LUÔN được ưu tiên tính đủ 100%, bất kể giai đoạn đang ghi gì (dự án đã xong hẳn, không còn task nào nữa)
-// Thứ tự ưu tiên nguồn giai đoạn: (1) ActivityLog thật → (2) ghi chú Tracker tuần → (3) set tay/ghi nhớ trên project → (4) mặc định 100%
+// Lấy % hoàn thành hiện tại của 1 dự án theo giai đoạn đã dò được — nếu CHƯA dò/xác định được giai đoạn
+// nào, mặc định = 0% (KHÔNG tính điểm) — vì không có bằng chứng gì để biết dự án đã tiến triển tới đâu,
+// giữ đúng triết lý chung toàn hệ thống: không có bằng chứng thật thì không được tính điểm.
+// (TRƯỚC ĐÂY mặc định là 100% khi chưa xác định — ĐÂY LÀ BUG, khiến dự án Plan/mới tạo, Status=Priorities/
+// Deadline/Non-Urgent nhưng CHƯA set Giai đoạn và CHƯA có ActivityLog vẫn bị tính đủ điểm sai. Đã sửa.)
+// Status = "Complete" vẫn LUÔN được ưu tiên tính đủ 100%, bất kể giai đoạn đang ghi gì (dự án đã xong hẳn).
+// Thứ tự ưu tiên nguồn giai đoạn: (1) ActivityLog thật → (2) ghi chú Tracker tuần → (3) set tay/ghi nhớ trên project → (4) chưa có gì → 0%
 function getProjectPhaseCompletionPct(projName){
   const key = (projName||'').toLowerCase().trim();
   if(typeof projects!=='undefined' && projects){
@@ -2483,13 +2486,13 @@ function getProjectPhaseCompletionPct(projName){
   let phase = detectPhaseFromActivityLog(projName);
   if(!phase) phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
   // Lớp bảo vệ thêm: nếu weeklyPhaseByProject chưa có (VD dự án tạm thời không xuất hiện trong lần đọc Tracker gần nhất),
-  // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống 100%.
+  // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống.
   if(!phase && typeof projects!=='undefined' && projects){
     const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
     if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
   }
-  if(!phase) return 1.0;
-  return PHASE_COMPLETION_PCT[phase] !== undefined ? PHASE_COMPLETION_PCT[phase] : 1.0;
+  if(!phase) return 0; // Chưa xác định giai đoạn nào cả -> chưa có bằng chứng tiến độ -> 0 điểm
+  return PHASE_COMPLETION_PCT[phase] !== undefined ? PHASE_COMPLETION_PCT[phase] : 0;
 }
 
 // Lấy NHÃN giai đoạn hiện tại của 1 dự án (VD "50% CD", "Plan Check"...) — không quy đổi ra %, cùng thứ tự
