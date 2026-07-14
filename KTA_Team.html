@@ -481,7 +481,7 @@ function saveMember(){
       }
     }
   } else {
-    const dup = members.find(x=>x.name.trim().toLowerCase()===name.toLowerCase() && x.active!==false);
+    const dup = members.find(x=>normStr(x.name)===normStr(name) && x.active!==false);
     if(dup && !confirm('Đã có nhân sự tên "'+name+'" trong danh sách. Vẫn thêm?')) return;
     members.push({
       id:'mbr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
@@ -672,7 +672,7 @@ function getActiveMemberNames(){
   // Fallback: extract từ projects nếu members chưa có
   const seen={};
   (projects||[]).forEach(p=>{
-    (p.membersMain||[]).concat(p.membersBackup||[]).forEach(n=>{ if(n) seen[n.toLowerCase()]=n; });
+    (p.membersMain||[]).concat(p.membersBackup||[]).forEach(n=>{ if(n) seen[normStr(n)]=n; });
   });
   return Object.values(seen).sort((a,b)=>a.localeCompare(b));
 }
@@ -778,8 +778,8 @@ function filterMsList(cid, query){
   if(!container) return;
   const allNames=JSON.parse(container.dataset.allNames||'[]');
   const selected=JSON.parse(container.dataset.selected||'[]');
-  const q=query.toLowerCase();
-  const filtered=allNames.filter(n=>n.toLowerCase().includes(q));
+  const q=normStr(query);
+  const filtered=allNames.filter(n=>normStr(n).includes(q));
   const opts=document.getElementById(cid+'-opts');
   if(!opts) return;
   opts.innerHTML=filtered.length
@@ -879,7 +879,7 @@ const AL_IMPACT_WEIGHT = { Major: 3, Medium: 2, Minor: 1 };
 function calcContributionPerProject(personName, projectName){
   const tasks = activityLog.filter(function(t){
     return t.projectName === projectName &&
-      (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+      (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(personName); });
   });
   if(!tasks.length) return null;
   // Nếu 1 task gán chung cho nhiều người, mỗi người chỉ nhận weight/N — tránh tính dư khi cộng tổng cả dự án
@@ -908,7 +908,7 @@ function calcContribution(personName){
   if(!activityLog.length) return null;
   // Lấy danh sách dự án người này tham gia
   const projNames = [...new Set(activityLog.filter(function(t){
-    return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+    return (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(personName); });
   }).map(function(t){ return t.projectName; }))];
 
   if(!projNames.length) return null;
@@ -927,9 +927,9 @@ function calcContribution(personName){
 
   // Role validation per project (so với KTA projects data)
   const roleValidation = perProject.map(function(pp){
-    const proj = (projects||[]).find(function(p){ return p.name && p.name.toLowerCase().includes(pp.projectName.toLowerCase()); });
-    const isMain = proj && (proj.membersMain||[]).some(function(m){ return m.toLowerCase().trim() === personName.toLowerCase().trim(); });
-    const isSupport = proj && (proj.membersBackup||[]).some(function(m){ return m.toLowerCase().trim() === personName.toLowerCase().trim(); });
+    const proj = (projects||[]).find(function(p){ return p.name && normStr(p.name).includes(normStr(pp.projectName)); });
+    const isMain = proj && (proj.membersMain||[]).some(function(m){ return normStr(m) === normStr(personName); });
+    const isSupport = proj && (proj.membersBackup||[]).some(function(m){ return normStr(m) === normStr(personName); });
 
     // Tính tổng score của project để biết % đóng góp
     const projTotalScore = activityLog.filter(function(t){ return t.projectName === pp.projectName; })
@@ -970,7 +970,7 @@ function _biweekStartKey(dateStr){
 function calcWeeklyTrend(personName){
   const byPeriod = {};
   activityLog.forEach(function(t){
-    const isPerson = (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === personName.toLowerCase().trim(); });
+    const isPerson = (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(personName); });
     if(!isPerson || !t.date) return;
     const wk = _biweekStartKey(t.date);
     if(!wk) return;
@@ -986,7 +986,7 @@ function calcWeeklyTrend(personName){
 
 // So sánh Contribution Score với các nhân sự cùng level hiện tại
 function calcLevelComparison(personName){
-  const person = (members||[]).find(function(m){ return m.name.toLowerCase().trim() === personName.toLowerCase().trim(); });
+  const person = (members||[]).find(function(m){ return normStr(m.name) === normStr(personName); });
   if(!person || !person.level) return null;
   const peers = (members||[]).filter(function(m){ return m.level === person.level && m.active !== false; });
   const rows = peers.map(function(m){
@@ -1028,7 +1028,7 @@ function updateAIAnalysisBar(personName){
 
   const quarterKey = _getCurrentQuarterKey();
   const log = _getAiQuotaLog();
-  const key = personName.trim().toLowerCase();
+  const key = normStr(personName);
   const record = log[key];
   const usedThisQuarter = record && record.quarter === quarterKey;
 
@@ -1056,7 +1056,7 @@ async function runAIAnalysis(isOverride){
   if(!currentPersonName){ alert('Vui lòng chọn nhân viên trước.'); return; }
   const quarterKey = _getCurrentQuarterKey();
   const log = _getAiQuotaLog();
-  const key = currentPersonName.trim().toLowerCase();
+  const key = normStr(currentPersonName);
 
   if(!isOverride && log[key] && log[key].quarter === quarterKey){
     alert('Đã phân tích AI cho ' + currentPersonName + ' trong ' + quarterKey + ' rồi. Đợi quý sau, hoặc nhờ Admin bấm "Chạy đè giới hạn quý".');
@@ -1083,7 +1083,7 @@ async function runAIAnalysis(isOverride){
     // giá mức độ MỞ RỘNG PHẠM VI công việc — ai từng làm đa dạng cả Kiến trúc/Nội thất/CA thể hiện phạm vi
     // rộng hơn người chỉ luôn làm 1 loại).
     const tasks = activityLog.filter(function(t){
-      return (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === currentPersonName.toLowerCase().trim(); });
+      return (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(currentPersonName); });
     }).map(function(t){
       const proj = (typeof projects!=='undefined' && projects) ? projects.find(function(p){ return (p.name||'').toLowerCase().trim() === (t.projectName||'').toLowerCase().trim(); }) : null;
       const pType = proj ? (proj.projectType || 'ARCH_FULL') : null;
@@ -1320,7 +1320,7 @@ function renderActivityLog(personName){
     html += '<div class="al-cat-section"><div class="al-cat-title">⚖️ So sánh Contribution Score cùng level ('+_mbEscape(cmp.level)+')</div><div class="al-cmp-list">';
     cmp.rows.forEach(function(r){
       const pct = maxC > 0 ? Math.round(r.score/maxC*100) : 0;
-      const isMe = r.name.toLowerCase().trim() === personName.toLowerCase().trim();
+      const isMe = normStr(r.name) === normStr(personName);
       html += '<div class="al-cmp-row'+(isMe?' al-cmp-me':'')+'"><span class="al-cmp-name">'+_mbEscape(r.name)+(isMe?' (đang xem)':'')+'</span><div class="al-cmp-bar-wrap"><div class="al-cmp-bar" style="width:'+pct+'%"></div></div><span class="al-cmp-score">'+r.score+'</span></div>';
     });
     html += '</div></div>';
@@ -1340,9 +1340,9 @@ function openImportMembersModal(){
   const note    = document.getElementById('mb-import-note');
   const btn     = document.getElementById('mb-import-confirm-btn');
 
-  const existingNames = members.map(m=>m.name.trim().toLowerCase());
-  const newOnes  = _importCandidates.filter(c=>!existingNames.includes(c.name.toLowerCase()));
-  const dupOnes  = _importCandidates.filter(c=> existingNames.includes(c.name.toLowerCase()));
+  const existingNames = members.map(m=>normStr(m.name));
+  const newOnes  = _importCandidates.filter(c=>!existingNames.includes(normStr(c.name)));
+  const dupOnes  = _importCandidates.filter(c=> existingNames.includes(normStr(c.name)));
 
   if(!_importCandidates.length){
     preview.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:13px">Không tìm thấy dữ liệu nhân sự nào trong hệ thống.</div>';
@@ -1368,7 +1368,7 @@ function openImportMembersModal(){
         </thead>
         <tbody>
           ${_importCandidates.map((c,i)=>{
-            const isDup = existingNames.includes(c.name.toLowerCase());
+            const isDup = existingNames.includes(normStr(c.name));
             const lvCls = MB_LEVEL_CLASS[c.level]||'';
             const jFmt  = c.joinDate ? new Date(c.joinDate).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
             const srcLabel = c.sources.join(' + ');
@@ -1410,11 +1410,11 @@ function confirmImportMembers(){
 
   if(!checked.length){ closeImportMembersModal(); return; }
 
-  const existingNames = members.map(m=>m.name.trim().toLowerCase());
+  const existingNames = members.map(m=>normStr(m.name));
   let added = 0;
   checked.forEach(idx=>{
     const c = _importCandidates[idx];
-    if(!c || existingNames.includes(c.name.toLowerCase())) return;
+    if(!c || existingNames.includes(normStr(c.name))) return;
     members.push({
       id:'mbr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5)+'_'+idx,
       name:    c.name,
@@ -1440,13 +1440,13 @@ function confirmImportMembers(){
 
 // Extract candidates từ projects + eval_v7_persons + eval_v7_person_*
 function _extractCandidatesFromExistingData(){
-  const nameMap = {}; // key: name.toLowerCase()
+  const nameMap = {}; // key: normStr(name)
 
   // Nguồn 1: projects — lấy tên, KHÔNG tự gán team (1 người có thể làm dự án nhiều nhóm → dễ sai)
   (projects||[]).forEach(function(p){
     (p.membersMain||[]).concat(p.membersBackup||[]).forEach(function(n){
       if(!n || !n.trim()) return;
-      const key = n.trim().toLowerCase();
+      const key = normStr(n);
       if(!nameMap[key]) nameMap[key] = { name:n.trim(), level:'', team:'', joinDate:'', sources:[] };
       if(!nameMap[key].sources.includes('Dự án')) nameMap[key].sources.push('Dự án');
     });
@@ -1457,7 +1457,7 @@ function _extractCandidatesFromExistingData(){
     const personList = JSON.parse(localStorage.getItem('eval_v7_persons')||'[]');
     personList.forEach(function(n){
       if(!n || !n.trim()) return;
-      const key = n.trim().toLowerCase();
+      const key = normStr(n);
       if(!nameMap[key]) nameMap[key] = { name:n.trim(), level:'', team:'', joinDate:'', sources:[] };
       if(!nameMap[key].sources.includes('Đánh giá')) nameMap[key].sources.push('Đánh giá');
 
@@ -1852,8 +1852,8 @@ function openProjectModal(editId){
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
     document.getElementById('pm-f-projecttype').value = p.projectType || 'ARCH_FULL';
-    document.getElementById('pm-size-'+p.size.toLowerCase()).checked=true;
-    document.getElementById('pm-team-'+p.team.toLowerCase()).checked=true;
+    document.getElementById('pm-size-'+normStr(p.size)).checked=true;
+    document.getElementById('pm-team-'+normStr(p.team)).checked=true;
     const cx = p.complexity||{};
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked = !!cx[k]; });
     updateComplexityPreview();
@@ -1908,11 +1908,11 @@ function saveProject(){
   // checkbox thật). Nếu dự án đã có ActivityLog, UI hiện badge tự động (không có checkbox) nên đoạn
   // này không tìm thấy phần tử nào và bỏ qua — giữ nguyên hành vi tự động, không ghi đè gì cả.
   const doneCycleMembersManual = membersMain.filter(function(m){
-    const cb = document.getElementById('dcm-'+m.toLowerCase().replace(/\s+/g,'_'));
+    const cb = document.getElementById('dcm-'+normStr(m).replace(/\s+/g,'_'));
     return cb && cb.checked;
   });
   const hasAnyDcmCheckbox = membersMain.some(function(m){
-    return !!document.getElementById('dcm-'+m.toLowerCase().replace(/\s+/g,'_'));
+    return !!document.getElementById('dcm-'+normStr(m).replace(/\s+/g,'_'));
   });
 
   if(editId){
@@ -2048,7 +2048,7 @@ function renderProjects(){
     const cxCount = p.complexityCount||0;
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
-    const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
+    const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[normStr(p.name)]||'') : '';
     const wPhase = getProjectPhaseLabel(p.name);
     const wPhaseSrc = getProjectPhaseSource(p.name);
     const wPhaseSrcLabel = {activitylog:'Từ ActivityLog thật', weekly:'Từ Tracker tuần', manual:'Set tay'}[wPhaseSrc] || '';
@@ -2118,10 +2118,10 @@ function escapeHtml(str){
 
 // Get project stats for a given person — used by Evaluation module (Input 3 linkage)
 function getPersonProjectStats(personName){
-  const lower = personName.trim().toLowerCase();
+  const lower = normStr(personName);
   // Dùng global projects, fallback localStorage nếu rỗng hoặc không tìm thấy người
   let _proj = projects && projects.length ? projects : [];
-  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower))){
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>normStr(m)===lower))){
     try{
       const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
       if(local.length > _proj.length) _proj = local;
@@ -2129,12 +2129,12 @@ function getPersonProjectStats(personName){
   }
   const hasEvidenceOn = function(p){
     return typeof activityLog!=='undefined' && activityLog.some(function(t){
-      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
     });
   };
-  const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
+  const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>normStr(m)===lower));
   // SP giờ tự động dò từ ActivityLog (không phải Main nhưng có task thật), không dựa vào danh sách Backup tĩnh nữa
-  const asBackup = _proj.filter(p=> !(p.membersMain||[]).some(m=>m.toLowerCase()===lower) && hasEvidenceOn(p));
+  const asBackup = _proj.filter(p=> !(p.membersMain||[]).some(m=>normStr(m)===lower) && hasEvidenceOn(p));
   const involved = [...asMain, ...asBackup];
 
   const bySize = {Small:0,Medium:0,Large:0};
@@ -2204,8 +2204,8 @@ function parseCsvLine(line){
 
 function matchEnum(val, validList){
   if(!val) return null;
-  const v = val.trim().toLowerCase();
-  return validList.find(x=>x.toLowerCase()===v) || null;
+  const v = normStr(val);
+  return validList.find(x=>normStr(x)===v) || null;
 }
 
 function previewCsv(){
@@ -2297,8 +2297,16 @@ function confirmCsvImport(){
 // SharePoint (qua ActivityLog) rất dễ lệch 1 khoảng trắng/chữ hoa-thường so với tên đặt trong Quản lý dự
 // án — so sánh "===" sẽ fail ÂM THẦM (không báo lỗi), khiến hệ thống coi như "chưa có ActivityLog" dù
 // thực ra có, làm sai lệch % Vai trò/Giai đoạn/danh sách SP tự động.
+// Chuẩn hoá chuỗi để so sánh: lowercase + bỏ khoảng trắng 2 đầu + GỘP khoảng trắng thừa Ở GIỮA thành 1
+// dấu cách. .trim() một mình KHÔNG xử lý được lỗi "Kane  Nguyen" (2 dấu cách giữa) vs "Kane Nguyen" (1
+// dấu cách) — 2 chuỗi này bị coi là khác nhau dù cùng 1 người, khiến ActivityLog không khớp được với tên
+// trong Main/Backup/currentPersonName. Dùng hàm này ở MỌI nơi so sánh tên người/tên dự án.
+function normStr(s){
+  return (s||'').toString().toLowerCase().trim().replace(/\s+/g,' ');
+}
+
 function sameProjectName(a, b){
-  return (a||'').toString().toLowerCase().trim() === (b||'').toString().toLowerCase().trim();
+  return normStr(a) === normStr(b);
 }
 
 const SIZE_BASE = {Small:2, Medium:3, Large:5};
@@ -2412,19 +2420,19 @@ function phaseQualifiesForCycle(phase){
 // không còn được dùng nữa (nhưng vẫn giữ trong data, không xoá, để tham khảo lịch sử nếu cần).
 function personHasAutoDoneCycle(personName, proj){
   if(!personName || !proj) return false;
-  const lower = personName.toLowerCase().trim();
-  const isMain = (proj.membersMain||[]).some(function(m){ return m.toLowerCase().trim()===lower; });
+  const lower = normStr(personName);
+  const isMain = (proj.membersMain||[]).some(function(m){ return normStr(m)===lower; });
   if(!isMain) return false;
   const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
   if(hasLog){
     const phase = getProjectPhaseLabel(proj.name);
     if(!phaseQualifiesForCycle(phase)) return false;
     return activityLog.some(function(t){
-      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
     });
   }
   // Chưa có ActivityLog — dùng giá trị tick tay của Admin cho data lịch sử
-  return (proj.doneCycleMembers||[]).some(function(m){ return m.toLowerCase().trim()===lower; });
+  return (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
 }
 
 // Danh sách dự án mà 1 người ĐÃ TỰ ĐỘNG đủ điều kiện tính 1 chu kỳ hoàn thành (thay hoàn toàn cho doneCycleMembers thủ công cũ)
@@ -2600,18 +2608,18 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   }
 
   if(!personName || typeof activityLog==='undefined') return 0;
-  const lower = personName.toLowerCase().trim();
+  const lower = normStr(personName);
   const mainList = proj.membersMain || [];
   const backupList = proj.membersBackup || [];
-  const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
-  const isBackupRole = backupList.some(function(m){ return m.toLowerCase().trim() === lower; });
+  const isMainRole = mainList.some(function(m){ return normStr(m) === lower; });
+  const isBackupRole = backupList.some(function(m){ return normStr(m) === lower; });
 
   // Contribution Score của 1 người trên dự án này — task gán chung nhiều người thì chia đều weight/N
   const getScoreFor = function(name){
     return activityLog
       .filter(function(t){
         return sameProjectName(t.projectName, proj.name) &&
-          (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === name.toLowerCase().trim(); });
+          (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(name); });
       })
       .reduce(function(sum, t){
         const numAssignees = (t.assignedTo||[]).length || 1;
@@ -2663,14 +2671,14 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     if(!sameProjectName(t.projectName, proj.name)) return;
     (t.assignedTo||[]).forEach(function(a){
       const clean = a.trim();
-      if(clean && !allContributorNames.some(function(n){ return n.toLowerCase()===clean.toLowerCase(); })) allContributorNames.push(clean);
+      if(clean && !allContributorNames.some(function(n){ return normStr(n)===normStr(clean); })) allContributorNames.push(clean);
     });
   });
 
   const mainsWithEvidence = mainList.filter(function(name){ return getScoreFor(name) > 0; });
   // SP = bất kỳ ai xuất hiện trong ActivityLog của dự án nhưng KHÔNG nằm trong danh sách Main — tự động, không cần gán tay
   const supportsWithEvidence = allContributorNames.filter(function(name){
-    const isMain = mainList.some(function(m){ return m.toLowerCase().trim() === name.toLowerCase().trim(); });
+    const isMain = mainList.some(function(m){ return normStr(m) === normStr(name); });
     return !isMain && getScoreFor(name) > 0;
   });
 
@@ -2752,10 +2760,10 @@ function calcSeniority(joinDateStr){
 
 // Get full project score profile for a person
 function calcPersonProjectScore(personName, personLevel){
-  const lower = personName.trim().toLowerCase();
+  const lower = normStr(personName);
   // Fallback localStorage nếu global projects không có người này
   let _proj = projects && projects.length ? projects : [];
-  if(!_proj.some(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower))){
+  if(!_proj.some(p=>(p.membersMain||[]).some(m=>normStr(m)===lower))){
     try{
       const local = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
       if(local.length > _proj.length) _proj = local;
@@ -2763,21 +2771,21 @@ function calcPersonProjectScore(personName, personLevel){
   }
   const hasEvidenceOn = function(p){
     return typeof activityLog!=='undefined' && activityLog.some(function(t){
-      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
     });
   };
   // Dự án người này được gán chính thức là Main (tab Quản lý dự án)
-  const asMain = _proj.filter(p => (p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower));
+  const asMain = _proj.filter(p => (p.membersMain||[]).some(m=>normStr(m)===lower));
   // Dự án người này KHÔNG phải Main, nhưng có task thật trong ActivityLog → tự động là SP, không cần gán tay
   const asAutoSupport = _proj.filter(p =>
-    !(p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower) && hasEvidenceOn(p)
+    !(p.membersMain||[]).some(m=>normStr(m)===lower) && hasEvidenceOn(p)
   );
   // Dự án người này được gán Backup set tay, dự án CHƯA có ActivityLog nào (không thể tự dò bằng chứng) —
   // trước đây nhóm này bị bỏ sót hoàn toàn (0 điểm, không hiện trong bảng) dù data Backup đã có sẵn.
   // Thường gặp với nhân sự đã rời dự án từ trước khi có ActivityLog, không thể có bằng chứng hồi cứu.
   const asBackupFallback = _proj.filter(p =>
-    !(p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower) &&
-    (p.membersBackup||[]).some(m=>m.toLowerCase().trim()===lower) &&
+    !(p.membersMain||[]).some(m=>normStr(m)===lower) &&
+    (p.membersBackup||[]).some(m=>normStr(m)===lower) &&
     !hasEvidenceOn(p)
   );
 
@@ -3817,7 +3825,7 @@ function autoFillProjectCount(silent=false, forceName=null){
   }
   // Đảm bảo name khớp với currentPersonName để tránh lấy dự án sai
   // Chỉ skip nếu KHÔNG có forceName và currentPersonName khác nhau
-  if(!forceName && currentPersonName && name.toLowerCase() !== currentPersonName.toLowerCase()){
+  if(!forceName && currentPersonName && normStr(name) !== normStr(currentPersonName)){
     return;
   }
   if(typeof getPersonProjectStats!=='function') return;
@@ -3829,7 +3837,7 @@ function autoFillProjectCount(silent=false, forceName=null){
   const scoreStats = (typeof calcPersonProjectScore==='function')
     ? calcPersonProjectScore(_lockedName, lv) : null;
   // Verify người chưa thay đổi trong quá trình tính toán
-  if(currentPersonName && _lockedName.toLowerCase() !== currentPersonName.toLowerCase()) return;
+  if(currentPersonName && normStr(_lockedName) !== normStr(currentPersonName)) return;
   const stats = {
     total: pStats.total,
     mainCount: scoreStats ? scoreStats.mainCount : pStats.mainCount,
@@ -3894,7 +3902,7 @@ function setI4(lv){
 // ── Multi-person storage ──
 let currentPersonName = '';
 
-function getStorageKey(name){ return 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_'); }
+function getStorageKey(name){ return 'eval_v7_person_'+normStr(name).replace(/\s+/g,'_'); }
 function getPersonListKey(){ return 'eval_v7_persons'; }
 
 function getPersonList(){
@@ -3904,17 +3912,17 @@ function getPersonList(){
   // From projects
   (projects||[]).forEach(function(p){
     (p.membersMain||[]).forEach(function(m){
-      nameMap[m.toLowerCase()] = m;
+      nameMap[normStr(m)] = m;
     });
     (p.membersBackup||[]).forEach(function(m){
-      nameMap[m.toLowerCase()] = m;
+      nameMap[normStr(m)] = m;
     });
   });
   // Merge with saved list (preserve names even if removed from project)
   try{
     const saved = JSON.parse(localStorage.getItem(getPersonListKey()))||[];
     saved.forEach(function(n){
-      if(!nameMap[n.toLowerCase()]) nameMap[n.toLowerCase()] = n;
+      if(!nameMap[normStr(n)]) nameMap[normStr(n)] = n;
     });
   } catch(e){}
   return Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
@@ -3959,7 +3967,7 @@ function onPersonNameSelect(name){
 
   // Level giờ được khai báo & kiểm soát tại tab Nhân sự (kèm lịch sử) — tự động áp dụng ở đây,
   // không cần bấm chọn tay nữa. Nút level vẫn giữ lại để override thủ công nếu thực sự cần.
-  const matchedMember = (members||[]).find(mm => mm.name.trim().toLowerCase()===name.trim().toLowerCase());
+  const matchedMember = (members||[]).find(mm => normStr(mm.name)===normStr(name));
   if(matchedMember && typeof getCurrentLevelOfMember==='function'){
     const officialLevel = getCurrentLevelOfMember(matchedMember);
     if(officialLevel && typeof setLevel==='function') setLevel(officialLevel);
@@ -3975,12 +3983,12 @@ function populatePersonDropdown(){
   const nameMap = {};
   projects.forEach(function(p){
     (p.membersMain||[]).forEach(function(m){
-      const key = m.trim().toLowerCase();
+      const key = normStr(m);
       if(!nameMap[key]) nameMap[key] = m;
       else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
     });
     (p.membersBackup||[]).forEach(function(m){
-      const key = m.trim().toLowerCase();
+      const key = normStr(m);
       if(!nameMap[key]) nameMap[key] = m;
       else if(m[0] === m[0].toUpperCase() && nameMap[key][0] !== nameMap[key][0].toUpperCase()) nameMap[key] = m;
     });
@@ -3988,13 +3996,13 @@ function populatePersonDropdown(){
   // Nếu chưa có dự án nào, fallback về saved list
   if(!Object.keys(nameMap).length){
     getPersonList().forEach(function(n){
-      const key = n.trim().toLowerCase();
+      const key = normStr(n);
       if(!nameMap[key]) nameMap[key] = n;
     });
   }
   // Đảm bảo người đang được xem vẫn có trong dropdown dù không có trong projects
   if(typeof currentPersonName !== 'undefined' && currentPersonName){
-    const cpKey = currentPersonName.trim().toLowerCase();
+    const cpKey = normStr(currentPersonName);
     if(!nameMap[cpKey]) nameMap[cpKey] = currentPersonName;
   }
   const sorted = Object.values(nameMap).sort(function(a,b){ return a.localeCompare(b); });
@@ -4179,7 +4187,7 @@ function loadPerson(name){
   // Chạy lại sau 300ms phòng trường hợp bị override bởi async callbacks (Sheets, etc.)
   const _snapName8 = name;
   setTimeout(function(){
-    if(currentPersonName && currentPersonName.toLowerCase() === _snapName8.toLowerCase()){
+    if(currentPersonName && normStr(currentPersonName) === normStr(_snapName8)){
       autoFillProjectCount(false, _snapName8);
     }
   }, 300);
@@ -5520,9 +5528,9 @@ function _refreshProjectDisplayIfNeeded(){
   if(!currentPersonName) return;
   // Sync dropdown về đúng người đang xem (phòng trường hợp populatePersonDropdown reset)
   const sel = document.getElementById('person-name-input');
-  if(sel && sel.value.toLowerCase() !== currentPersonName.toLowerCase()){
+  if(sel && normStr(sel.value) !== normStr(currentPersonName)){
     // Tìm option khớp
-    const opt = Array.from(sel.options).find(o => o.value.toLowerCase() === currentPersonName.toLowerCase());
+    const opt = Array.from(sel.options).find(o => normStr(o.value) === normStr(currentPersonName));
     if(opt) sel.value = opt.value;
     // Nếu không có trong dropdown, thêm tạm vào để UI không bị reset
     else {
@@ -5677,7 +5685,7 @@ async function syncToSheets(type){
       snapshot.eval_persons = personList;
       snapshot.eval_data = {};
       personList.forEach(name=>{
-        const key='eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+        const key='eval_v7_person_'+normStr(name).replace(/\s+/g,'_');
         const raw=localStorage.getItem(key);
         if(raw) snapshot.eval_data[key]=JSON.parse(raw);
       });
@@ -5881,7 +5889,7 @@ function getWeeklyHoldStatus(){
       if(!badge) return; // dòng tiêu đề/dòng trống, bỏ qua
       // Note = cột ngay trước cột badge (thường là cột ghi chú tự do)
       const note = badgeColIdx>1 ? (row[badgeColIdx-1]||'').toString().trim() : '';
-      result[projName.toLowerCase()] = { projectName: projName, note: note, badge: badge };
+      result[normStr(projName)] = { projectName: projName, note: note, badge: badge };
     });
     return result;
   } catch(e){ return {}; }
@@ -5896,7 +5904,7 @@ function getProjectMapping(){
   rows.forEach(function(r){
     const sp = (r[0]||'').toString().trim();
     const tk = (r[1]||'').toString().trim();
-    if(sp && tk) map[sp.toLowerCase()] = tk;
+    if(sp && tk) map[normStr(sp)] = tk;
   });
   return map;
 }
@@ -5909,7 +5917,7 @@ function buildWeeklyStatusBySharePointName(){
     const out = {};
     Object.keys(mapping).forEach(function(spKey){
       const trackerName = mapping[spKey];
-      const info = holdData[trackerName.toLowerCase()];
+      const info = holdData[normStr(trackerName)];
       if(info) out[spKey] = info;
     });
     return out;
@@ -6088,12 +6096,12 @@ const USER_LEVEL_COLOR = {
 function userPortalSearch(){
   const name = (document.getElementById('user-search-name').value || '').trim();
   if(!name) return;
-  const lower = name.toLowerCase();
+  const lower = normStr(name);
 
   // Find projects — gồm cả Main chính thức lẫn dự án tự động dò được là SP (có task thật trong ActivityLog)
   const myProjects = (projects||[]).filter(p => {
-    const isMain = (p.membersMain||[]).some(m=>m.toLowerCase()===lower);
-    const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(a=>a.toLowerCase().trim()===lower));
+    const isMain = (p.membersMain||[]).some(m=>normStr(m)===lower);
+    const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(a=>normStr(a)===lower));
     return isMain || hasEvidence;
   });
 
@@ -6120,7 +6128,7 @@ function userPortalSearch(){
 
   if(myProjects.length){
     projList.innerHTML = myProjects.map(p => {
-      const isMain = (p.membersMain||[]).some(m=>m.toLowerCase()===lower);
+      const isMain = (p.membersMain||[]).some(m=>normStr(m)===lower);
       const role = isMain ? 'Main' : 'Backup';
       const roleStyle = isMain
         ? 'background:#1A1A18;color:#fff'
@@ -6333,11 +6341,11 @@ function renderDoneCyclesCheckboxes(members, projId){
     }).join('');
   } else {
     // Chế độ TICK TAY (dự án cũ, chưa có ActivityLog nào — không có bằng chứng tự động)
-    const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return c.toLowerCase().trim(); });
+    const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return normStr(c); });
     box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Dự án chưa có ActivityLog — tick tay cho data lịch sử (sẽ tự chuyển sang tự động khi có task thật)</div>'
       + members.map(function(m){
-        const id = 'dcm-'+m.toLowerCase().replace(/\s+/g,'_');
-        const isChecked = checkedLower.indexOf(m.toLowerCase().trim()) >= 0;
+        const id = 'dcm-'+normStr(m).replace(/\s+/g,'_');
+        const isChecked = checkedLower.indexOf(normStr(m)) >= 0;
         return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
           <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
         </label>`;
@@ -6671,8 +6679,8 @@ function renderLeaderboard(){
   // Collect all unique members from projects (excluding leaders)
   const allMembers = new Set();
   projects.forEach(function(p){
-    (p.membersMain||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
-    (p.membersBackup||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(m.toLowerCase())) allMembers.add(m); });
+    (p.membersMain||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(normStr(m))) allMembers.add(m); });
+    (p.membersBackup||[]).forEach(function(m){ if(!LEADERS_EXCLUDE.includes(normStr(m))) allMembers.add(m); });
   });
 
   // Hàm đặt tên con vật ẩn danh — nhất quán theo tên thật (hash đơn giản)
@@ -6688,7 +6696,7 @@ function renderLeaderboard(){
     '🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu','🦉 Cú','🐦 Chim Sẻ','🦔 Nhím Biển',
     '🐡 Cá Nóc','🦋 Bướm Vàng','🐬 Cá Heo Hồng','🦁 Sư Tử Biển'];
   function getAnimalName(name){
-    var key = name.trim().toLowerCase();
+    var key = normStr(name);
     if(!_animalMap[key]){
       _animalMap[key] = ANIMALS[_animalIdx % ANIMALS.length];
       _animalIdx++;
@@ -6699,7 +6707,7 @@ function renderLeaderboard(){
   // Build project data
   const projData = [];
   allMembers.forEach(function(name){
-    var key = 'eval_v7_person_'+name.trim().toLowerCase().replace(/\s+/g,'_');
+    var key = 'eval_v7_person_'+normStr(name).replace(/\s+/g,'_');
     var lv = 'Staff';
     try{ var d=JSON.parse(localStorage.getItem(key)); if(d&&d.currentLevel) lv=d.currentLevel; } catch(e){}
     var ps = calcPersonProjectScore(name, lv);
@@ -6712,7 +6720,7 @@ function renderLeaderboard(){
   var lbProj = document.getElementById('lb-projects');
   if(lbProj){
     var rows1 = projData.map(function(p,i){
-      var isMe = p.name.toLowerCase() === myName;
+      var isMe = normStr(p.name) === myName;
       var displayName = isAdmin ? p.name : (isMe ? ('⭐ '+p.name) : getAnimalName(p.name));
       var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
       var bold = isMe ? ';font-weight:600' : '';
@@ -6756,7 +6764,7 @@ function renderLeaderboard(){
     try{ var myData=JSON.parse(localStorage.getItem(myKey)); targetLevel=myData&&myData.currentLevel?myData.currentLevel:null; } catch(e){}
     // Fallback: find level from projData
     if(!targetLevel){
-      var myEntry = projData.find(function(p){ return p.name.toLowerCase()===myName; });
+      var myEntry = projData.find(function(p){ return normStr(p.name)===myName; });
       if(myEntry) targetLevel = myEntry.level;
     }
   }
@@ -6783,7 +6791,7 @@ function renderLeaderboard(){
       var bench = BENCH[lv]||20;
 
       var rows2 = lvData.map(function(p,i){
-        var isMe = p.name.toLowerCase() === myName;
+        var isMe = normStr(p.name) === myName;
         var displayName = isAdmin ? p.name : (isMe ? ('⭐ '+p.name) : getAnimalName(p.name));
         var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
         var bold = isMe ? ';font-weight:600' : '';
