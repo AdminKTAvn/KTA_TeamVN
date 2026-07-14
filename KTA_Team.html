@@ -1972,7 +1972,7 @@ const TEAM_COLOR = {'Liam':'#8B2E1F','Stuart':'#9B5DE0','Nina':'#E0529B'};
 // Dự án chưa từng có task thật nào trong ActivityLog — điểm đang phụ thuộc hoàn toàn vào
 // Status/Giai đoạn set tay, nên cần Admin rà soát định kỳ để tránh sai lệch
 function projectHasNoActivityLog(p){
-  return !(typeof activityLog!=='undefined' && activityLog.some(t=>t.projectName===p.name));
+  return !(typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name)));
 }
 
 function renderProjects(){
@@ -2129,7 +2129,7 @@ function getPersonProjectStats(personName){
   }
   const hasEvidenceOn = function(p){
     return typeof activityLog!=='undefined' && activityLog.some(function(t){
-      return t.projectName===p.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
     });
   };
   const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>m.toLowerCase()===lower));
@@ -2292,6 +2292,15 @@ function confirmCsvImport(){
 // ═══════════ SCORING ENGINE ═══════════
 
 // Size base scores
+// So sánh tên dự án CHUẨN HOÁ (không phân biệt hoa/thường, bỏ khoảng trắng thừa 2 đầu) — dùng THAY CHO
+// so sánh "===" trực tiếp ở mọi nơi đối chiếu ActivityLog với tên dự án. Lý do: tên dự án lấy từ
+// SharePoint (qua ActivityLog) rất dễ lệch 1 khoảng trắng/chữ hoa-thường so với tên đặt trong Quản lý dự
+// án — so sánh "===" sẽ fail ÂM THẦM (không báo lỗi), khiến hệ thống coi như "chưa có ActivityLog" dù
+// thực ra có, làm sai lệch % Vai trò/Giai đoạn/danh sách SP tự động.
+function sameProjectName(a, b){
+  return (a||'').toString().toLowerCase().trim() === (b||'').toString().toLowerCase().trim();
+}
+
 const SIZE_BASE = {Small:2, Medium:3, Large:5};
 
 // Complexity bonus: max 5 điểm, chia đều theo số mục
@@ -2406,12 +2415,12 @@ function personHasAutoDoneCycle(personName, proj){
   const lower = personName.toLowerCase().trim();
   const isMain = (proj.membersMain||[]).some(function(m){ return m.toLowerCase().trim()===lower; });
   if(!isMain) return false;
-  const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return t.projectName===proj.name; });
+  const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
   if(hasLog){
     const phase = getProjectPhaseLabel(proj.name);
     if(!phaseQualifiesForCycle(phase)) return false;
     return activityLog.some(function(t){
-      return t.projectName===proj.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
     });
   }
   // Chưa có ActivityLog — dùng giá trị tick tay của Admin cho data lịch sử
@@ -2592,7 +2601,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const mainList = proj.membersMain || [];
   const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
 
-  const hasAnyActivityForProject = activityLog.some(function(t){ return t.projectName === proj.name; });
+  const hasAnyActivityForProject = activityLog.some(function(t){ return sameProjectName(t.projectName, proj.name); });
 
   if(!hasAnyActivityForProject){
     // Dự án CHƯA có ActivityLog nào — dùng dữ liệu ban đầu (Status/Giai đoạn set tay), chỉ tính cho Main
@@ -2614,7 +2623,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const getScoreFor = function(name){
     return activityLog
       .filter(function(t){
-        return t.projectName === proj.name &&
+        return sameProjectName(t.projectName, proj.name) &&
           (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim() === name.toLowerCase().trim(); });
       })
       .reduce(function(sum, t){
@@ -2733,7 +2742,7 @@ function calcPersonProjectScore(personName, personLevel){
   }
   const hasEvidenceOn = function(p){
     return typeof activityLog!=='undefined' && activityLog.some(function(t){
-      return t.projectName===p.name && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
+      return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return a.toLowerCase().trim()===lower; });
     });
   };
   // Dự án người này được gán chính thức là Main (tab Quản lý dự án)
@@ -2752,7 +2761,7 @@ function calcPersonProjectScore(personName, personLevel){
       const score = calcProjectScore(p, personLevel, role, personName, explain);
       totalRaw += score;
       const hasActivityData = typeof activityLog!=='undefined' &&
-        activityLog.some(t=>t.projectName===p.name);
+        activityLog.some(t=>sameProjectName(t.projectName,p.name));
       const phasePct = getProjectPhaseCompletionPct(p.name);
       const phaseKey = getProjectPhaseLabel(p.name);
       breakdown.push({
@@ -6050,7 +6059,7 @@ function userPortalSearch(){
   // Find projects — gồm cả Main chính thức lẫn dự án tự động dò được là SP (có task thật trong ActivityLog)
   const myProjects = (projects||[]).filter(p => {
     const isMain = (p.membersMain||[]).some(m=>m.toLowerCase()===lower);
-    const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>t.projectName===p.name && (t.assignedTo||[]).some(a=>a.toLowerCase().trim()===lower));
+    const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(a=>a.toLowerCase().trim()===lower));
     return isMain || hasEvidence;
   });
 
@@ -6274,7 +6283,7 @@ function renderDoneCyclesCheckboxes(members, projId){
   if(!members.length){ field.style.display='none'; box.innerHTML=''; return; }
   field.style.display='block';
   const proj = projId ? (projects||[]).find(x=>x.id===projId) : null;
-  const hasLog = proj && typeof activityLog!=='undefined' && activityLog.some(function(t){ return t.projectName===proj.name; });
+  const hasLog = proj && typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
 
   if(!proj || hasLog){
     // Chế độ TỰ ĐỘNG (dự án mới chưa lưu, hoặc đã có ActivityLog thật)
