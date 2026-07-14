@@ -1699,7 +1699,7 @@ function _extractCandidatesFromExistingData(){
           <option value="SD">SD (15%)</option>
           <option value="DD">DD (40%)</option>
           <option value="CD">CD (75%)</option>
-          <option value="Plan Check">Plan Check — đủ điều kiện 1 chu kỳ (85%)</option>
+          <option value="Plan Check">Plan Check / ID Task — đủ 1 chu kỳ (85%)</option>
           <option value="Bid">Bid — phát sinh thêm (90%)</option>
           <option value="CA">CA — phát sinh thêm / hoặc dự án chỉ làm CA (100%)</option>
         </select>
@@ -1708,9 +1708,9 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-field">
         <label>Loại dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ảnh hưởng tỷ lệ tính tổng điểm dự án — phạm vi công việc rộng/hẹp khác nhau)</span></label>
         <select id="pm-f-projecttype">
-          <option value="ARCH_FULL">Thực hiện trọn bộ hồ sơ kiến trúc (100%)</option>
-          <option value="INTERIOR_FULL">Thực hiện trọn bộ hồ sơ nội thất (80%)</option>
-          <option value="CA_SUPPORT">Chỉ hỗ trợ giai đoạn thi công — CA (60%)</option>
+          <option value="ARCH_FULL">All Architect (100%)</option>
+          <option value="INTERIOR_FULL">Interior Design (80%)</option>
+          <option value="CA_SUPPORT">CA (60%)</option>
         </select>
       </div>
 
@@ -2051,22 +2051,21 @@ function renderProjects(){
     const wNote = (typeof weeklyNoteByProject!=='undefined' && weeklyNoteByProject) ? (weeklyNoteByProject[p.name.toLowerCase().trim()]||'') : '';
     const wPhase = getProjectPhaseLabel(p.name);
     const wPhaseSrc = getProjectPhaseSource(p.name);
-    const wPhaseSrcLabel = {activitylog:'Dò tự động từ ActivityLog thật (task đã log)', weekly:'Dò từ ghi chú Tracker tuần', manual:'Set tay (chưa có bằng chứng tự động)'}[wPhaseSrc] || '';
+    const wPhaseSrcLabel = {activitylog:'Từ ActivityLog thật', weekly:'Từ Tracker tuần', manual:'Set tay'}[wPhaseSrc] || '';
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
-    const wPhaseBonus = wPhase && isBonusPhase(wPhase)
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FDE8F1;color:#A02A6B;font-weight:600;vertical-align:middle" title="Giai đoạn phát sinh thêm, không bắt buộc — dự án chỉ cần đạt Plan Check là đã đủ điều kiện tính 1 chu kỳ để lên level. Tuy nhiên điểm tích lũy VẪN được cộng đầy đủ theo khối lượng thật khi đi tới các mốc này">Bonus</span>`
-      : '';
+    // Đã bỏ badge "Bonus" theo yêu cầu — giai đoạn phát sinh thêm vẫn tính điểm bình thường, không cần nhãn riêng
+    const wPhaseBonus = '';
     const wPhaseCycle = wPhase && phaseQualifiesForCycle(wPhase)
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Dự án đã đạt tối thiểu Plan Check — ĐỦ ĐIỀU KIỆN tính 1 chu kỳ dự án cho Main (để xét Done Cycle/lên level), TÁCH BIỆT với điểm tích lũy đang tính bên dưới">✅ Đủ chu kỳ</span>`
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Đạt Plan Check trở lên — đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
       : '';
     const pType = p.projectType || 'ARCH_FULL';
     const typeBadge = pType !== 'ARCH_FULL'
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#F0E9FB;color:#6B3FA0;font-weight:600;vertical-align:middle" title="Loại dự án: ${PROJECT_TYPE_LABEL[pType]} — nhân hệ số ×${PROJECT_TYPE_MULTIPLIER[pType]} vào tổng điểm dự án (phạm vi công việc hẹp hơn dự án kiến trúc trọn bộ)">${PROJECT_TYPE_LABEL[pType]} ×${PROJECT_TYPE_MULTIPLIER[pType]}</span>`
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#F0E9FB;color:#6B3FA0;font-weight:600;vertical-align:middle" title="Loại dự án: ${PROJECT_TYPE_LABEL[pType]} — ×${PROJECT_TYPE_MULTIPLIER[pType]} tổng điểm">${PROJECT_TYPE_LABEL[pType]} ×${PROJECT_TYPE_MULTIPLIER[pType]}</span>`
       : '';
     const noLog = projectHasNoActivityLog(p);
     const reviewBadge = noLog
-      ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Dự án chưa từng có task thật nào trong ActivityLog — điểm đang tính hoàn toàn theo Status/Giai đoạn set tay bên cạnh, cần rà lại định kỳ">⚠ Chưa có ActivityLog</span>`
-      : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật trong ActivityLog — điểm tự động tính theo % đóng góp thật, Giai đoạn set tay bên cạnh không còn ảnh hưởng">✓ Có ActivityLog</span>`;
+      ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Chưa có task thật — điểm tính theo Status/Giai đoạn set tay">⚠ Chưa có ActivityLog</span>`
+      : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật — điểm tự động tính theo % đóng góp">✓ Có ActivityLog</span>`;
     const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
       const bonusTag = '';
       const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (0%) —';
@@ -2085,7 +2084,7 @@ function renderProjects(){
       <td class="pm-members">${mainTags}${backupTags}${(!mainTags&&!backupTags)?'—':''}</td>
       <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}"${wNote?` title="Tuần này: ${escapeHtml(wNote)}"`:''}>${p.status}</span>${reviewBadge}</td>
       <td>
-        <select onchange="quickSetPhase('${p.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${wPhaseSrc==='manual'||wPhaseSrc==='none'?'#FFFDF8':'var(--color-background-secondary)'};color:var(--color-text-primary);max-width:170px" title="Giá trị NỀN/dự phòng — hệ thống ưu tiên dò tự động từ ActivityLog thật trước, sau đó tới ghi chú Tracker tuần. Ô này chỉ có tác dụng khi CẢ HAI nguồn trên đều chưa có bằng chứng.">
+        <select onchange="quickSetPhase('${p.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${wPhaseSrc==='manual'||wPhaseSrc==='none'?'#FFFDF8':'var(--color-background-secondary)'};color:var(--color-text-primary);max-width:170px" title="Giá trị dự phòng — chỉ dùng khi chưa có ActivityLog/Tracker tuần">
           ${phaseOptions}
         </select>
       </td>
@@ -2435,7 +2434,7 @@ const PHASE_PATTERNS = [
   { phase: 'CD',         regex: /\bcd\b|construction\s*doc/i },
   { phase: 'DD',         regex: /\bdd\b|design\s*development/i },
   { phase: 'SD',         regex: /\bsd\b|schematic|project\s*set[\s-]?up|set[\s-]?up\s*project|kick[\s-]?off|\bbackground\b/i },
-  { phase: 'ID',         regex: /\bid\b/i },
+  { phase: 'Plan Check', regex: /\bid[\s-]?task\b|\bid\b/i }, // ID Task tính chung vào Plan Check (85%)
 ];
 function detectPhaseFromText(text){
   if(!text) return '';
@@ -2522,6 +2521,11 @@ function getProjectPhaseSource(projName){
 // Contribution Score tối thiểu để nhận đủ 100% phần vai trò của mình (Main hoặc SP) — thấp hơn thì scale theo tỷ lệ, chống farm rẻ
 const MIN_SCORE_FOR_FULL_SHARE = 6; // ~tương đương 3 task Medium, hoặc 2 task Major, hoặc 6 task Minor
 
+// Ngưỡng Contribution Score (trên CHÍNH 1 dự án) để coi 1 SP là "lâu dài/gánh vác thực chất" thay vì chỉ
+// hỗ trợ vài task lẻ tẻ — CHỈ dùng khi dự án KHÔNG có Main nào có bằng chứng, để quyết định mở pool SP
+// lên 70% (thay vì giữ trần 30%). ƯỚC LƯỢNG BAN ĐẦU — chỉnh khi có data thật.
+const SP_SUSTAINED_THRESHOLD = 30; // ~tương đương 10 task Major, hoặc 15 task Medium
+
 // ═══ Hệ số theo LOẠI DỰ ÁN (thay cho checkbox CA-only cũ) ═══
 // Phạm vi công việc khác nhau giữa các loại dự án — dùng để tính tỷ lệ trên TỔNG ĐIỂM dự án:
 //   - Thực hiện trọn bộ hồ sơ kiến trúc (ARCH_FULL)     = 100%
@@ -2538,9 +2542,9 @@ const PROJECT_TYPE_MULTIPLIER = {
   'CA_SUPPORT':    0.6,
 };
 const PROJECT_TYPE_LABEL = {
-  'ARCH_FULL':     'Trọn bộ hồ sơ kiến trúc',
-  'INTERIOR_FULL': 'Trọn bộ hồ sơ nội thất',
-  'CA_SUPPORT':    'Chỉ hỗ trợ thi công (CA)',
+  'ARCH_FULL':     'All Architect',
+  'INTERIOR_FULL': 'Interior Design',
+  'CA_SUPPORT':    'CA',
 };
 function getProjectTypeMultiplier(projectType){
   return PROJECT_TYPE_MULTIPLIER[projectType] !== undefined ? PROJECT_TYPE_MULTIPLIER[projectType] : 1.0;
@@ -2642,12 +2646,27 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
 
   let baseShare = 0;
   let mainPool = null;
+  let spPool = null;
+  let spIsSustained = null;
   if(isMainRole){
     mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0; // Có SP thật thì Main còn 70%, không thì Main trọn 100%
     baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
   } else if(myScore > 0){
-    // Không phải Main nhưng có task thật → tự động là SP
-    baseShare = supportsWithEvidence.length > 0 ? 0.3 / supportsWithEvidence.length : 0;
+    // Không phải Main nhưng có task thật → tự động là SP.
+    // Pool của SP:
+    //  - Có Main thật cùng dự án → SP chia 30% (như thường lệ), không xét lâu dài/ít.
+    //  - KHÔNG có Main nào có bằng chứng thật → chỉ mở pool 70% nếu trong nhóm SP có ít nhất 1 người
+    //    "lâu dài" (Contribution Score trên dự án này ≥ SP_SUSTAINED_THRESHOLD — tức đang gánh vác dự án
+    //    thực chất, không chỉ hỗ trợ vài task lẻ tẻ). Nếu cả nhóm đều "SP ít", vẫn giữ trần 30% như cũ,
+    //    tránh cho không 70% giá trị dự án chỉ vì thiếu vài task nhỏ chưa đủ gọi là gánh vác dự án.
+    if(mainsWithEvidence.length > 0){
+      spPool = 0.3;
+    } else {
+      const maxSpScore = supportsWithEvidence.reduce(function(max, name){ return Math.max(max, getScoreFor(name)); }, 0);
+      spIsSustained = maxSpScore >= SP_SUSTAINED_THRESHOLD;
+      spPool = spIsSustained ? 0.7 : 0.3;
+    }
+    baseShare = supportsWithEvidence.length > 0 ? spPool / supportsWithEvidence.length : 0;
   } else {
     return 0;
   }
@@ -2659,6 +2678,8 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   if(explainOut){
     explainOut.isMainRole = isMainRole;
     explainOut.mainPool = mainPool;
+    explainOut.spPool = spPool;
+    explainOut.spIsSustained = spIsSustained;
     explainOut.mainsCount = mainsWithEvidence.length;
     explainOut.spCount = supportsWithEvidence.length;
     explainOut.baseShare = baseShare;
@@ -3667,10 +3688,10 @@ function buildScoreTooltip(p){
   lines.push(`Base (Size ${e.size||p.size}) = ${(e.base??'?')}`);
   lines.push(`+ Bonus độ phức tạp (${e.cxCount??0}/${e.cxTotal??'?'} yếu tố) = +${(e.cxBonus??0).toFixed?e.cxBonus.toFixed(2):e.cxBonus}`);
   lines.push(`= Giá trị gốc = ${((e.base||0)+(e.cxBonus||0)).toFixed(2)}`);
-  const phaseSrcLabel = {activitylog:'dò từ ActivityLog thật', weekly:'dò từ ghi chú Tracker tuần', manual:'set tay', none:'mặc định (chưa dò được)'}[e.phaseSource] || '';
-  const bonusNote = p.phase && isBonusPhase(p.phase) ? ' [giai đoạn phát sinh thêm — không bắt buộc để đủ điều kiện 1 chu kỳ lên level (Plan Check đã đủ), nhưng vẫn cộng điểm tích lũy đầy đủ theo khối lượng thật]' : '';
+  const phaseSrcLabel = {activitylog:'ActivityLog', weekly:'Tracker tuần', manual:'set tay', none:'mặc định'}[e.phaseSource] || '';
+  const bonusNote = p.phase && isBonusPhase(p.phase) ? ' [bonus — không bắt buộc, vẫn tính điểm đầy đủ]' : '';
   lines.push(`× Giai đoạn ${p.phase||'—'} (${Math.round((e.phasePct??1)*100)}%)${phaseSrcLabel?` — ${phaseSrcLabel}`:''}${bonusNote}`);
-  const typeLabel = PROJECT_TYPE_LABEL[e.projectType] || 'Trọn bộ hồ sơ kiến trúc';
+  const typeLabel = PROJECT_TYPE_LABEL[e.projectType] || 'All Architect';
   lines.push(`× Loại dự án: ${typeLabel} (×${e.typeMult??1}) = ${(e.projValue??0).toFixed(2)}`);
 
   if(e.mode === 'fallback'){
@@ -3678,7 +3699,7 @@ function buildScoreTooltip(p){
     lines.push('⚠ Chưa có ActivityLog — tính theo Status/Giai đoạn set tay:');
     lines.push(`× Trạng thái "${e.status}" (hệ số ×${e.statusMult})`);
     if(e.statusMult === 0){
-      lines.push('→ Status = Chưa bắt đầu ⇒ 0 điểm (không tính cho tới khi có ActivityLog thật)');
+      lines.push('→ Chưa bắt đầu ⇒ 0 điểm');
     } else {
       lines.push(`÷ Số Main (${e.mainCount} người)`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
@@ -3691,9 +3712,12 @@ function buildScoreTooltip(p){
       if(e.isMainRole){
         lines.push(`× Tỷ trọng Main: pool ${Math.round((e.mainPool||0)*100)}% ÷ ${e.mainsCount} Main có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
       } else {
-        lines.push(`× Tỷ trọng SP (tự động): pool 30% ÷ ${e.spCount} SP có bằng chứng = ${(e.baseShare*100).toFixed(1)}%`);
+        const spReason = e.mainsCount>0 ? '(có Main)'
+          : e.spIsSustained ? '(SP lâu dài ≥'+SP_SUSTAINED_THRESHOLD+')'
+          : '(SP ít, <'+SP_SUSTAINED_THRESHOLD+')';
+        lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
       }
-      lines.push(`× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE} ngưỡng, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
+      lines.push(`× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   }
@@ -3717,10 +3741,10 @@ function renderProjListTable(breakdown, totalRaw){
     const cx = cxMap[p.name] || 'Simple';
     const rowBg = i%2===0 ? '' : 'background:var(--color-background-secondary)';
     const srcDot = p.source==='activitylog'
-      ? `<span title="Tính từ % đóng góp thật (ActivityLog)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;vertical-align:middle"></span>`
-      : `<span title="Ước lượng theo vai trò + Status (chưa có ActivityLog cho dự án này)" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#BA7517;margin-right:5px;vertical-align:middle"></span>`;
+      ? `<span title="Từ ActivityLog thật" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;vertical-align:middle"></span>`
+      : `<span title="Ước lượng — chưa có ActivityLog" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#BA7517;margin-right:5px;vertical-align:middle"></span>`;
     const phaseBadge = (p.phasePct !== undefined && p.phasePct < 1)
-      ? `<span title="Dự án đang ở giai đoạn ${p.phase||'?'} — chỉ tính ${Math.round(p.phasePct*100)}% tổng điểm, nhận đủ khi dự án Complete" style="font-size:9px;padding:1px 5px;border-radius:6px;background:#E6F1FB;color:#185FA5;margin-left:6px;font-weight:600;white-space:nowrap">${p.phase||'?'} · ${Math.round(p.phasePct*100)}%</span>`
+      ? `<span title="Giai đoạn ${p.phase||'?'} — tính ${Math.round(p.phasePct*100)}% tổng điểm" style="font-size:9px;padding:1px 5px;border-radius:6px;background:#E6F1FB;color:#185FA5;margin-left:6px;font-weight:600;white-space:nowrap">${p.phase||'?'} · ${Math.round(p.phasePct*100)}%</span>`
       : '';
     return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
       <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}${phaseBadge}</td>
@@ -6260,8 +6284,8 @@ function renderDoneCyclesCheckboxes(members, projId){
       const fg = done ? '#3B6D11' : 'var(--color-text-secondary)';
       const icon = done ? '✅' : '—';
       const title = done
-        ? 'Tự động: dự án đã đạt tối thiểu Plan Check và có bằng chứng ActivityLog thật của người này — đủ điều kiện 1 chu kỳ'
-        : 'Chưa đủ điều kiện tự động (cần dự án đạt tối thiểu Plan Check + có task thật của người này trong ActivityLog)';
+        ? 'Đạt Plan Check + có task thật — đủ 1 chu kỳ'
+        : 'Chưa đủ — cần đạt Plan Check + có task thật';
       return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${bg};color:${fg}" title="${title}">${icon} ${escapeHtml(m)}</span>`;
     }).join('');
   } else {
