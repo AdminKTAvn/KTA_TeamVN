@@ -2562,12 +2562,15 @@ function getProjectTypeMultiplier(projectType){
 // Calculate single project score for a person
 // Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
 // SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
-// đều tự động được coi là SP. Không có bằng chứng thật = 0 điểm, bất kể vai trò gì.
+// đều tự động được coi là SP.
 //
-// FALLBACK cho dự án CHƯA CÓ ActivityLog nào (VD dự án cũ trước khi có hệ thống log):
-// dùng "dữ liệu ban đầu" set tay — Status=Complete → 100%, hoặc theo % của "Giai đoạn dự án" bạn tự set —
-// chỉ Main được tính (chia đều nếu nhiều Main), vì không có data để tự dò SP.
-// Ngay khi có ActivityLog thật cho dự án đó, tự động chuyển hẳn sang công thức chính (auto dò SP theo % thật).
+// FALLBACK — áp dụng THEO TỪNG NGƯỜI (không phải theo cả dự án): nếu 1 người có tên trong danh sách
+// Main/Backup set tay nhưng KHÔNG có bằng chứng ActivityLog cá nhân trên dự án đó (VD đã rời dự án từ
+// trước khi hệ thống log hoạt động, không thể có bằng chứng hồi cứu) → dùng "dữ liệu ban đầu" set tay
+// (Status/Giai đoạn, tỷ lệ Main-Backup 70/30 theo danh sách set tay) — ĐÓNG BĂNG, không phụ thuộc việc
+// dự án có ActivityLog thật từ NGƯỜI KHÁC hay chưa, tránh mất điểm oan khi người khác bắt đầu log task.
+// Ngược lại, ai CÓ bằng chứng cá nhân thật thì luôn dùng công thức chính (auto dò SP theo % thật).
+// Không có bằng chứng thật VÀ cũng không có tên trong Main/Backup set tay = 0 điểm.
 //
 // Dự án CA_SUPPORT/INTERIOR_FULL → KHÔNG rẽ công thức riêng nữa, dùng chung công thức chuẩn bên dưới,
 // chỉ nhân thêm hệ số Loại dự án (PROJECT_TYPE_MULTIPLIER) vào projValue — xem giải thích phía trên.
@@ -2599,25 +2602,9 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   if(!personName || typeof activityLog==='undefined') return 0;
   const lower = personName.toLowerCase().trim();
   const mainList = proj.membersMain || [];
+  const backupList = proj.membersBackup || [];
   const isMainRole = mainList.some(function(m){ return m.toLowerCase().trim() === lower; });
-
-  const hasAnyActivityForProject = activityLog.some(function(t){ return sameProjectName(t.projectName, proj.name); });
-
-  if(!hasAnyActivityForProject){
-    // Dự án CHƯA có ActivityLog nào — dùng dữ liệu ban đầu (Status/Giai đoạn set tay), chỉ tính cho Main
-    // QUAN TRỌNG: áp dụng STATUS_MULTIPLIER ở đây — Status="Not Started" phải = 0 điểm cho tới khi có ActivityLog thật
-    const statusMult = getStatusMultiplier(proj.status);
-    const mainCount = mainList.length || 1;
-    if(explainOut){
-      explainOut.mode = 'fallback';
-      explainOut.status = proj.status;
-      explainOut.statusMult = statusMult;
-      explainOut.mainCount = mainCount;
-      explainOut.isMainRole = isMainRole;
-    }
-    if(!isMainRole) return 0; // không có data thì không tự dò được SP, chỉ Main mới được tính
-    return projValue * (1/mainCount) * levelMult * statusMult;
-  }
+  const isBackupRole = backupList.some(function(m){ return m.toLowerCase().trim() === lower; });
 
   // Contribution Score của 1 người trên dự án này — task gán chung nhiều người thì chia đều weight/N
   const getScoreFor = function(name){
@@ -2633,13 +2620,47 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   };
 
   const myScore = getScoreFor(personName);
+
+  if(myScore === 0){
+    // Người này KHÔNG có bằng chứng ActivityLog CÁ NHÂN trên dự án này (dù dự án có thể đã có ActivityLog
+    // thật từ NGƯỜI KHÁC — không liên quan). Nếu cũng không có tên trong Main/Backup set tay → 0 điểm.
+    if(!isMainRole && !isBackupRole) return 0;
+
+    // Có tên trong danh sách Main/Backup set tay nhưng KHÔNG có bằng chứng cá nhân — thường là nhân sự
+    // đã RỜI dự án từ trước khi ActivityLog bắt đầu ghi nhận, nên KHÔNG THỂ có bằng chứng hồi cứu.
+    // Dùng công thức FALLBACK "ĐÓNG BĂNG" cho phần của riêng họ — độc lập, KHÔNG phụ thuộc việc dự án
+    // đã chuyển sang có ActivityLog thật hay chưa (tránh mất điểm oan khi người khác bắt đầu log task).
+    const statusMult = getStatusMultiplier(proj.status);
+    const mainCount = mainList.length || 1;
+    const backupCount = backupList.length;
+    let fallbackShare = 0;
+    if(isMainRole){
+      const mainPool = backupCount > 0 ? 0.7 : 1.0;
+      fallbackShare = mainPool / mainCount;
+    } else if(isBackupRole){
+      const spPool = mainList.length > 0 ? 0.3 : 0.7;
+      fallbackShare = backupCount > 0 ? spPool / backupCount : 0;
+    }
+    if(explainOut){
+      explainOut.mode = 'fallback';
+      explainOut.status = proj.status;
+      explainOut.statusMult = statusMult;
+      explainOut.mainCount = mainCount;
+      explainOut.backupCount = backupCount;
+      explainOut.isMainRole = isMainRole;
+      explainOut.isBackupRole = isBackupRole;
+      explainOut.fallbackShare = fallbackShare;
+    }
+    return projValue * fallbackShare * levelMult * statusMult;
+  }
+
+  // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật
   if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
-  if(myScore === 0) return 0; // Không có bằng chứng thật cho dự án này → 0 điểm, bất kể Status/vai trò gì
 
   // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
   const allContributorNames = [];
   activityLog.forEach(function(t){
-    if(t.projectName !== proj.name) return;
+    if(!sameProjectName(t.projectName, proj.name)) return;
     (t.assignedTo||[]).forEach(function(a){
       const clean = a.trim();
       if(clean && !allContributorNames.some(function(n){ return n.toLowerCase()===clean.toLowerCase(); })) allContributorNames.push(clean);
@@ -2751,6 +2772,14 @@ function calcPersonProjectScore(personName, personLevel){
   const asAutoSupport = _proj.filter(p =>
     !(p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower) && hasEvidenceOn(p)
   );
+  // Dự án người này được gán Backup set tay, dự án CHƯA có ActivityLog nào (không thể tự dò bằng chứng) —
+  // trước đây nhóm này bị bỏ sót hoàn toàn (0 điểm, không hiện trong bảng) dù data Backup đã có sẵn.
+  // Thường gặp với nhân sự đã rời dự án từ trước khi có ActivityLog, không thể có bằng chứng hồi cứu.
+  const asBackupFallback = _proj.filter(p =>
+    !(p.membersMain||[]).some(m=>m.toLowerCase().trim()===lower) &&
+    (p.membersBackup||[]).some(m=>m.toLowerCase().trim()===lower) &&
+    !hasEvidenceOn(p)
+  );
 
   let totalRaw = 0;
   const breakdown = [];
@@ -2760,8 +2789,7 @@ function calcPersonProjectScore(personName, personLevel){
       const explain = {};
       const score = calcProjectScore(p, personLevel, role, personName, explain);
       totalRaw += score;
-      const hasActivityData = typeof activityLog!=='undefined' &&
-        activityLog.some(t=>sameProjectName(t.projectName,p.name));
+      const hasActivityData = explain.mode === 'activitylog';
       const phasePct = getProjectPhaseCompletionPct(p.name);
       const phaseKey = getProjectPhaseLabel(p.name);
       breakdown.push({
@@ -2778,6 +2806,7 @@ function calcPersonProjectScore(personName, personLevel){
 
   addProjects(asMain, 'main');
   addProjects(asAutoSupport, 'support_auto');
+  addProjects(asBackupFallback, 'support_manual');
 
   const benchmark = LEVEL_BENCHMARK[personLevel] || 25;
   const projScore10 = Math.min(10, (totalRaw / benchmark) * 10);
@@ -2786,9 +2815,9 @@ function calcPersonProjectScore(personName, personLevel){
     totalRaw: totalRaw.toFixed(2),
     projScore10: projScore10.toFixed(1),
     benchmark,
-    totalProjects: asMain.length + asAutoSupport.length,
+    totalProjects: asMain.length + asAutoSupport.length + asBackupFallback.length,
     mainCount: asMain.length,
-    backupCount: asAutoSupport.length,
+    backupCount: asAutoSupport.length + asBackupFallback.length,
     breakdown
   };
 }
@@ -3678,11 +3707,13 @@ function toggleProjList(){
 // Role display helpers
 const ROLE_LABEL = {
   main: 'Main',
-  support_auto: 'SP (tự động)'
+  support_auto: 'SP (tự động)',
+  support_manual: 'SP (set tay)'
 };
 const ROLE_COLOR = {
   main: {bg:'#1A1A18', color:'#fff'},
-  support_auto: {bg:'var(--color-background-secondary)', color:'var(--color-text-secondary)'}
+  support_auto: {bg:'var(--color-background-secondary)', color:'var(--color-text-secondary)'},
+  support_manual: {bg:'#FEF3DC', color:'#BA7517'}
 };
 const CX_COLOR = {Simple:'#185FA5', Moderate:'#BA7517', Complex:'#A32D2D'};
 const SIZE_BG = {Small:'#F1EFE8', Medium:'#E6F1FB', Large:'#EAF3DE'};
@@ -3705,12 +3736,15 @@ function buildScoreTooltip(p){
 
   if(e.mode === 'fallback'){
     lines.push('');
-    lines.push('⚠ Chưa có ActivityLog — tính theo Status/Giai đoạn set tay:');
+    lines.push('⚠ Chưa có ActivityLog — tính theo Status/Giai đoạn/Main-Backup set tay:');
     lines.push(`× Trạng thái "${e.status}" (hệ số ×${e.statusMult})`);
     if(e.statusMult === 0){
       lines.push('→ Chưa bắt đầu ⇒ 0 điểm');
-    } else {
-      lines.push(`÷ Số Main (${e.mainCount} người)`);
+    } else if(e.isMainRole){
+      lines.push(`× Tỷ trọng Main: pool ${e.backupCount>0?'70%':'100%'} ÷ ${e.mainCount} Main = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
+      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+    } else if(e.isBackupRole){
+      lines.push(`× Tỷ trọng Backup (set tay): pool ${e.mainCount>0?'30%':'70%'} ÷ ${e.backupCount} Backup = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   } else if(e.mode === 'activitylog'){
