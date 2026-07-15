@@ -1628,6 +1628,10 @@ function _extractCandidatesFromExistingData(){
         <input type="checkbox" id="pm-filter-needreview" onchange="renderProjects()">
         ⚠ Chỉ hiện dự án cần rà (chưa có ActivityLog)
       </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);cursor:pointer;padding:0 4px">
+        <input type="checkbox" id="pm-filter-manualphase" onchange="renderProjects()">
+        📌 Giai đoạn đang set tay (chưa tự động)
+      </label>
     </div>
   </div>
 
@@ -2023,10 +2027,12 @@ function renderProjects(){
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
   const fNeedReview=document.getElementById('pm-filter-needreview')?.checked;
+  const fManualPhase=document.getElementById('pm-filter-manualphase')?.checked;
 
   const filtered = projects.filter(p=>
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
     && (!fNeedReview || projectHasNoActivityLog(p))
+    && (!fManualPhase || getProjectPhaseSource(p.name)==='manual')
   );
 
   // ── Stats ──
@@ -2893,12 +2899,19 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     return 0;
   }
 
-  // Scale theo Contribution Score thật — dưới ngưỡng thì chưa nhận đủ 100% phần của mình
-  const fullnessFactor = Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
+  // Scale theo Contribution Score thật — CHỈ áp dụng cho SP tự dò hoàn toàn (không có tên trong Main/Backup
+  // set tay nào) để chống "1 task lẻ farm điểm". Main/Backup ĐÃ ĐƯỢC SET TAY chính thức thì KHÔNG áp dụng
+  // ngưỡng này nữa — vì việc set tay đồng nghĩa Admin đã xác nhận đây là dữ liệu LỊCH SỬ thật (không phải
+  // "phỏng đoán chờ ActivityLog xác minh lại từ đầu"), và ActivityLog giờ chỉ đóng vai trò BỔ SUNG thêm
+  // (không phải nguồn duy nhất phải gánh đủ ngưỡng). Nếu vẫn áp ngưỡng ở đây, người có dự án đã set tay từ
+  // trước (VD giai đoạn CD) nhưng chỉ mới log 1 task nhỏ sẽ bị kẹt điểm thấp vĩnh viễn dù đã làm việc thật.
+  const isOfficiallyAssigned = isMainRole || isBackupRole;
+  const fullnessFactor = isOfficiallyAssigned ? 1.0 : Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
   const myRatio = baseShare * fullnessFactor;
 
   if(explainOut){
     explainOut.isMainRole = isMainRole;
+    explainOut.isOfficiallyAssigned = isOfficiallyAssigned;
     explainOut.mainPool = mainPool;
     explainOut.spPool = spPool;
     explainOut.spIsSustained = spIsSustained;
@@ -3952,7 +3965,9 @@ function buildScoreTooltip(p){
           : '(SP ít, <'+SP_SUSTAINED_THRESHOLD+')';
         lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
       }
-      lines.push(`× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
+      lines.push(e.isOfficiallyAssigned
+        ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
+        : `× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   }
