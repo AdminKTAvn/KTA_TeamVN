@@ -854,7 +854,7 @@ function applyWeeklyStatusToProjects(){
   weeklyNoteByProject = {};
   weeklyPhaseByProject = {};
   projects.forEach(function(p){
-    const key = (p.name||'').toLowerCase().trim();
+    const key = normStr(p.name);
     const w = weeklyStatus[key];
     if(w && w.badge){
       const mapped = WEEKLY_TO_STATUS_MAP[w.badge.toString().toUpperCase()];
@@ -875,6 +875,24 @@ function applyWeeklyStatusToProjects(){
 
 const AL_IMPACT_WEIGHT = { Major: 3, Medium: 2, Minor: 1 };
 
+// Lọc bỏ HTML thô lẫn vào text (description/notes/knowledge) — nguyên nhân: cột SharePoint kiểu "Rich Text
+// nâng cao" khi Power Automate đọc ra trả về NGUYÊN KHỐI HTML (VD <div class="ExternalClassXXXX">...</div>)
+// thay vì chỉ lấy phần chữ, rồi bị ghi thẳng vào Sheet. Hàm này bóc tách lại phần chữ thật, dùng ở MỌI nơi
+// hiển thị description/notes/knowledge (và cả khi gửi ngữ cảnh cho AI, tránh AI đọc phải rác HTML).
+function stripHtml(s){
+  if(!s) return '';
+  return s.toString()
+    .replace(/<[^>]*>/g, ' ')          // bỏ toàn bộ thẻ HTML
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Tính Contribution Score cho 1 người trên 1 dự án
 function calcContributionPerProject(personName, projectName){
   const tasks = activityLog.filter(function(t){
@@ -894,11 +912,12 @@ function calcContributionPerProject(personName, projectName){
   tasks.forEach(function(t){ if(byImpact[t.impact]!==undefined) byImpact[t.impact]++; });
   const categories = [];
   tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){ if(!categories.includes(c)) categories.push(c); }); });
-  const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return t.knowledge.trim(); });
+  const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return stripHtml(t.knowledge); }).filter(Boolean);
   // Danh sách task rút gọn (mô tả ngắn) để hiển thị ngữ cảnh, mới nhất lên trước
   const taskDetails = tasks
     .filter(function(t){ return t.description && t.description.trim(); })
-    .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: t.description.trim() }; })
+    .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: stripHtml(t.description) }; })
+    .filter(function(td){ return td.description; })
     .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails, lastDate };
 }
@@ -1085,9 +1104,12 @@ async function runAIAnalysis(isOverride){
     const tasks = activityLog.filter(function(t){
       return (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(currentPersonName); });
     }).map(function(t){
-      const proj = (typeof projects!=='undefined' && projects) ? projects.find(function(p){ return (p.name||'').toLowerCase().trim() === (t.projectName||'').toLowerCase().trim(); }) : null;
+      const proj = (typeof projects!=='undefined' && projects) ? projects.find(function(p){ return normStr(p.name) === normStr(t.projectName); }) : null;
       const pType = proj ? (proj.projectType || 'ARCH_FULL') : null;
       return Object.assign({}, t, {
+        description: stripHtml(t.description),
+        notes: stripHtml(t.notes),
+        knowledge: stripHtml(t.knowledge),
         projectPhase: getProjectPhaseLabel(t.projectName),
         projectType: pType ? (PROJECT_TYPE_LABEL[pType] || pType) : ''
       });
@@ -2467,16 +2489,16 @@ function detectPhaseFromText(text){
 // đáng tin hơn ghi chú Tracker tuần (PM nhập tay) hoặc giá trị set tay ban đầu.
 function detectPhaseFromActivityLog(projName){
   if(typeof activityLog === 'undefined' || !activityLog.length) return '';
-  const key = (projName||'').toLowerCase().trim();
+  const key = normStr(projName);
   if(!key) return '';
   const tasks = activityLog
-    .filter(function(t){ return (t.projectName||'').toLowerCase().trim() === key; })
+    .filter(function(t){ return normStr(t.projectName) === key; })
     .slice()
     .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }); // mới nhất trước
   for(let i=0; i<tasks.length; i++){
     const t = tasks[i];
-    const text = [t.description, t.notes, Array.isArray(t.categories)?t.categories.join(' '):t.categories]
-      .filter(Boolean).join(' ');
+    const text = stripHtml([t.description, t.notes, Array.isArray(t.categories)?t.categories.join(' '):t.categories]
+      .filter(Boolean).join(' '));
     const found = detectPhaseFromText(text);
     if(found) return found;
   }
@@ -2491,9 +2513,9 @@ function detectPhaseFromActivityLog(projName){
 // Status = "Complete" vẫn LUÔN được ưu tiên tính đủ 100%, bất kể giai đoạn đang ghi gì (dự án đã xong hẳn).
 // Thứ tự ưu tiên nguồn giai đoạn: (1) ActivityLog thật → (2) ghi chú Tracker tuần → (3) set tay/ghi nhớ trên project → (4) chưa có gì → 0%
 function getProjectPhaseCompletionPct(projName){
-  const key = (projName||'').toLowerCase().trim();
+  const key = normStr(projName);
   if(typeof projects!=='undefined' && projects){
-    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    const proj = projects.find(function(p){ return normStr(p.name) === key; });
     if(proj && proj.status === 'Complete') return 1.0;
   }
   let phase = detectPhaseFromActivityLog(projName);
@@ -2501,7 +2523,7 @@ function getProjectPhaseCompletionPct(projName){
   // Lớp bảo vệ thêm: nếu weeklyPhaseByProject chưa có (VD dự án tạm thời không xuất hiện trong lần đọc Tracker gần nhất),
   // vẫn ưu tiên dùng giai đoạn đã ghi nhớ lâu dài trên chính project, tránh bị "quên" và tính vống.
   if(!phase && typeof projects!=='undefined' && projects){
-    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    const proj = projects.find(function(p){ return normStr(p.name) === key; });
     if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
   }
   if(!phase) return 0; // Chưa xác định giai đoạn nào cả -> chưa có bằng chứng tiến độ -> 0 điểm
@@ -2511,12 +2533,12 @@ function getProjectPhaseCompletionPct(projName){
 // Lấy NHÃN giai đoạn hiện tại của 1 dự án (VD "CD", "Plan Check"...) — không quy đổi ra %, cùng thứ tự
 // ưu tiên nguồn như getProjectPhaseCompletionPct(). Dùng để hiển thị badge trong bảng dự án và gắn ngữ cảnh cho AI.
 function getProjectPhaseLabel(projName){
-  const key = (projName||'').toLowerCase().trim();
+  const key = normStr(projName);
   if(!key) return '';
   let phase = detectPhaseFromActivityLog(projName);
   if(!phase) phase = (typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) ? weeklyPhaseByProject[key] : null;
   if(!phase && typeof projects!=='undefined' && projects){
-    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    const proj = projects.find(function(p){ return normStr(p.name) === key; });
     if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
     if(!phase && proj && proj.status === 'Complete') return 'CA (Complete)';
   }
@@ -2525,11 +2547,11 @@ function getProjectPhaseLabel(projName){
 
 // Cho biết nguồn của giai đoạn đang hiển thị — dùng để chú thích trên UI (badge/tooltip) cho minh bạch
 function getProjectPhaseSource(projName){
-  const key = (projName||'').toLowerCase().trim();
+  const key = normStr(projName);
   if(detectPhaseFromActivityLog(projName)) return 'activitylog';
   if((typeof weeklyPhaseByProject!=='undefined' && weeklyPhaseByProject) && weeklyPhaseByProject[key]) return 'weekly';
   if(typeof projects!=='undefined' && projects){
-    const proj = projects.find(function(p){ return (p.name||'').toLowerCase().trim() === key; });
+    const proj = projects.find(function(p){ return normStr(p.name) === key; });
     if(proj && proj.lastKnownPhase) return 'manual';
   }
   return 'none';
