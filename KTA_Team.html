@@ -946,7 +946,7 @@ function calcContribution(personName){
 
   // Role validation per project (so với KTA projects data)
   const roleValidation = perProject.map(function(pp){
-    const proj = (projects||[]).find(function(p){ return p.name && normStr(p.name).includes(normStr(pp.projectName)); });
+    const proj = (projects||[]).find(function(p){ return p.name && sameProjectName(p.name, pp.projectName); });
     const isMain = proj && (proj.membersMain||[]).some(function(m){ return normStr(m) === normStr(personName); });
     const isSupport = proj && (proj.membersBackup||[]).some(function(m){ return normStr(m) === normStr(personName); });
 
@@ -2229,7 +2229,7 @@ function closeCsvModal(){
 let _pendingSyncSp = []; // [{ projectId, projectName, namesToAdd: [] }]
 
 function computeSyncSpPreview(){
-  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return [];
+  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return { toAdd: [], orphanProjects: [] };
   const result = [];
   projects.forEach(function(p){
     const mainLower = (p.membersMain||[]).map(normStr);
@@ -2253,21 +2253,55 @@ function computeSyncSpPreview(){
       result.push({ projectId: p.id, projectName: p.name, namesToAdd });
     }
   });
-  return result;
+  // Phát hiện tên dự án XUẤT HIỆN trong ActivityLog nhưng KHÔNG khớp với bất kỳ dự án nào trong Quản lý
+  // dự án (VD đặt tên lệch, hoặc dự án chưa được tạo) — nếu không báo riêng, những người CHỈ có task trên
+  // các dự án "mồ côi" này sẽ bị bỏ sót hoàn toàn khỏi kết quả đồng bộ mà không ai biết lý do vì sao.
+  const orphanMap = {};
+  activityLog.forEach(function(t){
+    const key = normStr(t.projectName);
+    if(!key) return;
+    const hasMatch = projects.some(function(p){ return sameProjectName(p.name, t.projectName); });
+    if(hasMatch) return;
+    if(!orphanMap[key]) orphanMap[key] = { projectName: t.projectName, people: {} };
+    (t.assignedTo||[]).forEach(function(a){
+      const clean = (a||'').trim();
+      if(clean) orphanMap[key].people[normStr(clean)] = clean;
+    });
+  });
+  const orphanProjects = Object.keys(orphanMap).map(function(k){
+    return { projectName: orphanMap[k].projectName, people: Object.values(orphanMap[k].people) };
+  });
+  return { toAdd: result, orphanProjects };
 }
 
 function openSyncSpModal(){
   document.getElementById('pm-syncsp-overlay').classList.add('open');
   const box = document.getElementById('pm-syncsp-preview');
   const btn = document.getElementById('pm-syncsp-confirm-btn');
-  _pendingSyncSp = computeSyncSpPreview();
+  const preview = computeSyncSpPreview();
+  _pendingSyncSp = preview.toAdd;
+  const orphans = preview.orphanProjects || [];
+
+  let orphanHtml = '';
+  if(orphans.length){
+    orphanHtml = `<div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:#FEF3DC;border:0.5px solid #E8B84B">
+      <div style="font-size:12px;font-weight:600;color:#BA7517;margin-bottom:6px">⚠ ${orphans.length} tên dự án trong ActivityLog KHÔNG khớp với dự án nào trong Quản lý dự án — không thể tự thêm SP, cần bạn kiểm tra tên dự án trước:</div>`
+      + orphans.map(function(o){
+        return `<div style="font-size:11.5px;color:#8A5A0F;margin:3px 0"><b>${escapeHtml(o.projectName)}</b> — ${o.people.map(escapeHtml).join(', ')}</div>`;
+      }).join('')
+      + `</div>`;
+  }
+
   if(!_pendingSyncSp.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.</div>';
+    box.innerHTML = orphanHtml + '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">'
+      + (orphans.length ? 'Không có ai cần đồng bộ vào dự án đã tồn tại — nhưng xem cảnh báo phía trên.' : '✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.')
+      + '</div>';
     btn.disabled = true;
     return;
   }
   const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
-  box.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
+  box.innerHTML = orphanHtml
+    + `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
     + _pendingSyncSp.map(function(r){
       return `<div style="padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
         <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.projectName)}</div>
@@ -2433,8 +2467,30 @@ function normStr(s){
   return (s||'').toString().toLowerCase().trim().replace(/\s+/g,' ');
 }
 
+// projectAliasMap: gộp 2 chiều từ ProjectMapping (SharePointName <-> TrackerName) — cho phép nhận diện
+// "25-19 Los Robles" (ActivityLog, tên đầy đủ kiểu SharePoint) và "Los Robles" (nếu app đang đặt tên dự
+// án theo kiểu rút gọn của Tracker) là CÙNG 1 dự án. Được nạp lại mỗi khi loadAll() trả dữ liệu mới.
+let projectAliasMap = {};
+function buildProjectAliasMap(mapping){
+  projectAliasMap = {};
+  if(!mapping) return;
+  Object.keys(mapping).forEach(function(spKeyNorm){
+    const tk = mapping[spKeyNorm];
+    const tkNorm = normStr(tk);
+    if(spKeyNorm && tkNorm){
+      projectAliasMap[spKeyNorm] = tkNorm;
+      projectAliasMap[tkNorm] = spKeyNorm;
+    }
+  });
+}
+
 function sameProjectName(a, b){
-  return normStr(a) === normStr(b);
+  const na = normStr(a), nb = normStr(b);
+  if(na === nb) return true;
+  // Không khớp trực tiếp -> thử tra qua ProjectMapping (tên SharePoint đầy đủ <-> tên Tracker rút gọn)
+  if(projectAliasMap[na] && projectAliasMap[na] === nb) return true;
+  if(projectAliasMap[nb] && projectAliasMap[nb] === na) return true;
+  return false;
 }
 
 const SIZE_BASE = {Small:2, Medium:3, Large:5};
@@ -5705,6 +5761,10 @@ async function sheetsLoadAllFresh(){
         localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
       }
+      if(data.projectMapping){
+        buildProjectAliasMap(data.projectMapping);
+        try{ localStorage.setItem('teamhub_project_alias_map', JSON.stringify(data.projectMapping)); }catch(e){}
+      }
       if(data.weeklyStatus){
         weeklyStatus = data.weeklyStatus;
         try{ localStorage.setItem('teamhub_weekly_status', JSON.stringify(weeklyStatus)); }catch(e){}
@@ -5762,6 +5822,10 @@ async function sheetsLoadAll(){
         activityLog = data2.activityLog;
         localStorage.setItem('teamhub_activity_log', JSON.stringify(activityLog));
         if(currentPersonName && typeof renderActivityLog==='function') renderActivityLog(currentPersonName);
+      }
+      if(data2.projectMapping){
+        buildProjectAliasMap(data2.projectMapping);
+        try{ localStorage.setItem('teamhub_project_alias_map', JSON.stringify(data2.projectMapping)); }catch(e){}
       }
       if(data2.weeklyStatus){
         weeklyStatus = data2.weeklyStatus;
