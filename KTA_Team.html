@@ -1600,7 +1600,6 @@ function _extractCandidatesFromExistingData(){
       <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
       <button class="pm-add-btn" style="background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)" onclick="openCsvModal()">⬆ Nhập từ CSV</button>
       <button class="pm-add-btn" style="background:#E6F1FB;color:#185FA5;border:0.5px solid #378ADD" onclick="openSyncSpModal()">👥 Đồng bộ SP từ ActivityLog</button>
-      <button class="pm-add-btn" style="background:#FEF3DC;color:#BA7517;border:0.5px solid #E8B84B" onclick="openDupCheckModal()">🔍 Rà soát nghi trùng ActivityLog</button>
       <button class="pm-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveProjectsManual()">💾 Lưu dữ liệu</button>
       <span id="pm-save-toast" style="font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px;display:none">✓ Đã lưu!</span>
     </div>
@@ -1829,26 +1828,6 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-modal-actions">
         <button class="pm-btn-cancel" onclick="closeSyncSpModal()">Huỷ</button>
         <button class="pm-btn-save" onclick="confirmSyncSp()" id="pm-syncsp-confirm-btn" disabled>Thêm vào Backup</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="pm-modal-overlay" id="pm-dupcheck-overlay">
-    <div class="pm-modal" style="max-width:820px">
-      <div class="pm-modal-title">Rà soát nghi trùng ActivityLog</div>
-      <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
-        Liệt kê các cụm có <b>từ 2 dòng trở lên</b> cùng dự án + người + ngày trong ActivityLog — <b>KHÔNG
-        tự động xoá/gộp gì cả</b>, chỉ báo cáo để bạn tự mắt xem mô tả từng dòng và quyết định. Tick vào
-        các dòng bạn xác nhận là <b>trùng thật</b> (cùng 1 task bị ghi lặp) rồi bấm Xoá — dòng nào là 2
-        task thật khác nhau thì để nguyên, không tick.
-        <div style="margin-top:6px;color:#BA7517;font-weight:600">⚠ Thao tác xoá không thể hoàn tác — đọc kỹ mô tả từng dòng trước khi tick.</div>
-      </div>
-      <div id="pm-dupcheck-preview" style="max-height:420px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px">
-        <div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">Đang quét ActivityLog...</div>
-      </div>
-      <div class="pm-modal-actions">
-        <button class="pm-btn-cancel" onclick="closeDupCheckModal()">Đóng</button>
-        <button class="pm-btn-save" style="background:#B5482F" onclick="confirmDeleteDuplicates()" id="pm-dupcheck-confirm-btn" disabled>🗑 Xoá các dòng đã tick (0)</button>
       </div>
     </div>
   </div>
@@ -2360,93 +2339,6 @@ function confirmSyncSp(){
   renderProjects();
   const toast = document.getElementById('pm-save-toast');
   if(toast){ toast.textContent = `✓ Đã thêm ${totalNames} người vào Backup!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
-}
-
-// ═══════════ RÀ SOÁT NGHI TRÙNG ACTIVITYLOG ═══════════
-// KHÔNG tự động đoán/xoá gì cả — chỉ liệt kê các cụm cùng dự án+người+ngày có ≥2 dòng để Admin tự mắt
-// xem mô tả từng dòng và tick chọn dòng nào là trùng thật để xoá tay. An toàn hơn hẳn so với việc thuật
-// toán tự đoán theo nội dung (đã có bài học thực tế: 2 task khác nhau bị đoán nhầm là trùng).
-async function openDupCheckModal(){
-  document.getElementById('pm-dupcheck-overlay').classList.add('open');
-  const box = document.getElementById('pm-dupcheck-preview');
-  const btn = document.getElementById('pm-dupcheck-confirm-btn');
-  box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">Đang quét ActivityLog...</div>';
-  btn.disabled = true;
-  try{
-    const pw = getRolePw();
-    const res = await sheetsRequest(null, { action: 'findDuplicateActivity', password: pw });
-    if(!res || !res.ok){
-      box.innerHTML = '<div style="font-size:12px;color:#B5482F;text-align:center;padding:20px">Lỗi: '+escapeHtml((res&&res.error)||'không rõ nguyên nhân')+'</div>';
-      return;
-    }
-    _dupCheckGroups = res.groups || [];
-    renderDupCheckPreview();
-  } catch(ex){
-    box.innerHTML = '<div style="font-size:12px;color:#B5482F;text-align:center;padding:20px">Lỗi: '+escapeHtml(ex.message)+'</div>';
-  }
-}
-
-let _dupCheckGroups = [];
-function renderDupCheckPreview(){
-  const box = document.getElementById('pm-dupcheck-preview');
-  const btn = document.getElementById('pm-dupcheck-confirm-btn');
-  if(!_dupCheckGroups.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">✓ Không tìm thấy cụm nào nghi trùng (không có dự án+người+ngày nào lặp lại).</div>';
-    btn.disabled = true;
-    btn.textContent = '🗑 Xoá các dòng đã tick (0)';
-    return;
-  }
-  box.innerHTML = _dupCheckGroups.map(function(g, gi){
-    return `<div style="margin-bottom:14px;border:0.5px solid var(--color-border-tertiary);border-radius:8px;overflow:hidden">
-      <div style="padding:8px 12px;background:var(--color-background-secondary);font-size:12px;font-weight:600">
-        ${escapeHtml(g.projectName)} · ${escapeHtml(g.assignedTo)} · ${escapeHtml(g.date)} — ${g.rows.length} dòng
-      </div>
-      ${g.rows.map(function(r){
-        return `<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:0.5px solid var(--color-border-tertiary);cursor:pointer">
-          <input type="checkbox" style="margin-top:3px" onchange="updateDupCheckCount()" data-rownum="${r.rowNumber}">
-          <div style="flex:1;font-size:12px">
-            <div style="color:var(--color-text-primary)">${escapeHtml(r.description||'(không có mô tả)')}</div>
-            <div style="color:var(--color-text-tertiary);margin-top:2px;font-size:11px">${escapeHtml(r.category||'')} ${r.impact?'· '+escapeHtml(r.impact):''} ${r.notes?'· Notes: '+escapeHtml(r.notes):''} · dòng Sheet #${r.rowNumber}</div>
-          </div>
-        </label>`;
-      }).join('')}
-    </div>`;
-  }).join('');
-  btn.disabled = true;
-  btn.textContent = '🗑 Xoá các dòng đã tick (0)';
-}
-
-function updateDupCheckCount(){
-  const checked = document.querySelectorAll('#pm-dupcheck-preview input[type=checkbox]:checked');
-  const btn = document.getElementById('pm-dupcheck-confirm-btn');
-  btn.disabled = checked.length === 0;
-  btn.textContent = `🗑 Xoá các dòng đã tick (${checked.length})`;
-}
-
-function closeDupCheckModal(){
-  document.getElementById('pm-dupcheck-overlay').classList.remove('open');
-}
-
-async function confirmDeleteDuplicates(){
-  const checked = Array.from(document.querySelectorAll('#pm-dupcheck-preview input[type=checkbox]:checked'));
-  if(!checked.length) return;
-  const rowNumbers = checked.map(function(cb){ return parseInt(cb.getAttribute('data-rownum'), 10); }).filter(Boolean);
-  if(!confirm(`Xoá vĩnh viễn ${rowNumbers.length} dòng đã tick khỏi Sheet ActivityLog? KHÔNG thể hoàn tác.`)) return;
-  const btn = document.getElementById('pm-dupcheck-confirm-btn');
-  btn.disabled = true; btn.textContent = '⏳ Đang xoá...';
-  try{
-    const pw = getRolePw();
-    const res = await sheetsRequest(null, { action: 'deleteActivityRows', password: pw, rowNumbers: rowNumbers });
-    if(!res || !res.ok){ alert('Lỗi: ' + ((res&&res.error)||'không rõ nguyên nhân')); return; }
-    alert(`✓ Đã xoá ${res.deleted} dòng.`);
-    closeDupCheckModal();
-    if(typeof sheetsLoadAllFresh==='function') await sheetsLoadAllFresh();
-    else if(typeof sheetsLoadAll==='function') await sheetsLoadAll();
-  } catch(ex){
-    alert('Lỗi khi xoá: ' + ex.message);
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 function handleCsvFile(evt){
