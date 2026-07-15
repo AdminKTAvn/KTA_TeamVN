@@ -1598,6 +1598,7 @@ function _extractCandidatesFromExistingData(){
     <div style="display:flex;gap:8px;align-items:center">
       <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
       <button class="pm-add-btn" style="background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)" onclick="openCsvModal()">⬆ Nhập từ CSV</button>
+      <button class="pm-add-btn" style="background:#E6F1FB;color:#185FA5;border:0.5px solid #378ADD" onclick="openSyncSpModal()">👥 Đồng bộ SP từ ActivityLog</button>
       <button class="pm-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveProjectsManual()">💾 Lưu dữ liệu</button>
       <span id="pm-save-toast" style="font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px;display:none">✓ Đã lưu!</span>
     </div>
@@ -1802,6 +1803,26 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-modal-actions">
         <button class="pm-btn-cancel" onclick="closeCsvModal()">Huỷ</button>
         <button class="pm-btn-save" onclick="confirmCsvImport()" id="pm-csv-confirm-btn" disabled>Nhập dữ liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pm-modal-overlay" id="pm-syncsp-overlay">
+    <div class="pm-modal" style="max-width:640px">
+      <div class="pm-modal-title">Đồng bộ SP từ ActivityLog vào danh sách Backup</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
+        Quét toàn bộ ActivityLog, tìm những người có task thật trên 1 dự án nhưng KHÔNG phải Main và
+        CHƯA có tên trong danh sách Backup của dự án đó → thêm tên họ vào Backup, để hiện rõ trong bảng
+        thay vì chỉ tính điểm ngầm phía sau. <strong style="color:var(--color-text-primary)">Không ảnh
+        hưởng gì tới cách tính điểm</strong> (điểm SP vốn đã tự động tính từ ActivityLog thật từ trước,
+        việc này chỉ giúp danh sách Backup hiển thị đúng thực tế).
+      </div>
+      <div id="pm-syncsp-preview" style="max-height:320px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px">
+        <div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">Đang quét ActivityLog...</div>
+      </div>
+      <div class="pm-modal-actions">
+        <button class="pm-btn-cancel" onclick="closeSyncSpModal()">Huỷ</button>
+        <button class="pm-btn-save" onclick="confirmSyncSp()" id="pm-syncsp-confirm-btn" disabled>Thêm vào Backup</button>
       </div>
     </div>
   </div>
@@ -2155,9 +2176,16 @@ function getPersonProjectStats(personName){
     });
   };
   const asMain = _proj.filter(p=>(p.membersMain||[]).some(m=>normStr(m)===lower));
-  // SP giờ tự động dò từ ActivityLog (không phải Main nhưng có task thật), không dựa vào danh sách Backup tĩnh nữa
+  // SP tự động dò từ ActivityLog (không phải Main nhưng có task thật)
   const asBackup = _proj.filter(p=> !(p.membersMain||[]).some(m=>normStr(m)===lower) && hasEvidenceOn(p));
-  const involved = [...asMain, ...asBackup];
+  // SP set tay (Backup) trên dự án CHƯA có ActivityLog nào — trước đây bị bỏ sót khỏi tổng số dự án,
+  // gây lệch số lượng hiển thị so với bảng chi tiết (vốn đã tính đúng qua calcPersonProjectScore).
+  const asBackupFallback = _proj.filter(p=>
+    !(p.membersMain||[]).some(m=>normStr(m)===lower) &&
+    (p.membersBackup||[]).some(m=>normStr(m)===lower) &&
+    !hasEvidenceOn(p)
+  );
+  const involved = [...asMain, ...asBackup, ...asBackupFallback];
 
   const bySize = {Small:0,Medium:0,Large:0};
   const byComplexity = {Simple:0,Moderate:0,Complex:0};
@@ -2170,7 +2198,7 @@ function getPersonProjectStats(personName){
   return {
     total: involved.length,
     mainCount: asMain.length,
-    backupCount: asBackup.length,
+    backupCount: asBackup.length + asBackupFallback.length,
     bySize, byComplexity, complete,
     projects: involved
   };
@@ -2192,6 +2220,84 @@ function openCsvModal(){
 }
 function closeCsvModal(){
   document.getElementById('pm-csv-overlay').classList.remove('open');
+}
+
+// ═══════════ ĐỒNG BỘ SP TỪ ACTIVITYLOG VÀO DANH SÁCH BACKUP ═══════════
+// Quét ActivityLog, tìm người có task thật trên 1 dự án nhưng KHÔNG phải Main và CHƯA có tên trong
+// Backup của dự án đó -> đề xuất thêm vào Backup. CHỈ đề xuất/ghi khi Admin bấm xác nhận, không tự
+// động chạy ngầm mỗi lần load app (tránh sửa dữ liệu ngoài ý muốn không kiểm soát được).
+let _pendingSyncSp = []; // [{ projectId, projectName, namesToAdd: [] }]
+
+function computeSyncSpPreview(){
+  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return [];
+  const result = [];
+  projects.forEach(function(p){
+    const mainLower = (p.membersMain||[]).map(normStr);
+    const backupLower = (p.membersBackup||[]).map(normStr);
+    // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
+    const contributorsLower = {};
+    activityLog.forEach(function(t){
+      if(!sameProjectName(t.projectName, p.name)) return;
+      (t.assignedTo||[]).forEach(function(a){
+        const clean = (a||'').trim();
+        if(clean) contributorsLower[normStr(clean)] = clean;
+      });
+    });
+    const namesToAdd = [];
+    Object.keys(contributorsLower).forEach(function(key){
+      if(mainLower.indexOf(key) === -1 && backupLower.indexOf(key) === -1){
+        namesToAdd.push(contributorsLower[key]);
+      }
+    });
+    if(namesToAdd.length){
+      result.push({ projectId: p.id, projectName: p.name, namesToAdd });
+    }
+  });
+  return result;
+}
+
+function openSyncSpModal(){
+  document.getElementById('pm-syncsp-overlay').classList.add('open');
+  const box = document.getElementById('pm-syncsp-preview');
+  const btn = document.getElementById('pm-syncsp-confirm-btn');
+  _pendingSyncSp = computeSyncSpPreview();
+  if(!_pendingSyncSp.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.</div>';
+    btn.disabled = true;
+    return;
+  }
+  const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
+  box.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
+    + _pendingSyncSp.map(function(r){
+      return `<div style="padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.projectName)}</div>
+        <div style="margin-top:4px">${r.namesToAdd.map(function(n){
+          return `<span class="pm-role-tag pm-role-backup" style="margin-right:4px">${escapeHtml(n)}</span>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+  btn.disabled = false;
+}
+
+function closeSyncSpModal(){
+  document.getElementById('pm-syncsp-overlay').classList.remove('open');
+}
+
+function confirmSyncSp(){
+  if(!_pendingSyncSp.length) return;
+  const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
+  if(!confirm(`Thêm ${totalNames} người vào danh sách Backup của ${_pendingSyncSp.length} dự án? Việc này chỉ ảnh hưởng hiển thị, không đổi cách tính điểm (SP vốn đã tự tính từ ActivityLog thật).`)) return;
+  _pendingSyncSp.forEach(function(r){
+    const p = projects.find(function(x){ return x.id === r.projectId; });
+    if(!p) return;
+    p.membersBackup = (p.membersBackup||[]).concat(r.namesToAdd);
+    p.members = [...(p.membersMain||[]), ...p.membersBackup];
+  });
+  persistProjects();
+  closeSyncSpModal();
+  renderProjects();
+  const toast = document.getElementById('pm-save-toast');
+  if(toast){ toast.textContent = `✓ Đã thêm ${totalNames} người vào Backup!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
 }
 
 function handleCsvFile(evt){
@@ -6120,11 +6226,13 @@ function userPortalSearch(){
   if(!name) return;
   const lower = normStr(name);
 
-  // Find projects — gồm cả Main chính thức lẫn dự án tự động dò được là SP (có task thật trong ActivityLog)
+  // Find projects — gồm Main chính thức, SP tự động dò (có task thật ActivityLog), và SP set tay trên
+  // dự án chưa có ActivityLog nào (đồng bộ với calcPersonProjectScore/getPersonProjectStats)
   const myProjects = (projects||[]).filter(p => {
     const isMain = (p.membersMain||[]).some(m=>normStr(m)===lower);
     const hasEvidence = typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(a=>normStr(a)===lower));
-    return isMain || hasEvidence;
+    const isBackupNoLog = !isMain && (p.membersBackup||[]).some(m=>normStr(m)===lower) && !hasEvidence;
+    return isMain || hasEvidence || isBackupNoLog;
   });
 
   // Find eval data
