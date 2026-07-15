@@ -6618,24 +6618,28 @@ function renderMonthlyPerformance(){
 
   const LEVEL_BADGE_BG = {'Staff':'#E6F1FB','Senior':'#EAF3DE','Key Member':'#FDE8F1','Leader':'#FAECE7'};
   const LEVEL_BADGE_TEXT = {'Staff':'#185FA5','Senior':'#3B6D11','Key Member':'#A02A6B','Leader':'#993C1D'};
-  const list = rows.slice().sort((a,b)=> a.rankInLevel - b.rankInLevel);
+  // Xếp hạng TOÀN TEAM theo điểm số thực tế (Contribution Score), không còn nhóm theo hạng-trong-Level nữa
+  // — tránh hiểu lầm như trước (VD Staff #1 điểm 8 xếp cạnh Leader #1 điểm 50 vì cùng mang số 1).
+  // rankInLevel vẫn hiển thị bên cạnh dạng phụ, cho ai cần so trong chính Level của mình.
+  const list = rows.slice().sort((a,b)=> (Number(b.contributionScore)||0) - (Number(a.contributionScore)||0));
   const maxScore = Math.max.apply(null, list.map(r=>Number(r.contributionScore)||0));
-  const rowsHtml = list.map(r=>{
+  const rowsHtml = list.map((r,i)=>{
+    const teamRank = i+1;
     const pct = maxScore>0 ? Math.round((Number(r.contributionScore)||0)/maxScore*100) : 0;
     const lvBg = LEVEL_BADGE_BG[r.level] || 'var(--color-background-secondary)';
     const lvText = LEVEL_BADGE_TEXT[r.level] || 'var(--color-text-secondary)';
     return `<div style="padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
       <div style="display:flex;align-items:center;gap:8px;font-size:12px">
-        <span style="width:22px;color:var(--color-text-tertiary);flex-shrink:0">#${r.rankInLevel}</span>
+        <span style="width:22px;color:var(--color-text-tertiary);flex-shrink:0" title="Hạng toàn team">#${teamRank}</span>
         <span style="width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${_mbEscape(r.personName)}</span>
-        <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${lvBg};color:${lvText};font-weight:600;flex-shrink:0;white-space:nowrap">${_mbEscape(r.level)}</span>
+        <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${lvBg};color:${lvText};font-weight:600;flex-shrink:0;white-space:nowrap" title="Hạng #${r.rankInLevel}/${r.totalInLevel} trong Level ${r.level}">${_mbEscape(r.level)} #${r.rankInLevel}</span>
         <div style="flex:1;height:8px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#378ADD,#185FA5);width:${pct}%"></div></div>
         <span style="width:60px;text-align:right;font-weight:600;flex-shrink:0">${r.contributionScore} <span style="font-weight:400;color:var(--color-text-tertiary);font-size:10px">(${r.taskCount}tk)</span></span>
       </div>
       ${r.evidence ? `<div style="font-size:11px;color:var(--color-text-tertiary);margin:3px 0 0 30px;line-height:1.5">📌 ${_mbEscape(r.evidence)}</div>` : ''}
     </div>`;
   }).join('');
-  tableEl.innerHTML = `<div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Toàn team (${list.length} người)</div>${rowsHtml}`;
+  tableEl.innerHTML = `<div style="font-size:11px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Xếp hạng toàn team (${list.length} người, theo điểm thực tế)</div>${rowsHtml}`;
 }
 
 function _mpFmtMonth(m){
