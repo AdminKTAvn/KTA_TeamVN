@@ -2910,6 +2910,34 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const fullnessFactor = isOfficiallyAssigned ? 1.0 : Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
   const myRatio = baseShare * fullnessFactor;
 
+  // Hệ số Level tính theo Level TẠI THỜI ĐIỂM làm dự án (không phải Level hiện tại) — tra levelHistory
+  // theo ngày task GẦN NHẤT của chính người này trên dự án này. Lý do: 1 người hiện đang Senior nhưng dự
+  // án Large đó họ làm lúc còn Staff (Staff×Large=0, ngoài tầm) thì phải tính đúng theo lúc đó, không phải
+  // tính theo Level bây giờ (sẽ sai lệch lịch sử, có thể tính hệ số cao hơn/thấp hơn thực tế đáng ra có).
+  // CHỈ áp dụng ở nhánh có ActivityLog thật (có ngày cụ thể để tra) — nhánh fallback (chưa có ActivityLog)
+  // không có ngày task nào để tra, nên vẫn giữ dùng Level hiện tại như cũ (levelMult tính sẵn ở đầu hàm).
+  let historicalLevelMult = levelMult;
+  if(typeof members !== 'undefined' && members){
+    const myTaskDates = activityLog
+      .filter(function(t){ return sameProjectName(t.projectName, proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; }); })
+      .map(function(t){ return t.date || ''; })
+      .filter(Boolean)
+      .sort();
+    const lastTaskDate = myTaskDates.length ? myTaskDates[myTaskDates.length-1] : null;
+    if(lastTaskDate){
+      const memberRec = members.find(function(m){ return normStr(m.name) === lower; });
+      if(memberRec){
+        const levelAtThatTime = getLevelAtDate(memberRec, lastTaskDate);
+        historicalLevelMult = LEVEL_SIZE_MULTIPLIER[levelAtThatTime]?.[proj.size] ?? 0;
+        if(explainOut){
+          explainOut.levelAtTaskTime = levelAtThatTime;
+          explainOut.lastTaskDate = lastTaskDate;
+          explainOut.levelMultHistorical = historicalLevelMult;
+        }
+      }
+    }
+  }
+
   if(explainOut){
     explainOut.isMainRole = isMainRole;
     explainOut.isOfficiallyAssigned = isOfficiallyAssigned;
@@ -2923,7 +2951,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.myRatio = myRatio;
   }
 
-  return projValue * myRatio * levelMult;
+  return projValue * myRatio * historicalLevelMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
@@ -3969,7 +3997,9 @@ function buildScoreTooltip(p){
       lines.push(e.isOfficiallyAssigned
         ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
         : `× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
-      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+      lines.push(e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
+        ? `× Hệ số Level ${e.levelAtTaskTime} (tại thời điểm ${e.lastTaskDate}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultHistorical}`
+        : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   }
   lines.push('');
