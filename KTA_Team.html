@@ -735,6 +735,7 @@ function msToggle(cid, name){
   _syncMsDisplay(cid, selected);
   _syncMsOpts(cid, selected);
   if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected, document.getElementById('pm-edit-id')?.value || null);
+  if(cid==='pm-ms-main' || cid==='pm-ms-backup') renderCustomAllocRows();
 }
 
 function msRemove(cid, name){
@@ -746,6 +747,7 @@ function msRemove(cid, name){
   _syncMsDisplay(cid, selected);
   _syncMsOpts(cid, selected);
   if(cid==='pm-ms-main') renderDoneCyclesCheckboxes(selected, document.getElementById('pm-edit-id')?.value || null);
+  if(cid==='pm-ms-main' || cid==='pm-ms-backup') renderCustomAllocRows();
 }
 
 function _syncMsDisplay(cid, selected){
@@ -1709,6 +1711,17 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="pm-f-customalloc-enable" onchange="toggleCustomAllocation()">
+          🎯 Tỷ lệ chia điểm tuỳ chỉnh <span style="font-weight:400;color:var(--color-text-tertiary)">(GHI ĐÈ hoàn toàn công thức tự động Main/SP/fallback — chỉ dùng khi cần set tay đặc biệt cho riêng dự án này)</span>
+        </label>
+        <div id="pm-customalloc-box" style="display:none;margin-top:8px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px">
+          <div id="pm-customalloc-rows"></div>
+          <div id="pm-customalloc-total" style="font-size:12px;margin-top:8px;font-weight:600"></div>
+        </div>
+      </div>
+
+      <div class="pm-field">
         <label>Tình trạng hoạt động</label>
         <select id="pm-f-status">
           <option value="Not Started">Chưa bắt đầu</option>
@@ -1909,6 +1922,10 @@ function openProjectModal(editId){
     createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', p.membersBackup||[]);
     // Hiển thị tự động trạng thái Chu kỳ dự án cho project đang sửa
     renderDoneCyclesCheckboxes(p.membersMain||[], editId);
+    // Nạp Tỷ lệ chia điểm tuỳ chỉnh đã lưu (nếu có)
+    window._customAllocInit = p.customAllocation || {};
+    document.getElementById('pm-f-customalloc-enable').checked = !!(p.customAllocation && Object.keys(p.customAllocation).length);
+    toggleCustomAllocation();
   } else {
     document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
     document.getElementById('pm-edit-id').value='';
@@ -1922,6 +1939,9 @@ function openProjectModal(editId){
     createMsDropdown('pm-ms-main',  'Chọn nhân sự Main...',   []);
     createMsDropdown('pm-ms-backup','Chọn nhân sự Backup...', []);
     renderDoneCyclesCheckboxes([], null);
+    window._customAllocInit = {};
+    document.getElementById('pm-f-customalloc-enable').checked = false;
+    toggleCustomAllocation();
     CX_KEYS.forEach(k=>{ document.getElementById(k).checked=false; });
     updateComplexityPreview();
   }
@@ -1963,6 +1983,8 @@ function saveProject(){
     return !!document.getElementById('dcm-'+normStr(m).replace(/\s+/g,'_'));
   });
 
+  const customAllocation = getCustomAllocationFromForm();
+
   if(editId){
     const p = projects.find(x=>x.id===editId);
     if(p){
@@ -1970,6 +1992,7 @@ function saveProject(){
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes; p.projectType=projectType;
+      p.customAllocation = customAllocation; // null nếu không bật -> dùng công thức tự động
       if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
@@ -1980,6 +2003,7 @@ function saveProject(){
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
       status, notes, createdAt: Date.now(), projectType,
+      customAllocation: customAllocation,
       lastKnownPhase: phase || '',
       doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
       complexity, complexityLevel, complexityCount: cxCount,
@@ -2799,6 +2823,17 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   }
 
   if(!personName || typeof activityLog==='undefined') return 0;
+
+  // ═══ Tỷ lệ chia điểm TUỲ CHỈNH (set riêng cho từng dự án) — nếu có, GHI ĐÈ hoàn toàn công thức tự
+  // động Main/SP/fallback bên dưới. Vẫn dùng chung projValue (Base/Giai đoạn/Loại dự án) và Hệ số Level
+  // hiện tại — chỉ thay phần "% Vai trò" bằng con số Admin tự nhập.
+  if(proj.customAllocation && Object.keys(proj.customAllocation).length){
+    const lowerForAlloc = normStr(personName);
+    const matchKey = Object.keys(proj.customAllocation).find(function(k){ return normStr(k) === lowerForAlloc; });
+    if(explainOut){ explainOut.mode = 'custom_allocation'; explainOut.customAllocationPct = matchKey ? proj.customAllocation[matchKey] : 0; }
+    if(!matchKey) return 0; // dự án đã bật tỷ lệ tuỳ chỉnh nhưng không có tên người này -> 0 điểm
+    return projValue * (proj.customAllocation[matchKey] / 100) * levelMult;
+  }
   const lower = normStr(personName);
   const mainList = proj.membersMain || [];
   const backupList = proj.membersBackup || [];
@@ -2819,44 +2854,9 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   };
 
   const myScore = getScoreFor(personName);
+  if(myScore === 0 && !isMainRole && !isBackupRole) return 0; // không có bằng chứng, cũng không thuộc danh sách nào -> 0 điểm
 
-  if(myScore === 0){
-    // Người này KHÔNG có bằng chứng ActivityLog CÁ NHÂN trên dự án này (dù dự án có thể đã có ActivityLog
-    // thật từ NGƯỜI KHÁC — không liên quan). Nếu cũng không có tên trong Main/Backup set tay → 0 điểm.
-    if(!isMainRole && !isBackupRole) return 0;
-
-    // Có tên trong danh sách Main/Backup set tay nhưng KHÔNG có bằng chứng cá nhân — thường là nhân sự
-    // đã RỜI dự án từ trước khi ActivityLog bắt đầu ghi nhận, nên KHÔNG THỂ có bằng chứng hồi cứu.
-    // Dùng công thức FALLBACK "ĐÓNG BĂNG" cho phần của riêng họ — độc lập, KHÔNG phụ thuộc việc dự án
-    // đã chuyển sang có ActivityLog thật hay chưa (tránh mất điểm oan khi người khác bắt đầu log task).
-    const statusMult = getStatusMultiplier(proj.status);
-    const mainCount = mainList.length || 1;
-    const backupCount = backupList.length;
-    let fallbackShare = 0;
-    if(isMainRole){
-      const mainPool = backupCount > 0 ? 0.7 : 1.0;
-      fallbackShare = mainPool / mainCount;
-    } else if(isBackupRole){
-      const spPool = mainList.length > 0 ? 0.3 : 0.7;
-      fallbackShare = backupCount > 0 ? spPool / backupCount : 0;
-    }
-    if(explainOut){
-      explainOut.mode = 'fallback';
-      explainOut.status = proj.status;
-      explainOut.statusMult = statusMult;
-      explainOut.mainCount = mainCount;
-      explainOut.backupCount = backupCount;
-      explainOut.isMainRole = isMainRole;
-      explainOut.isBackupRole = isBackupRole;
-      explainOut.fallbackShare = fallbackShare;
-    }
-    return projValue * fallbackShare * levelMult * statusMult;
-  }
-
-  // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật
-  if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
-
-  // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
+  // ═══ BƯỚC 1: xác định nhóm CÓ bằng chứng ActivityLog thật (ưu tiên tuyệt đối) ═══
   const allContributorNames = [];
   activityLog.forEach(function(t){
     if(!sameProjectName(t.projectName, proj.name)) return;
@@ -2865,39 +2865,79 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
       if(clean && !allContributorNames.some(function(n){ return normStr(n)===normStr(clean); })) allContributorNames.push(clean);
     });
   });
-
   const mainsWithEvidence = mainList.filter(function(name){ return getScoreFor(name) > 0; });
-  // SP = bất kỳ ai xuất hiện trong ActivityLog của dự án nhưng KHÔNG nằm trong danh sách Main — tự động, không cần gán tay
   const supportsWithEvidence = allContributorNames.filter(function(name){
     const isMain = mainList.some(function(m){ return normStr(m) === normStr(name); });
     return !isMain && getScoreFor(name) > 0;
   });
 
-  let baseShare = 0;
-  let mainPool = null;
-  let spPool = null;
-  let spIsSustained = null;
-  if(isMainRole){
-    mainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0; // Có SP thật thì Main còn 70%, không thì Main trọn 100%
-    baseShare = mainsWithEvidence.length > 0 ? mainPool / mainsWithEvidence.length : 0;
-  } else if(myScore > 0){
-    // Không phải Main nhưng có task thật → tự động là SP.
-    // Pool của SP:
-    //  - Có Main thật cùng dự án → SP chia 30% (như thường lệ), không xét lâu dài/ít.
-    //  - KHÔNG có Main nào có bằng chứng thật → chỉ mở pool 70% nếu trong nhóm SP có ít nhất 1 người
-    //    "lâu dài" (Contribution Score trên dự án này ≥ SP_SUSTAINED_THRESHOLD — tức đang gánh vác dự án
-    //    thực chất, không chỉ hỗ trợ vài task lẻ tẻ). Nếu cả nhóm đều "SP ít", vẫn giữ trần 30% như cũ,
-    //    tránh cho không 70% giá trị dự án chỉ vì thiếu vài task nhỏ chưa đủ gọi là gánh vác dự án.
+  // ═══ BƯỚC 2: pool thật đã "dùng hết" bởi nhóm có bằng chứng — tính 1 LẦN CHO CẢ DỰ ÁN ═══
+  let realMainPool = 0, realSpPool = 0, spIsSustained = null;
+  if(mainsWithEvidence.length > 0){
+    realMainPool = supportsWithEvidence.length > 0 ? 0.7 : 1.0;
+  }
+  if(supportsWithEvidence.length > 0){
     if(mainsWithEvidence.length > 0){
-      spPool = 0.3;
+      realSpPool = 0.3;
     } else {
       const maxSpScore = supportsWithEvidence.reduce(function(max, name){ return Math.max(max, getScoreFor(name)); }, 0);
       spIsSustained = maxSpScore >= SP_SUSTAINED_THRESHOLD;
-      spPool = spIsSustained ? 0.7 : 0.3;
+      realSpPool = spIsSustained ? 0.7 : 0.3;
     }
-    baseShare = supportsWithEvidence.length > 0 ? spPool / supportsWithEvidence.length : 0;
+  }
+  const usedPct = realMainPool + realSpPool;
+  // ═══ BƯỚC 3: phần CÒN LẠI (nếu có) mới dành cho fallback (Main/Backup set tay KHÔNG có bằng chứng) —
+  // đảm bảo TỔNG % phân bổ toàn dự án không bao giờ vượt 100%, đúng theo yêu cầu "1 dự án = 1 mức điểm
+  // cố định". Ai có bằng chứng thật luôn được ưu tiên tính đủ trước; fallback chỉ ăn phần dư, có thể là 0
+  // nếu nhóm có bằng chứng đã dùng hết 100% (VD vừa có Main thật vừa có SP thật).
+  const remainingPool = Math.max(0, 1 - usedPct);
+  const mainFallbackList = mainList.filter(function(name){ return getScoreFor(name) === 0; });
+  const backupFallbackList = backupList.filter(function(name){ return getScoreFor(name) === 0; });
+  let fallbackMainPool = 0, fallbackSpPool = 0;
+  if(remainingPool > 0){
+    if(mainFallbackList.length > 0 && backupFallbackList.length > 0){
+      fallbackMainPool = remainingPool * 0.7;
+      fallbackSpPool = remainingPool * 0.3;
+    } else if(mainFallbackList.length > 0){
+      fallbackMainPool = remainingPool;
+    } else if(backupFallbackList.length > 0){
+      fallbackSpPool = remainingPool;
+    }
+  }
+
+  if(myScore === 0){
+    // Người này KHÔNG có bằng chứng cá nhân, nhưng có tên trong Main/Backup set tay → dùng phần CÒN LẠI
+    // sau khi đã ưu tiên đủ cho nhóm có bằng chứng thật (BƯỚC 3 ở trên). Có thể ra 0 nếu hết phần dư.
+    const statusMult = getStatusMultiplier(proj.status);
+    let fallbackShare = 0;
+    if(isMainRole && mainFallbackList.length > 0){
+      fallbackShare = fallbackMainPool / mainFallbackList.length;
+    } else if(isBackupRole && backupFallbackList.length > 0){
+      fallbackShare = fallbackSpPool / backupFallbackList.length;
+    }
+    if(explainOut){
+      explainOut.mode = 'fallback';
+      explainOut.status = proj.status;
+      explainOut.statusMult = statusMult;
+      explainOut.mainCount = mainFallbackList.length;
+      explainOut.backupCount = backupFallbackList.length;
+      explainOut.isMainRole = isMainRole;
+      explainOut.isBackupRole = isBackupRole;
+      explainOut.fallbackShare = fallbackShare;
+      explainOut.usedPctByEvidence = usedPct;
+      explainOut.remainingPool = remainingPool;
+    }
+    return projValue * fallbackShare * levelMult * statusMult;
+  }
+
+  // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật (BƯỚC 1/2 ở trên)
+  if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
+
+  let baseShare = 0;
+  if(isMainRole){
+    baseShare = mainsWithEvidence.length > 0 ? realMainPool / mainsWithEvidence.length : 0;
   } else {
-    return 0;
+    baseShare = supportsWithEvidence.length > 0 ? realSpPool / supportsWithEvidence.length : 0;
   }
 
   // Scale theo Contribution Score thật — CHỈ áp dụng cho SP tự dò hoàn toàn (không có tên trong Main/Backup
@@ -2941,8 +2981,8 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   if(explainOut){
     explainOut.isMainRole = isMainRole;
     explainOut.isOfficiallyAssigned = isOfficiallyAssigned;
-    explainOut.mainPool = mainPool;
-    explainOut.spPool = spPool;
+    explainOut.mainPool = realMainPool;
+    explainOut.spPool = realSpPool;
     explainOut.spIsSustained = spIsSustained;
     explainOut.mainsCount = mainsWithEvidence.length;
     explainOut.spCount = supportsWithEvidence.length;
@@ -3968,17 +4008,27 @@ function buildScoreTooltip(p){
   const typeLabel = PROJECT_TYPE_LABEL[e.projectType] || 'All Architect';
   lines.push(`× Loại dự án: ${typeLabel} (×${e.typeMult??1}) = ${(e.projValue??0).toFixed(2)}`);
 
-  if(e.mode === 'fallback'){
+  if(e.mode === 'custom_allocation'){
     lines.push('');
-    lines.push('⚠ Chưa có ActivityLog — tính theo Status/Giai đoạn/Main-Backup set tay:');
+    lines.push('🎯 Dự án này đang dùng Tỷ lệ chia điểm TUỲ CHỈNH (set tay riêng) — bỏ qua công thức Main/SP/fallback tự động:');
+    lines.push(`× Tỷ lệ set tay = ${e.customAllocationPct}%`);
+    lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+  } else if(e.mode === 'fallback'){
+    lines.push('');
+    lines.push('⚠ Chưa có ActivityLog cá nhân — tính theo phần CÒN LẠI sau khi ưu tiên người có bằng chứng thật:');
+    if(e.usedPctByEvidence > 0){
+      lines.push(`(Người có bằng chứng thật trên dự án đã dùng ${Math.round(e.usedPctByEvidence*100)}% → còn lại ${Math.round((e.remainingPool||0)*100)}% chia cho Main/Backup set tay)`);
+    }
     lines.push(`× Trạng thái "${e.status}" (hệ số ×${e.statusMult})`);
     if(e.statusMult === 0){
       lines.push('→ Chưa bắt đầu ⇒ 0 điểm');
+    } else if((e.fallbackShare||0) === 0){
+      lines.push('→ Phần dư = 0% (người có bằng chứng thật đã dùng hết 100%) ⇒ 0 điểm cho phần set tay');
     } else if(e.isMainRole){
-      lines.push(`× Tỷ trọng Main: pool ${e.backupCount>0?'70%':'100%'} ÷ ${e.mainCount} Main = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
+      lines.push(`× Tỷ trọng Main (trong phần dư) ÷ ${e.mainCount} Main chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     } else if(e.isBackupRole){
-      lines.push(`× Tỷ trọng Backup (set tay): pool ${e.mainCount>0?'30%':'70%'} ÷ ${e.backupCount} Backup = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
+      lines.push(`× Tỷ trọng Backup (trong phần dư) ÷ ${e.backupCount} Backup chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
       lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   } else if(e.mode === 'activitylog'){
@@ -6557,6 +6607,72 @@ function applyRoleUI(){
 // Dự án CHƯA có ActivityLog nào (data lịch sử cũ) → checkbox TICK TAY cho Admin tự set, vì không có
 // bằng chứng tự động để đối chiếu. Ngay khi dự án bắt đầu có ActivityLog thật, lần mở modal sau sẽ tự
 // chuyển hẳn sang badge tự động.
+// ═══════════ TỶ LỆ CHIA ĐIỂM TUỲ CHỈNH (ghi đè công thức tự động, riêng theo từng dự án) ═══════════
+function toggleCustomAllocation(){
+  const enabled = document.getElementById('pm-f-customalloc-enable').checked;
+  document.getElementById('pm-customalloc-box').style.display = enabled ? 'block' : 'none';
+  if(enabled) renderCustomAllocRows();
+}
+
+// Vẽ lại danh sách ô nhập % theo đúng Main+Backup đang chọn trong modal — giữ lại % đã nhập cho người
+// vẫn còn trong danh sách, bỏ ô của người đã bị gỡ khỏi Main/Backup.
+function renderCustomAllocRows(){
+  const enabled = document.getElementById('pm-f-customalloc-enable')?.checked;
+  if(!enabled) return;
+  const mainSel = getMsValues('pm-ms-main');
+  const backupSel = getMsValues('pm-ms-backup');
+  const allNames = [...mainSel, ...backupSel];
+  const box = document.getElementById('pm-customalloc-rows');
+  if(!box) return;
+  // Giữ lại giá trị đã nhập trước đó (nếu đang re-render do đổi Main/Backup)
+  const prevValues = {};
+  box.querySelectorAll('input[data-name]').forEach(function(inp){
+    prevValues[inp.getAttribute('data-name')] = inp.value;
+  });
+  if(!allNames.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary)">Chưa chọn Main/Backup nào để chia tỷ lệ.</div>';
+    updateCustomAllocTotal();
+    return;
+  }
+  box.innerHTML = allNames.map(function(name){
+    const val = prevValues[name] !== undefined ? prevValues[name] : (window._customAllocInit && window._customAllocInit[name] !== undefined ? window._customAllocInit[name] : '');
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:160px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+      <input type="number" min="0" max="100" step="1" value="${val}" data-name="${escapeHtml(name)}" oninput="updateCustomAllocTotal()" style="width:80px;padding:5px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary);font-size:12px">
+      <span style="font-size:12px;color:var(--color-text-tertiary)">%</span>
+    </div>`;
+  }).join('');
+  updateCustomAllocTotal();
+}
+
+function updateCustomAllocTotal(){
+  const box = document.getElementById('pm-customalloc-rows');
+  const totalEl = document.getElementById('pm-customalloc-total');
+  if(!box || !totalEl) return;
+  let total = 0;
+  box.querySelectorAll('input[data-name]').forEach(function(inp){ total += parseFloat(inp.value) || 0; });
+  totalEl.textContent = total > 0 ? `Tổng đã nhập: ${total}% — sẽ tự quy đổi về đúng 100% theo tỷ lệ này khi lưu` : '';
+}
+
+function getCustomAllocationFromForm(){
+  const enabled = document.getElementById('pm-f-customalloc-enable')?.checked;
+  if(!enabled) return null;
+  const box = document.getElementById('pm-customalloc-rows');
+  if(!box) return null;
+  const raw = {};
+  box.querySelectorAll('input[data-name]').forEach(function(inp){
+    const v = parseFloat(inp.value);
+    if(v > 0) raw[inp.getAttribute('data-name')] = v;
+  });
+  const keys = Object.keys(raw);
+  if(!keys.length) return null;
+  // Luôn chuẩn hoá về đúng tổng 100% theo đúng tỷ lệ tương đối đã nhập — giữ data gọn, khỏi cần validate/chặn lưu riêng
+  const sum = keys.reduce(function(s,k){ return s + raw[k]; }, 0);
+  const result = {};
+  keys.forEach(function(k){ result[k] = Math.round((raw[k] / sum) * 1000) / 10; }); // làm tròn 1 chữ số thập phân
+  return result;
+}
+
 function renderDoneCyclesCheckboxes(members, projId){
   const field = document.getElementById('pm-done-cycles-field');
   const box   = document.getElementById('pm-done-cycles-checkboxes');
