@@ -2535,7 +2535,9 @@ function getCxBonus(cxCount, cxTotal){
 
 // Level fit multiplier — how well project size matches person's level
 const LEVEL_SIZE_MULTIPLIER = {
-  Staff:      {Small:1.0, Medium:1.3, Large:0},
+  // Staff×Large: quá tầm 2 bậc (Small=vừa tầm 1.0 → Medium=thưởng 1.3 → Large=quá xa) — trả về mức
+  // TRUNG TÍNH 1.0 thay vì 0 (không zero hoá công sức thật, chỉ là không được thưởng thêm như mốc 1 bậc)
+  Staff:      {Small:1.0, Medium:1.3, Large:1.0},
   Senior:     {Small:0.5, Medium:1.0, Large:1.3},
   'Key Member':{Small:0.3, Medium:0.7, Large:1.0},
   Leader:     {Small:0.2, Medium:0.5, Large:1.0},
