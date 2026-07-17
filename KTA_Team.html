@@ -1627,14 +1627,6 @@ function _extractCandidatesFromExistingData(){
         <option value="Priorities">Priorities</option>
         <option value="Deadline">Deadline</option>
       </select>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);cursor:pointer;padding:0 4px">
-        <input type="checkbox" id="pm-filter-needreview" onchange="renderProjects()">
-        ⚠ Chỉ hiện dự án cần rà (chưa có ActivityLog)
-      </label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);cursor:pointer;padding:0 4px">
-        <input type="checkbox" id="pm-filter-manualphase" onchange="renderProjects()">
-        📌 Giai đoạn đang set tay (chưa tự động)
-      </label>
     </div>
   </div>
 
@@ -2051,13 +2043,9 @@ function renderProjects(){
   const fTeam=document.getElementById('pm-filter-team').value;
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
-  const fNeedReview=document.getElementById('pm-filter-needreview')?.checked;
-  const fManualPhase=document.getElementById('pm-filter-manualphase')?.checked;
 
   const filtered = projects.filter(p=>
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
-    && (!fNeedReview || projectHasNoActivityLog(p))
-    && (!fManualPhase || getProjectPhaseSource(p.name)==='manual')
   );
 
   // ── Stats ──
