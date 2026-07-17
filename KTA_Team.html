@@ -2901,7 +2901,12 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     } else if(mainFallbackList.length > 0){
       fallbackMainPool = remainingPool;
     } else if(backupFallbackList.length > 0){
-      fallbackSpPool = remainingPool;
+      // Dự án KHÔNG có Main nào cả (mainList rỗng, không chỉ là "Main chưa có bằng chứng") -> Backup vẫn
+      // là vai trò hỗ trợ, giới hạn trần 70% (khớp đúng baseline SP-solo-không-Main bên nhánh có bằng
+      // chứng thật) — KHÔNG được ăn trọn 100% phần dư chỉ vì không ai khác để chia. Nếu dự án CÓ Main
+      // (dù Main đó đã dùng bằng chứng thật ở chỗ khác, mainList.length>0) thì vẫn dùng nguyên remainingPool
+      // vì vị trí Main đã tồn tại thật trong dự án, phần dư tính đúng theo cấu trúc thật.
+      fallbackSpPool = (mainList.length === 0) ? Math.min(remainingPool, 0.7) : remainingPool;
     }
   }
 
