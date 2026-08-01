@@ -1730,14 +1730,13 @@ function _extractCandidatesFromExistingData(){
         <select id="pm-f-phase">
           <option value="">— Chưa xác định (0% — cần set Giai đoạn hoặc có ActivityLog) —</option>
           <option value="Planning/Entitlement">Planning/Entitlement (10%)</option>
-          <option value="PZA">PZA — chỉ dự án LA (15%)</option>
-          <option value="50% DD">50% DD (30%)</option>
+          <option value="50% DD/PZA">50% DD / PZA (30%)</option>
           <option value="100% DD">100% DD (45%)</option>
           <option value="25% CD">25% CD / Plan Check #1 (65%)</option>
           <option value="50% CD">50% CD (78%)</option>
           <option value="75% CD">🚩 75% CD — đủ 1 chu kỳ (88%)</option>
           <option value="95% CD">95% CD — phát sinh thêm (96%)</option>
-          <option value="100% CD">100% CD — phát sinh thêm (100%)</option>
+          <option value="100% CD/Bid">100% CD / Bid — phát sinh thêm (100%)</option>
           <option value="CA">🎁 CA — bonus CỘNG THÊM 5-10% tuỳ Size (105-110%)</option>
         </select>
       </div>
@@ -2598,21 +2597,24 @@ function calcProjectTotalContribution(projectName, upToDate){
 }
 
 // % hoàn thành dự án theo giai đoạn hiện tại (dò từ ActivityLog/Tracker tuần/set tay) — dùng để TÍCH LŨY ĐIỂM.
-// Xây lại theo ĐÚNG 9 mốc chuẩn ngành thật (SOP "Project Milestones" nội bộ), thay cho bản rút gọn cũ:
-//   Planning/Entitlement · PZA (chỉ dự án LA) · 50% DD · 100% DD · 25% CD · 50% CD · 75% CD · 95% CD · 100% CD
+// Xây lại theo ĐÚNG mốc chuẩn ngành thật (SOP "Project Milestones" nội bộ), thay cho bản rút gọn cũ:
+//   Planning/Entitlement · 50% DD/PZA · 100% DD · 25% CD · 50% CD · 75% CD · 95% CD · 100% CD/Bid · CA
 // "Plan Check" KHÔNG còn là 1 giai đoạn riêng — theo đúng SOP, Plan Check #1 xảy ra NGAY TẠI mốc 25% CD
 // (SOP ghi rõ "25% CD / Plan Check" là 1 mốc duy nhất), nên mọi ghi chú "Plan Check" giờ tự động map vào
 // '25% CD'. Vẫn là thang TĂNG DẦN theo khối lượng thật, KHÔNG cap bằng nhau giữa các mốc.
+// PZA GỘP CHUNG nhãn với 50% DD (cùng 30%, hiển thị "50% DD/PZA") — vì PZA thường nộp song song/đồng thời
+// với giai đoạn 50% DD trên thực tế, không phải 1 mốc tách biệt. "Bid" GỘP CHUNG nhãn với 100% CD (cùng
+// 100%, hiển thị "100% CD/Bid") — vì bộ hồ sơ đấu thầu dùng lại đúng bộ CD hoàn chỉnh, không phải khối
+// lượng công việc riêng thêm.
 const PHASE_COMPLETION_PCT = {
   'Planning/Entitlement': 0.10,
-  'PZA':                  0.15,
-  '50% DD':               0.30,
+  '50% DD/PZA':           0.30,
   '100% DD':              0.45,
   '25% CD':               0.65,
   '50% CD':               0.78,
   '75% CD':               0.88,
   '95% CD':               0.96,
-  '100% CD':              1.00,
+  '100% CD/Bid':          1.00,
   'CA':                   1.00, // + bonus cộng thêm theo Size, xem CA_BONUS_BY_SIZE bên dưới — KHÔNG bị trần 100%
 };
 // CA là giai đoạn BONUS THẬT SỰ — cộng THÊM ngoài 100% (không giới hạn trần), vì đây là công việc phát
@@ -2623,7 +2625,7 @@ const CA_BONUS_BY_SIZE = { Small: 0.05, Medium: 0.05, Large: 0.10 };
 // Giai đoạn "phát sinh thêm" — không phải dự án nào cũng đi tới đây, tùy yêu cầu khách hàng.
 // CHỈ mang ý nghĩa "không bắt buộc", KHÔNG có nghĩa là bị giới hạn điểm — vẫn cộng điểm tích lũy đầy đủ
 // theo đúng % thực tế ở trên khi dự án thật sự đạt tới các mốc này (CA còn được CỘNG THÊM, không chỉ tính đủ).
-const BONUS_PHASES = ['95% CD', '100% CD', 'CA'];
+const BONUS_PHASES = ['95% CD', '100% CD/Bid', 'CA'];
 function isBonusPhase(phase){ return BONUS_PHASES.indexOf(phase) >= 0; }
 
 // ═══ KHÁI NIỆM RIÊNG: "Chu kỳ dự án" — điều kiện xét lên level, TÁCH BIỆT với thang điểm ở trên ═══
@@ -2681,14 +2683,15 @@ const PHASE_PATTERNS = [
   { phase: '75% CD',                regex: /75\s*%?\s*cd/i },
   { phase: '50% CD',                regex: /50\s*%?\s*cd/i },
   { phase: '25% CD',                regex: /25\s*%?\s*cd/i },
-  { phase: 'PZA',                   regex: /\bpza\b|preliminary\s*zoning/i },
+  { phase: '50% DD/PZA',            regex: /\bpza\b|preliminary\s*zoning/i },
   { phase: '100% DD',               regex: /100\s*%?\s*dd/i },
-  { phase: '50% DD',                regex: /50\s*%?\s*dd/i },
+  { phase: '50% DD/PZA',            regex: /50\s*%?\s*dd/i },
   { phase: '25% CD',                regex: /plan[\s-]?check/i }, // Plan Check #1 = 25% CD theo SOP
   { phase: '25% CD',                regex: /\bid[\s-]?task\b/i }, // ID Task tính chung vào 25% CD
   { phase: 'Planning/Entitlement',  regex: /planning|entitlement|\bsd\b|schematic|project\s*set[\s-]?up|set[\s-]?up\s*project|kick[\s-]?off|\bbackground\b/i },
-  { phase: '100% CD',               regex: /100\s*%?\s*cd/i },
-  { phase: '50% DD',                regex: /\bdd\b|design\s*development/i },   // fallback trần trụi, không kèm % -> mốc thận trọng đầu tiên
+  { phase: '100% CD/Bid',           regex: /100\s*%?\s*cd/i },
+  { phase: '100% CD/Bid',           regex: /\bbid(ding)?\b/i },
+  { phase: '50% DD/PZA',            regex: /\bdd\b|design\s*development/i },   // fallback trần trụi, không kèm % -> mốc thận trọng đầu tiên
   { phase: '25% CD',                regex: /\bcd\b|construction\s*doc/i },   // fallback trần trụi, không kèm % -> mốc thận trọng đầu tiên
 ];
 function detectPhaseFromText(text){
