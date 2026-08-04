@@ -2628,6 +2628,24 @@ const CA_BONUS_BY_SIZE = { Small: 0.05, Medium: 0.05, Large: 0.10 };
 // CHỈ mang ý nghĩa "không bắt buộc", KHÔNG có nghĩa là bị giới hạn điểm — vẫn cộng điểm tích lũy đầy đủ
 // theo đúng % thực tế ở trên khi dự án thật sự đạt tới các mốc này (CA còn được CỘNG THÊM, không chỉ tính đủ).
 const BONUS_PHASES = ['95% CD', '100% CD/Bid', 'CA'];
+
+// Bảng "tương thích ngược" — mỗi lần đổi tên/gộp nhãn giai đoạn (VD Planning/Entitlement -> .../SD,
+// PZA -> 50% DD/PZA, Bid -> 100% CD/Bid...), dữ liệu ĐÃ LƯU trước đó (proj.lastKnownPhase, hoặc badge cũ
+// còn sót trong ghi chú) vẫn giữ nguyên TÊN CŨ — nếu tra thẳng vào PHASE_COMPLETION_PCT sẽ ra 0% (không
+// khớp key). Bảng này tự động quy đổi tên cũ -> tên mới trước khi tra %, tránh phải sửa tay từng dự án
+// mỗi lần đổi tên. Luôn cập nhật bảng này khi đổi tên/gộp bất kỳ giai đoạn nào trong tương lai.
+const PHASE_LEGACY_ALIASES = {
+  'Planning/Entitlement': 'Planning/Entitlement/SD',
+  'SD':                   'Planning/Entitlement/SD',
+  'DD':                   '50% DD/PZA',
+  'PZA':                  '50% DD/PZA',
+  'CD':                   '25% CD',
+  'Plan Check':           '25% CD',
+  'Bid':                  '100% CD/Bid',
+};
+function resolvePhaseAlias(phase){
+  return PHASE_LEGACY_ALIASES[phase] || phase;
+}
 function isBonusPhase(phase){ return BONUS_PHASES.indexOf(phase) >= 0; }
 
 // ═══ KHÁI NIỆM RIÊNG: "Chu kỳ dự án" — điều kiện xét lên level, TÁCH BIỆT với thang điểm ở trên ═══
@@ -2748,6 +2766,7 @@ function getProjectPhaseCompletionPct(projName){
     if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
   }
   if(!phase) return 0; // Chưa xác định giai đoạn nào cả -> chưa có bằng chứng tiến độ -> 0 điểm
+  phase = resolvePhaseAlias(phase);
   const basePct = PHASE_COMPLETION_PCT[phase] !== undefined ? PHASE_COMPLETION_PCT[phase] : 0;
   // CA là bonus THẬT — cộng thêm ngoài 100% theo Size dự án (không cap trần), khác mọi giai đoạn khác
   if(phase === 'CA' && typeof projects!=='undefined' && projects){
@@ -2770,7 +2789,7 @@ function getProjectPhaseLabel(projName){
     if(proj && proj.lastKnownPhase) phase = proj.lastKnownPhase;
     if(!phase && proj && proj.status === 'Complete') return 'CA (Complete)';
   }
-  return phase || '';
+  return phase ? resolvePhaseAlias(phase) : '';
 }
 
 // Cho biết nguồn của giai đoạn đang hiển thị — dùng để chú thích trên UI (badge/tooltip) cho minh bạch
