@@ -1729,7 +1729,7 @@ function _extractCandidatesFromExistingData(){
         <label>Giai đoạn dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(ưu tiên tự động dò từ ActivityLog/Tracker tuần — ô này chỉ dùng khi chưa có bằng chứng tự động. % dùng để TÍCH LŨY ĐIỂM, tăng dần theo khối lượng thật; "đủ chu kỳ để lên level" là điều kiện RIÊNG, xem tại ô Chu kỳ dự án bên dưới)</span></label>
         <select id="pm-f-phase">
           <option value="">— Chưa xác định (0% — cần set Giai đoạn hoặc có ActivityLog) —</option>
-          <option value="Planning/Entitlement">Planning/Entitlement (10%)</option>
+          <option value="Planning/Entitlement/SD">Planning/Entitlement/SD (10%)</option>
           <option value="50% DD/PZA">50% DD / PZA (30%)</option>
           <option value="100% DD">100% DD (45%)</option>
           <option value="25% CD">25% CD / Plan Check #1 (65%)</option>
@@ -1759,6 +1759,7 @@ function _extractCandidatesFromExistingData(){
           <label class="pm-cx-item"><input type="checkbox" id="cx-coord" onchange="updateComplexityPreview()"><span>Phối hợp nhiều bộ môn (MEP / Structural)</span></label>
           <label class="pm-cx-item"><input type="checkbox" id="cx-nonstd" onchange="updateComplexityPreview()"><span>Không theo template chuẩn — tự thiết lập workflow/family mới</span></label>
           <label class="pm-cx-item"><input type="checkbox" id="cx-revision" onchange="updateComplexityPreview()"><span>Nhiều revision / thay đổi liên tục từ client hoặc KTA</span></label>
+          <label class="pm-cx-item"><input type="checkbox" id="cx-id-scope" onchange="updateComplexityPreview()"><span>Có thêm scope Interior Design (ID) — dự án All Architect nhưng làm thêm phần nội thất</span></label>
         </div>
         <div id="pm-cx-preview" class="pm-cx-preview">Mức độ phức tạp: <b>Simple</b> (0/6 yếu tố)</div>
       </div>
@@ -1865,7 +1866,7 @@ function saveProjectsManual(){
   }
 }
 
-const CX_KEYS = ['cx-detail','cx-deadline','cx-case','cx-coord','cx-nonstd','cx-revision'];
+const CX_KEYS = ['cx-detail','cx-deadline','cx-case','cx-coord','cx-nonstd','cx-revision','cx-id-scope'];
 const CX_LABELS = {
   'cx-detail':'Mức độ chi tiết cao',
   'cx-deadline':'Progress Priorities — tiến độ gấp',
@@ -1873,6 +1874,7 @@ const CX_LABELS = {
   'cx-coord':'Phối hợp nhiều bộ môn (MEP/Structural)',
   'cx-nonstd':'Không theo template chuẩn',
   'cx-revision':'Nhiều revision/thay đổi liên tục',
+  'cx-id-scope':'Có thêm scope Interior Design (ID)',
 };
 
 function calcComplexityLevel(count){
@@ -1892,7 +1894,7 @@ function cxColorClass(count){
 function updateComplexityPreview(){
   const count = CX_KEYS.filter(k=>document.getElementById(k).checked).length;
   document.getElementById('pm-cx-preview').innerHTML =
-    `Độ phức tạp: <span class="pm-complexity-badge ${cxColorClass(count)}">${count}/6</span>`;
+    `Độ phức tạp: <span class="pm-complexity-badge ${cxColorClass(count)}">${count}/${CX_KEYS.length}</span>`;
   return {count};
 }
 
@@ -2144,7 +2146,7 @@ function renderProjects(){
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
-      <td><span class="pm-complexity-badge ${cxColorClass(cxCount)}">${cxCount}/6</span></td>
+      <td><span class="pm-complexity-badge ${cxColorClass(cxCount)}">${cxCount}/${p.cxTotal || CX_KEYS.length}</span></td>
       <td><span class="pm-badge ${TEAM_CLASS[p.team]}">${p.team}</span></td>
       <td class="pm-members">${mainTags}${backupTags}${(!mainTags&&!backupTags)?'—':''}</td>
       <td><span class="pm-badge ${STATUS_LABEL_CLASS[p.status]}"${wNote?` title="Tuần này: ${escapeHtml(wNote)}"`:''}>${p.status}</span>${reviewBadge}</td>
@@ -2598,7 +2600,7 @@ function calcProjectTotalContribution(projectName, upToDate){
 
 // % hoàn thành dự án theo giai đoạn hiện tại (dò từ ActivityLog/Tracker tuần/set tay) — dùng để TÍCH LŨY ĐIỂM.
 // Xây lại theo ĐÚNG mốc chuẩn ngành thật (SOP "Project Milestones" nội bộ), thay cho bản rút gọn cũ:
-//   Planning/Entitlement · 50% DD/PZA · 100% DD · 25% CD · 50% CD · 75% CD · 95% CD · 100% CD/Bid · CA
+//   Planning/Entitlement/SD · 50% DD/PZA · 100% DD · 25% CD · 50% CD · 75% CD · 95% CD · 100% CD/Bid · CA
 // "Plan Check" KHÔNG còn là 1 giai đoạn riêng — theo đúng SOP, Plan Check #1 xảy ra NGAY TẠI mốc 25% CD
 // (SOP ghi rõ "25% CD / Plan Check" là 1 mốc duy nhất), nên mọi ghi chú "Plan Check" giờ tự động map vào
 // '25% CD'. Vẫn là thang TĂNG DẦN theo khối lượng thật, KHÔNG cap bằng nhau giữa các mốc.
@@ -2607,7 +2609,7 @@ function calcProjectTotalContribution(projectName, upToDate){
 // 100%, hiển thị "100% CD/Bid") — vì bộ hồ sơ đấu thầu dùng lại đúng bộ CD hoàn chỉnh, không phải khối
 // lượng công việc riêng thêm.
 const PHASE_COMPLETION_PCT = {
-  'Planning/Entitlement': 0.10,
+  'Planning/Entitlement/SD': 0.10,
   '50% DD/PZA':           0.30,
   '100% DD':              0.45,
   '25% CD':               0.65,
@@ -2688,7 +2690,7 @@ const PHASE_PATTERNS = [
   { phase: '50% DD/PZA',            regex: /50\s*%?\s*dd/i },
   { phase: '25% CD',                regex: /plan[\s-]?check/i }, // Plan Check #1 = 25% CD theo SOP
   { phase: '25% CD',                regex: /\bid[\s-]?task\b/i }, // ID Task tính chung vào 25% CD
-  { phase: 'Planning/Entitlement',  regex: /planning|entitlement|\bsd\b|schematic|project\s*set[\s-]?up|set[\s-]?up\s*project|kick[\s-]?off|\bbackground\b/i },
+  { phase: 'Planning/Entitlement/SD', regex: /planning|entitlement|\bsd\b|schematic|project\s*set[\s-]?up|set[\s-]?up\s*project|kick[\s-]?off|\bbackground\b/i },
   { phase: '100% CD/Bid',           regex: /100\s*%?\s*cd/i },
   { phase: '100% CD/Bid',           regex: /\bbid(ding)?\b/i },
   { phase: '50% DD/PZA',            regex: /\bdd\b|design\s*development/i },   // fallback trần trụi, không kèm % -> mốc thận trọng đầu tiên
