@@ -1006,12 +1006,43 @@ function calcWeeklyTrend(personName){
   });
 }
 
+// Tính Contribution Score CHỈ trong 1 tháng cụ thể (monthStr dạng "YYYY-MM") — dùng riêng cho bộ lọc
+// "So sánh cùng level", KHÔNG đụng tới calcContribution() gốc (vẫn giữ nguyên toàn bộ lịch sử cho các
+// chỗ khác đang dùng, VD card từng dự án trong Activity Log). Tính hoàn toàn từ activityLog đã có sẵn
+// trong trình duyệt — không gọi thêm API nào, không ảnh hưởng dữ liệu lưu trữ.
+function calcContributionScoreForMonth(personName, monthStr){
+  let totalScore = 0, totalTasks = 0;
+  (activityLog||[]).forEach(function(t){
+    if((t.date||'').slice(0,7) !== monthStr) return;
+    if(!(t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(personName); })) return;
+    const numAssignees = (t.assignedTo||[]).length || 1;
+    totalScore += (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
+    totalTasks += 1;
+  });
+  return { totalScore: totalScore, totalTasks: totalTasks };
+}
+
+// Danh sách các tháng THẬT SỰ có dữ liệu trong ActivityLog, mới nhất trước — dùng để đổ vào dropdown lọc
+function getDistinctActivityMonths(){
+  const set = {};
+  (activityLog||[]).forEach(function(t){
+    const m = (t.date||'').slice(0,7);
+    if(m) set[m] = true;
+  });
+  return Object.keys(set).sort().reverse();
+}
+
 // So sánh Contribution Score với các nhân sự cùng level hiện tại
-function calcLevelComparison(personName){
+// monthFilter: '' (mặc định) = toàn bộ lịch sử (như cũ) | "YYYY-MM" = chỉ tính đúng tháng đó
+function calcLevelComparison(personName, monthFilter){
   const person = (members||[]).find(function(m){ return normStr(m.name) === normStr(personName); });
   if(!person || !person.level) return null;
   const peers = (members||[]).filter(function(m){ return m.level === person.level && m.active !== false; });
   const rows = peers.map(function(m){
+    if(monthFilter){
+      const c = calcContributionScoreForMonth(m.name, monthFilter);
+      return { name: m.name, score: c.totalScore, tasks: c.totalTasks };
+    }
     const c = calcContribution(m.name);
     return { name: m.name, score: c ? c.totalScore : 0, tasks: c ? c.totalTasks : 0 };
   }).sort(function(a,b){ return b.score - a.score; });
@@ -1339,10 +1370,16 @@ function renderActivityLog(personName){
   }
 
   // So sánh cùng level
-  const cmp = calcLevelComparison(personName);
+  const cmp = calcLevelComparison(personName, _alCmpMonthFilter);
   if(cmp && cmp.rows.length > 1){
     const maxC = Math.max.apply(null, cmp.rows.map(function(r){ return r.score; }));
-    html += '<div class="al-cat-section"><div class="al-cat-title">⚖️ So sánh Contribution Score cùng level ('+_mbEscape(cmp.level)+')</div><div class="al-cmp-list">';
+    const monthOptions = getDistinctActivityMonths();
+    html += '<div class="al-cat-section"><div class="al-cat-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+      + '<span>⚖️ So sánh Contribution Score cùng level ('+_mbEscape(cmp.level)+')</span>'
+      + '<select onchange="setAlCmpMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary)">'
+      + '<option value=""'+(!_alCmpMonthFilter?' selected':'')+'>Toàn bộ (từ trước tới giờ)</option>'
+      + monthOptions.map(function(m){ return '<option value="'+m+'"'+(_alCmpMonthFilter===m?' selected':'')+'>Tháng '+m+'</option>'; }).join('')
+      + '</select></div><div class="al-cmp-list">';
     cmp.rows.forEach(function(r){
       const pct = maxC > 0 ? Math.round(r.score/maxC*100) : 0;
       const isMe = normStr(r.name) === normStr(personName);
@@ -1352,6 +1389,12 @@ function renderActivityLog(personName){
   }
 
   el.innerHTML = html;
+}
+// Lưu lựa chọn bộ lọc tháng (dùng chung cho cả session, giữ nguyên khi chuyển qua lại giữa các người)
+let _alCmpMonthFilter = '';
+function setAlCmpMonthFilter(val){
+  _alCmpMonthFilter = val;
+  if(typeof currentPersonName !== 'undefined' && currentPersonName) renderActivityLog(currentPersonName);
 }
 // ═══════════ /ACTIVITY LOG ENGINE ═══════════
 
