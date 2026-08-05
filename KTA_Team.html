@@ -1778,9 +1778,9 @@ function _extractCandidatesFromExistingData(){
           <option value="25% CD">25% CD / Plan Check #1 (65%)</option>
           <option value="50% CD">50% CD (78%)</option>
           <option value="75% CD">🚩 75% CD — đủ 1 chu kỳ (88%)</option>
-          <option value="95% CD">95% CD — phát sinh thêm (96%)</option>
-          <option value="100% CD/Bid">100% CD / Bid — phát sinh thêm (100%)</option>
-          <option value="CA">🎁 CA — bonus CỘNG THÊM 5-10% tuỳ Size (105-110%)</option>
+          <option value="95% CD">95% CD (96%)</option>
+          <option value="100% CD/Bid">100% CD / Bid (100%)</option>
+          <option value="CA">🎁 CA (105-110%)</option>
         </select>
       </div>
 
@@ -3307,7 +3307,10 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 
       <!-- Project ranking - visible to all -->
       <div class="app-card" style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📁 Xếp hạng Dự án & Chu kỳ <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(tất cả thành viên)</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary)">📁 Xếp hạng Dự án & Chu kỳ <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(tất cả thành viên)</span></div>
+          <button onclick="toggleNicknameMode()" id="nick-mode-btn" style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);cursor:pointer;color:var(--color-text-secondary)"></button>
+        </div>
         <div id="lb-projects"></div>
       </div>
 
@@ -7128,6 +7131,11 @@ async function doFreezeMonthlyPerformance(){
   }
 }
 
+function toggleNicknameMode(){
+  var cur = localStorage.getItem('kta_nickname_mode') || 'lol';
+  localStorage.setItem('kta_nickname_mode', cur === 'animal' ? 'lol' : 'animal');
+  renderLeaderboard();
+}
 function renderLeaderboard(){
   const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
   const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
@@ -7157,13 +7165,29 @@ function renderLeaderboard(){
     '🐠 Cá Nhiệt Đới','🦑 Mực','🐝 Ong','🦀 Cua','🦞 Tôm Hùm','🐓 Gà Trống',
     '🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu','🦉 Cú','🐦 Chim Sẻ','🦔 Nhím Biển',
     '🐡 Cá Nóc','🦋 Bướm Vàng','🐬 Cá Heo Hồng','🦁 Sư Tử Biển'];
+  // Bộ biệt danh theo tên tướng Liên Minh Huyền Thoại — chỉ dùng TÊN + emoji Unicode gợi liên tưởng,
+  // KHÔNG dùng ảnh/artwork thật của Riot Games (tránh vấn đề bản quyền). Cùng độ dài với ANIMALS.
+  var LOL_CHAMPIONS = ['🦊 Ahri','⚔️ Yasuo','💥 Jinx','✨ Lux','🪓 Darius','🛡️ Garen','🍄 Teemo','🏹 Vayne',
+    '🥷 Zed','🗡️ Katarina','❄️ Ashe','🧔 Braum','🐉 Shyvana','🌀 Rammus','🐕 Nasus','🐊 Renekton',
+    '🌊 Nami','🎵 Sona','🧭 Ezreal','🔫 Miss Fortune','🍺 Gragas','💣 Tristana','🔨 Poppy','🦁 Rengar',
+    '🦗 Khazix','👁 Velkoz','🦖 Chogath','👾 Kogmaw','🐦 Anivia','🐻 Volibear','🐺 Warwick','🦂 Reksai',
+    '🐑 Kindred','⛓️ Thresh','🪝 Pyke','🐱 Yuumi','🌙 Zoe','🦎 Neeko','👼 Kayle','🖤 Morgana',
+    '🙏 Karma','👊 Sett','🔫 Aphelios','🔥 Samira','🎤 Seraphine','🌙 Akali','💃 Irelia','🗡️ Riven'];
+  // Chế độ biệt danh — lưu theo trình duyệt (localStorage), mặc định LMHT.
+  // Đổi lại 'animal' bất cứ lúc nào qua nút switch trên UI nếu có vấn đề, không cần sửa code.
+  var NICK_MODE = localStorage.getItem('kta_nickname_mode') || 'lol';
+  var NICK_LIST = NICK_MODE === 'animal' ? ANIMALS : LOL_CHAMPIONS;
   function getAnimalName(name){
     var key = normStr(name);
     if(!_animalMap[key]){
-      _animalMap[key] = ANIMALS[_animalIdx % ANIMALS.length];
+      _animalMap[key] = NICK_LIST[_animalIdx % NICK_LIST.length];
       _animalIdx++;
     }
     return _animalMap[key];
+  }
+  var nickModeBtn = document.getElementById('nick-mode-btn');
+  if(nickModeBtn){
+    nickModeBtn.textContent = NICK_MODE === 'animal' ? '🎮 Đổi sang LMHT' : '🐼 Đổi sang Thú';
   }
 
   // Build project data
