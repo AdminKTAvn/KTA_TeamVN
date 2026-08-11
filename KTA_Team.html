@@ -4267,7 +4267,7 @@ function openProjectDetailModal(id){
     const roleColor = x.role==='main' ? {bg:'#E6F1FB',fg:'#185FA5'} : (x.hasEvidence ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#FEF3DC',fg:'#BA7517'});
     return `
     <tr>
-      <td style="padding:9px 10px;font-weight:500">${escapeHtml(x.name)} <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
+      <td style="padding:9px 10px;font-weight:500"><span style="color:var(--color-accent-primary,#185FA5);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="viewPersonFromProject('${escapeHtml(x.name).replace(/'/g,"\\'")}')" title="Xem đánh giá cá nhân của ${escapeHtml(x.name)}">${escapeHtml(x.name)}</span> <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
       <td style="padding:9px 10px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${roleColor.bg};color:${roleColor.fg};font-weight:600">${escapeHtml(x.roleLabel)}</span></td>
       <td style="padding:9px 10px;text-align:right;font-weight:600;cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(x.tooltipObj).replace(/"/g,'&quot;')}">${x.scoreStr}</td>
     </tr>`;
@@ -4285,6 +4285,23 @@ function openProjectDetailModal(id){
 
 function closeProjectDetailModal(){
   document.getElementById('pm-detail-overlay').classList.remove('open');
+}
+
+// Click tên nhân sự trong modal Chi tiết dự án -> nhảy sang tab "Tra cứu của tôi", tự điền tên và
+// tìm luôn. Tab này mặc định ẩn với Admin/Leader (chỉ role "user" thấy) — ở đây cố ý hiện tạm ra để
+// Admin/Leader xem nhanh hồ sơ đánh giá của người đó mà không cần đổi tài khoản/role.
+function viewPersonFromProject(name){
+  closeProjectDetailModal();
+  const userTab = document.getElementById('maintab-user');
+  if(userTab) userTab.style.display = 'flex';
+  document.querySelectorAll('.main-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.main-panel').forEach(function(p){ p.classList.remove('active'); });
+  if(userTab) userTab.classList.add('active');
+  const panel = document.getElementById('mainpanel-user');
+  if(panel) panel.classList.add('active');
+  const inp = document.getElementById('user-search-name');
+  if(inp) inp.value = name;
+  if(typeof userPortalSearch === 'function') userPortalSearch();
 }
 
 function renderProjListTable(breakdown, totalRaw){
