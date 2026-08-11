@@ -1884,6 +1884,18 @@ function _extractCandidatesFromExistingData(){
     </div>
   </div>
 
+  <div class="pm-modal-overlay" id="pm-detail-overlay" onclick="if(event.target===this) closeProjectDetailModal()">
+    <div class="pm-modal" style="max-width:700px;max-height:85vh;overflow-y:auto">
+      <div class="pm-modal-title" id="pm-detail-title">Chi tiết dự án</div>
+      <div id="pm-detail-body"></div>
+      <div class="pm-modal-actions">
+        <button class="pm-btn-cancel" onclick="closeProjectDetailModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+
+
 <script>
 // ═══════════ PROJECT MANAGEMENT MODULE ═══════════
 let projects = [];
@@ -2185,7 +2197,7 @@ function renderProjects(){
     return `
     <tr>
       <td>
-        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
+        <div class="pm-proj-name" style="cursor:pointer" onclick="openProjectDetailModal('${p.id}')" title="Xem chi tiết dự án & điểm từng người">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
@@ -4168,7 +4180,11 @@ function buildScoreTooltip(p){
         const spReason = e.mainsCount>0 ? '(có Main)'
           : e.spIsSustained ? '(SP lâu dài ≥'+SP_SUSTAINED_THRESHOLD+')'
           : '(SP ít, <'+SP_SUSTAINED_THRESHOLD+')';
-        lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
+        if(e.spSplitMode === 'by_task_count'){
+          lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} — chia theo số dòng task (bạn ${e.myTaskCount}/${e.totalSpTaskCount} dòng của cả nhóm SP) = ${(e.baseShare*100).toFixed(1)}%`);
+        } else {
+          lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
+        }
       }
       lines.push(e.isOfficiallyAssigned
         ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
@@ -4181,6 +4197,94 @@ function buildScoreTooltip(p){
   lines.push('');
   lines.push(`= ${p.score} điểm`);
   return lines.join('\n');
+}
+
+// ═══════════ MODAL CHI TIẾT DỰ ÁN — click tên dự án trong Danh sách dự án ═══════════
+// Gom toàn bộ người tham gia dự án (Main set tay + Backup set tay + SP tự động dò từ ActivityLog),
+// tính điểm đóng góp thực tế từng người bằng đúng calcProjectScore (khớp 100% với mọi nơi khác trong
+// app), hiển thị TÊN THẬT (không ẩn danh) vì đây là màn hình quản trị nội bộ về chính dự án đó.
+function getProjectParticipantsWithScore(proj){
+  const mainList = proj.membersMain || [];
+  const backupList = proj.membersBackup || [];
+  const lowerMain = mainList.map(normStr);
+
+  // Tất cả người từng xuất hiện trong ActivityLog của dự án này (kể cả SP không có tên trong Backup)
+  const autoNames = [];
+  if(typeof activityLog !== 'undefined' && activityLog){
+    activityLog.forEach(function(t){
+      if(!sameProjectName(t.projectName, proj.name)) return;
+      (t.assignedTo||[]).forEach(function(a){
+        const clean = (a||'').trim();
+        if(clean && !autoNames.some(function(n){ return normStr(n)===normStr(clean); })) autoNames.push(clean);
+      });
+    });
+  }
+
+  // Hợp nhất: Main + Backup (set tay) + bất kỳ ai có ActivityLog thật nhưng chưa có tên ở 2 danh sách trên
+  const allNames = [];
+  mainList.concat(backupList).concat(autoNames).forEach(function(n){
+    if(n && !allNames.some(function(x){ return normStr(x)===normStr(n); })) allNames.push(n);
+  });
+
+  return allNames.map(function(name){
+    const isMain = lowerMain.includes(normStr(name));
+    const memberRec = (typeof members!=='undefined' && members) ? members.find(function(m){ return normStr(m.name)===normStr(name); }) : null;
+    const personLevel = memberRec ? getCurrentLevelOfMember(memberRec) : 'Staff';
+    const role = isMain ? 'main' : 'support_auto';
+    const explain = {};
+    const score = calcProjectScore(proj, personLevel, role, name, explain);
+    const hasEvidence = explain.mode === 'activitylog';
+    const roleLabel = isMain ? 'Main' : (hasEvidence ? 'SP (tự động)' : 'SP (set tay)');
+    return {
+      name: name, role: role, roleLabel: roleLabel, level: personLevel,
+      score: score, scoreStr: score.toFixed(2), hasEvidence: hasEvidence,
+      tooltipObj: { name: name, size: proj.size, role: role, score: score.toFixed(2), phase: getProjectPhaseLabel(proj.name), explain: explain }
+    };
+  }).sort(function(a,b){ return b.score - a.score; });
+}
+
+function openProjectDetailModal(id){
+  const p = projects.find(function(x){ return x.id===id; });
+  if(!p) return;
+  document.getElementById('pm-detail-title').textContent = p.name;
+
+  const participants = getProjectParticipantsWithScore(p);
+  const totalScore = participants.reduce(function(s,x){ return s+x.score; }, 0);
+  const phaseLabel = getProjectPhaseLabel(p.name) || p.lastKnownPhase || '—';
+  const typeLabel = PROJECT_TYPE_LABEL[p.projectType||'ARCH_FULL'] || 'All Architect';
+
+  const infoHtml = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:16px;font-size:12px">
+      <div><div style="color:var(--color-text-tertiary)">Quy mô</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.size)}</div></div>
+      <div><div style="color:var(--color-text-tertiary)">Loại dự án</div><div style="font-weight:600;margin-top:2px">${escapeHtml(typeLabel)}</div></div>
+      <div><div style="color:var(--color-text-tertiary)">Giai đoạn</div><div style="font-weight:600;margin-top:2px">${escapeHtml(phaseLabel)}</div></div>
+      <div><div style="color:var(--color-text-tertiary)">Trạng thái</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.status||'—')}</div></div>
+      <div><div style="color:var(--color-text-tertiary)">Độ phức tạp</div><div style="font-weight:600;margin-top:2px">${p.complexityCount||0}/${p.cxTotal||CX_KEYS.length}</div></div>
+      <div><div style="color:var(--color-text-tertiary)">Nhóm phụ trách</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.team||'—')}</div></div>
+    </div>`;
+
+  const rowsHtml = participants.length ? participants.map(function(x){
+    const roleColor = x.role==='main' ? {bg:'#E6F1FB',fg:'#185FA5'} : (x.hasEvidence ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#FEF3DC',fg:'#BA7517'});
+    return `
+    <tr>
+      <td style="padding:9px 10px;font-weight:500">${escapeHtml(x.name)} <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
+      <td style="padding:9px 10px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${roleColor.bg};color:${roleColor.fg};font-weight:600">${escapeHtml(x.roleLabel)}</span></td>
+      <td style="padding:9px 10px;text-align:right;font-weight:600;cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(x.tooltipObj).replace(/"/g,'&quot;')}">${x.scoreStr}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--color-text-tertiary);font-size:12px">Chưa có ai tham gia dự án này (chưa set Main/Backup, chưa có ActivityLog)</td></tr>`;
+
+  document.getElementById('pm-detail-body').innerHTML = infoHtml + `
+    <table class="pm-table" style="font-size:12px">
+      <thead><tr><th>Nhân sự</th><th>Vai trò</th><th style="text-align:right">Điểm dự án (hover xem chi tiết)</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      ${participants.length ? `<tfoot><tr><td style="padding:9px 10px;font-weight:600" colspan="2">Tổng điểm đã phân bổ</td><td style="padding:9px 10px;text-align:right;font-weight:700">${totalScore.toFixed(2)}</td></tr></tfoot>` : ''}
+    </table>`;
+
+  document.getElementById('pm-detail-overlay').classList.add('open');
+}
+
+function closeProjectDetailModal(){
+  document.getElementById('pm-detail-overlay').classList.remove('open');
 }
 
 function renderProjListTable(breakdown, totalRaw){
