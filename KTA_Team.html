@@ -2880,7 +2880,9 @@ function getProjectTypeMultiplier(projectType){
 }
 
 // Calculate single project score for a person
-// Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
+// Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia theo tỷ lệ SỐ DÒNG task thô
+// (nhiều SP cùng dự án: ai log nhiều dòng task hơn nhận tỷ lệ cao hơn tương ứng trong 30% đó — không
+// chia đều nữa, xem getTaskCountFor() bên dưới)
 // SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
 // đều tự động được coi là SP.
 //
@@ -3035,11 +3037,30 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật (BƯỚC 1/2 ở trên)
   if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
 
+  // Đếm SỐ DÒNG task thô (không quan tâm Impact) — dùng để chia tỷ lệ % giữa nhiều SP cùng dự án
+  const getTaskCountFor = function(name){
+    return activityLog.filter(function(t){
+      return sameProjectName(t.projectName, proj.name) &&
+        (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(name); });
+    }).length;
+  };
+
   let baseShare = 0;
   if(isMainRole){
     baseShare = mainsWithEvidence.length > 0 ? realMainPool / mainsWithEvidence.length : 0;
-  } else {
-    baseShare = supportsWithEvidence.length > 0 ? realSpPool / supportsWithEvidence.length : 0;
+  } else if(supportsWithEvidence.length > 0){
+    // Chia realSpPool theo tỷ lệ SỐ DÒNG task của từng SP trên tổng số dòng của cả nhóm SP dự án này
+    // (thay vì chia đều) — SP log nhiều task hơn thì nhận tỷ lệ cao hơn tương ứng.
+    const totalSpTaskCount = supportsWithEvidence.reduce(function(sum, name){ return sum + getTaskCountFor(name); }, 0);
+    const myTaskCount = getTaskCountFor(personName);
+    baseShare = totalSpTaskCount > 0
+      ? realSpPool * (myTaskCount / totalSpTaskCount)
+      : realSpPool / supportsWithEvidence.length; // fallback an toàn, lý thuyết không xảy ra
+    if(explainOut){
+      explainOut.spSplitMode = 'by_task_count';
+      explainOut.myTaskCount = myTaskCount;
+      explainOut.totalSpTaskCount = totalSpTaskCount;
+    }
   }
 
   // Scale theo Contribution Score thật — CHỈ áp dụng cho SP tự dò hoàn toàn (không có tên trong Main/Backup
