@@ -2571,12 +2571,25 @@ function buildProjectAliasMap(mapping){
   });
 }
 
+// Bỏ mã số dự án dạng "26-17 " / "24-20 " ở đầu tên (kiểu SharePoint) để so khớp với tên rút gọn app
+// đang dùng (VD "Sweetzer"). Chỉ áp dụng làm FALLBACK cuối cùng — không đổi tên hiển thị thật ở đâu cả.
+function stripProjectCode(s){
+  return (s||'').replace(/^\s*\d{2}-\d{2}\s+/, '');
+}
+
 function sameProjectName(a, b){
   const na = normStr(a), nb = normStr(b);
   if(na === nb) return true;
   // Không khớp trực tiếp -> thử tra qua ProjectMapping (tên SharePoint đầy đủ <-> tên Tracker rút gọn)
   if(projectAliasMap[na] && projectAliasMap[na] === nb) return true;
   if(projectAliasMap[nb] && projectAliasMap[nb] === na) return true;
+  // Vẫn không khớp -> thử bỏ mã số đầu kiểu "26-17 " ở 1 trong 2 bên rồi so lại (không cần khai báo
+  // ProjectMapping thủ công cho từng dự án — chỉ cần app đặt tên trùng phần TÊN, khác phần MÃ SỐ)
+  const naStripped = normStr(stripProjectCode(a));
+  const nbStripped = normStr(stripProjectCode(b));
+  if(naStripped === nb) return true;
+  if(na === nbStripped) return true;
+  if(naStripped === nbStripped && naStripped) return true;
   return false;
 }
 
@@ -4230,15 +4243,17 @@ function getProjectParticipantsWithScore(proj){
     const isMain = lowerMain.includes(normStr(name));
     const memberRec = (typeof members!=='undefined' && members) ? members.find(function(m){ return normStr(m.name)===normStr(name); }) : null;
     const personLevel = memberRec ? getCurrentLevelOfMember(memberRec) : 'Staff';
-    const role = isMain ? 'main' : 'support_auto';
+    const roleForCalc = isMain ? 'main' : 'support_auto'; // role truyền vào calcProjectScore không ảnh hưởng điểm số (hàm tự dò nội bộ), chỉ cần hợp lệ
     const explain = {};
-    const score = calcProjectScore(proj, personLevel, role, name, explain);
+    const score = calcProjectScore(proj, personLevel, roleForCalc, name, explain);
     const hasEvidence = explain.mode === 'activitylog';
-    const roleLabel = isMain ? 'Main' : (hasEvidence ? 'SP (tự động)' : 'SP (set tay)');
+    // Nhãn hiển thị (bảng + tooltip) phải khớp nhau — dùng đúng 1 giá trị role duy nhất theo bằng chứng thật
+    const roleDisplay = isMain ? 'main' : (hasEvidence ? 'support_auto' : 'support_manual');
+    const roleLabel = ROLE_LABEL[roleDisplay];
     return {
-      name: name, role: role, roleLabel: roleLabel, level: personLevel,
+      name: name, role: roleDisplay, roleLabel: roleLabel, level: personLevel,
       score: score, scoreStr: score.toFixed(2), hasEvidence: hasEvidence,
-      tooltipObj: { name: name, size: proj.size, role: role, score: score.toFixed(2), phase: getProjectPhaseLabel(proj.name), explain: explain }
+      tooltipObj: { name: name, size: proj.size, role: roleDisplay, score: score.toFixed(2), phase: getProjectPhaseLabel(proj.name), explain: explain }
     };
   }).sort(function(a,b){ return b.score - a.score; });
 }
@@ -4267,7 +4282,7 @@ function openProjectDetailModal(id){
     const roleColor = x.role==='main' ? {bg:'#E6F1FB',fg:'#185FA5'} : (x.hasEvidence ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#FEF3DC',fg:'#BA7517'});
     return `
     <tr>
-      <td style="padding:9px 10px;font-weight:500"><span style="color:var(--color-accent-primary,#185FA5);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="viewPersonFromProject('${escapeHtml(x.name).replace(/'/g,"\\'")}')" title="Xem đánh giá cá nhân của ${escapeHtml(x.name)}">${escapeHtml(x.name)}</span> <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
+      <td style="padding:9px 10px;font-weight:500">${escapeHtml(x.name)} <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
       <td style="padding:9px 10px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${roleColor.bg};color:${roleColor.fg};font-weight:600">${escapeHtml(x.roleLabel)}</span></td>
       <td style="padding:9px 10px;text-align:right;font-weight:600;cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(x.tooltipObj).replace(/"/g,'&quot;')}">${x.scoreStr}</td>
     </tr>`;
@@ -4285,23 +4300,6 @@ function openProjectDetailModal(id){
 
 function closeProjectDetailModal(){
   document.getElementById('pm-detail-overlay').classList.remove('open');
-}
-
-// Click tên nhân sự trong modal Chi tiết dự án -> nhảy sang tab "Tra cứu của tôi", tự điền tên và
-// tìm luôn. Tab này mặc định ẩn với Admin/Leader (chỉ role "user" thấy) — ở đây cố ý hiện tạm ra để
-// Admin/Leader xem nhanh hồ sơ đánh giá của người đó mà không cần đổi tài khoản/role.
-function viewPersonFromProject(name){
-  closeProjectDetailModal();
-  const userTab = document.getElementById('maintab-user');
-  if(userTab) userTab.style.display = 'flex';
-  document.querySelectorAll('.main-tab').forEach(function(t){ t.classList.remove('active'); });
-  document.querySelectorAll('.main-panel').forEach(function(p){ p.classList.remove('active'); });
-  if(userTab) userTab.classList.add('active');
-  const panel = document.getElementById('mainpanel-user');
-  if(panel) panel.classList.add('active');
-  const inp = document.getElementById('user-search-name');
-  if(inp) inp.value = name;
-  if(typeof userPortalSearch === 'function') userPortalSearch();
 }
 
 function renderProjListTable(breakdown, totalRaw){
