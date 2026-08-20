@@ -6703,6 +6703,14 @@ function userPortalSearch(){
   emptyEl.style.display = 'none';
   resultEl.style.display = 'block';
 
+  // Tự động nhảy sang tab "Xếp hạng" ngay sau khi tìm thấy — tab Xếp hạng đã tự nhận diện đúng người
+  // đang tìm (qua ô user-search-name) để tô sao ⭐ đúng dòng của họ, nên nhảy tab lúc này là hợp lý nhất.
+  const lbTab = document.getElementById('maintab-lb');
+  if(lbTab){
+    switchMainTab('lb');
+    renderLeaderboard();
+  }
+
   // Render projects
   const projList = document.getElementById('user-proj-list');
   const projCount = document.getElementById('user-proj-count');
