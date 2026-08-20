@@ -7435,12 +7435,15 @@ function renderLeaderboard(){
       +'</table>'
       +'<div style="margin-top:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px;font-size:11px;color:var(--color-text-tertiary);line-height:1.8">'
       +'<b style="color:var(--color-text-secondary)">📐 Công thức điểm tích lũy:</b><br>'
-      +'Điểm 1 dự án = <b>(Base + CxBonus) × LevelMult × RoleMult</b><br>'
+      +'Điểm 1 dự án = <b>(Base + CxBonus) × %Giai đoạn × Loại dự án × %Trạng thái × Tỷ trọng vai trò × LevelMult</b><br>'
       +'• Base: Small=2 · Medium=3 · Large=5<br>'
       +'• CxBonus = (số tick phức tạp / tổng mục) × 5 — tối đa 5đ<br>'
-      +'• LevelMult: Staff(S:1.0 M:1.3 L:0) · Senior(S:0.5 M:1.0 L:1.3) · Key(S:0.3 M:0.7 L:1.0)<br>'
-      +'• RoleMult: Main solo=1.0 · Main+backup=0.7 · Backup=0.3<br>'
-      +'<b>Ví dụ</b> — Liam: dự án Large, 3/6 tick, Key Member, Main solo: (5+2.5)×1.0×1.0 = <b>7.5đ</b>'
+      +'• %Giai đoạn: Planning/Entitlement/SD 10% → 50% DD/PZA 30% → 100% DD 45% → 25% CD 65% → 50% CD 78% → 75% CD 88% → 95% CD 96% → 100% CD/Bid 100% → CA 100% (+bonus 5-10% tuỳ Size)<br>'
+      +'• Loại dự án: All Architect ×1.0 · Interior ×0.8 · CA Support ×0.6<br>'
+      +'• %Trạng thái tuần: Complete/Priorities/Hold=100% · Non-Urgent=70% · Not Started=0%<br>'
+      +'• Tỷ trọng vai trò: Main solo=100% · Main+SP=Main 70% / SP chia theo SỐ DÒNG task thật (không chia đều) · SP tự dò đóng góp &lt;6đ bị co lại theo Score/6<br>'
+      +'• LevelMult (tính theo Level TẠI THỜI ĐIỂM làm task, không phải Level hiện tại): Staff(S:1.0 M:1.3 L:1.0) · Senior(S:0.5 M:1.0 L:1.3) · Key Member(S:0.3 M:0.7 L:1.0) · Leader(S:0.2 M:0.5 L:1.0)<br>'
+      +'<b>Ví dụ</b> — Liam: dự án Large, 3/6 tick, Key Member, Main solo, Giai đoạn 100% CD/Bid, All Architect, Trạng thái Priorities: (5+2.5)×1.0×1.0×1.0×1.0×1.0 = <b>7.5đ</b>'
       +'</div>';
   }
 
@@ -7509,10 +7512,10 @@ function renderLeaderboard(){
         +'</table>'
         +'<div style="margin-bottom:'+(isAdmin?'20px':'0')+';padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">'
         +'<b style="color:var(--color-text-secondary)">📐 Công thức:</b> Điểm /10 = min(10, Tích lũy / '+bench+' × 10)<br>'
-        +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br>'
+        +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/25×10 = <b>4.52/10</b><br>'
         +'<b style="color:var(--color-text-secondary)">📌 Benchmark '+bench+'</b> = mức tích lũy cần đạt để được 10/10 ở '+lv+'.<br>'
         +'Benchmark tăng dần theo level vì kỳ vọng khối lượng công việc cao hơn — không liên quan đến size dự án (size đã được tính riêng ở điểm từng dự án).<br>'
-        +'Staff=8 · Senior=12 · Key Member=20 · Leader=35'
+        +'Staff=10 · Senior=15 · Key Member=25 · Leader=35'
         +'</div>';
     }).join('');
   }
