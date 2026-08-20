@@ -914,7 +914,12 @@ function calcContributionPerProject(personName, projectName){
   const byImpact = { Major:0, Medium:0, Minor:0 };
   tasks.forEach(function(t){ if(byImpact[t.impact]!==undefined) byImpact[t.impact]++; });
   const categories = [];
-  tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){ if(!categories.includes(c)) categories.push(c); }); });
+  const categoryCounts = {};
+  tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){
+    if(!c) return;
+    if(!categories.includes(c)) categories.push(c);
+    categoryCounts[c] = (categoryCounts[c]||0) + 1;
+  }); });
   const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return stripHtml(t.knowledge); }).filter(Boolean);
   // Danh sách task rút gọn (mô tả ngắn) để hiển thị ngữ cảnh, mới nhất lên trước
   const taskDetails = tasks
@@ -922,7 +927,7 @@ function calcContributionPerProject(personName, projectName){
     .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: stripHtml(t.description) }; })
     .filter(function(td){ return td.description; })
     .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails, lastDate };
+  return { projectName, score, taskCount: tasks.length, byImpact, categories, categoryCounts, knowledge, taskDetails, lastDate };
 }
 
 // Tính toàn bộ Contribution cho 1 người
@@ -939,9 +944,15 @@ function calcContribution(personName){
   const totalScore = perProject.reduce(function(s,p){ return s+p.score; }, 0);
   const totalTasks = perProject.reduce(function(s,p){ return s+p.taskCount; }, 0);
 
-  // Category diversity
+  // Category diversity — đếm tổng số lần xuất hiện qua TẤT CẢ dự án, để biết người này làm nhiều nhất phần nào
   const allCats = [];
-  perProject.forEach(function(p){ p.categories.forEach(function(c){ if(!allCats.includes(c)) allCats.push(c); }); });
+  const allCatCounts = {};
+  perProject.forEach(function(p){
+    p.categories.forEach(function(c){ if(!allCats.includes(c)) allCats.push(c); });
+    Object.keys(p.categoryCounts||{}).forEach(function(c){ allCatCounts[c] = (allCatCounts[c]||0) + p.categoryCounts[c]; });
+  });
+  // Sắp theo số lần giảm dần — phần làm nhiều nhất lên đầu, dễ nhìn ra ai chuyên mảng gì
+  allCats.sort(function(a,b){ return (allCatCounts[b]||0) - (allCatCounts[a]||0); });
 
   // Knowledge entries
   const allKnowledge = [];
@@ -966,7 +977,7 @@ function calcContribution(personName){
     return { ...pp, isMain, isSupport, ratio, validation };
   });
 
-  return { totalScore, totalTasks, perProject: roleValidation, allCats, allKnowledge };
+  return { totalScore, totalTasks, perProject: roleValidation, allCats, allCatCounts, allKnowledge };
 }
 
 // Lấy mốc bắt đầu của chu kỳ 2 tuần (yyyy-mm-dd, luôn là Thứ 2) chứa 1 ngày cho trước
@@ -1334,7 +1345,11 @@ function renderActivityLog(personName){
   // Category diversity
   if(data.allCats.length){
     html += '<div class="al-cat-section"><div class="al-cat-title">🏷️ Category Diversity ('+data.allCats.length+' loại)</div><div class="al-cat-grid">';
-    data.allCats.forEach(function(c){ html += '<span class="al-cat-tag">'+_mbEscape(c)+'</span>'; });
+    data.allCats.forEach(function(c){
+      const n = (data.allCatCounts && data.allCatCounts[c]) || 1;
+      const countLabel = n > 1 ? ' <span class="al-cat-count">×'+n+'</span>' : '';
+      html += '<span class="al-cat-tag" title="'+n+' task thuộc mảng '+_mbEscape(c)+'">'+_mbEscape(c)+countLabel+'</span>';
+    });
     html += '</div></div>';
   }
 
@@ -2308,28 +2323,47 @@ function closeCsvModal(){
 let _pendingSyncSp = []; // [{ projectId, projectName, namesToAdd: [] }]
 
 function computeSyncSpPreview(){
-  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return { toAdd: [], orphanProjects: [] };
+  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return { toAdd: [], orphanProjects: [], belowThreshold: [] };
   const result = [];
+  const belowThresholdResult = [];
   projects.forEach(function(p){
     const mainLower = (p.membersMain||[]).map(normStr);
     const backupLower = (p.membersBackup||[]).map(normStr);
-    // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
-    const contributorsLower = {};
+    // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này, kèm Score đóng góp (để lọc ngưỡng)
+    const contributorsLower = {}; // key -> tên gốc
+    const scoreByKey = {};
     activityLog.forEach(function(t){
       if(!sameProjectName(t.projectName, p.name)) return;
+      const numAssignees = (t.assignedTo||[]).length || 1;
+      const w = (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
       (t.assignedTo||[]).forEach(function(a){
         const clean = (a||'').trim();
-        if(clean) contributorsLower[normStr(clean)] = clean;
+        if(!clean) return;
+        const key = normStr(clean);
+        contributorsLower[key] = clean;
+        scoreByKey[key] = (scoreByKey[key]||0) + w;
       });
     });
     const namesToAdd = [];
+    const namesBelow = [];
     Object.keys(contributorsLower).forEach(function(key){
       if(mainLower.indexOf(key) === -1 && backupLower.indexOf(key) === -1){
-        namesToAdd.push(contributorsLower[key]);
+        // CHỈ đề xuất người đã đủ ngưỡng Score (đã tự động được tính đủ 100% qua fullnessFactor rồi) —
+        // thêm họ vào Backup lúc này chỉ đổi HIỂN THỊ, không đổi điểm. Người chưa đủ ngưỡng thì để Admin
+        // tự quyết định thêm tay qua "Sửa dự án" nếu muốn (không tự động đề xuất, tránh vô tình tính đủ
+        // 100% cho 1 task nhỏ lẻ chưa đủ ngưỡng xác nhận).
+        if(scoreByKey[key] >= MIN_SCORE_FOR_FULL_SHARE){
+          namesToAdd.push(contributorsLower[key]);
+        } else {
+          namesBelow.push({ name: contributorsLower[key], score: scoreByKey[key] });
+        }
       }
     });
     if(namesToAdd.length){
       result.push({ projectId: p.id, projectName: p.name, namesToAdd });
+    }
+    if(namesBelow.length){
+      belowThresholdResult.push({ projectName: p.name, people: namesBelow });
     }
   });
   // Phát hiện tên dự án XUẤT HIỆN trong ActivityLog nhưng KHÔNG khớp với bất kỳ dự án nào trong Quản lý
@@ -2350,7 +2384,7 @@ function computeSyncSpPreview(){
   const orphanProjects = Object.keys(orphanMap).map(function(k){
     return { projectName: orphanMap[k].projectName, people: Object.values(orphanMap[k].people) };
   });
-  return { toAdd: result, orphanProjects };
+  return { toAdd: result, orphanProjects, belowThreshold: belowThresholdResult };
 }
 
 function openSyncSpModal(){
@@ -2360,6 +2394,7 @@ function openSyncSpModal(){
   const preview = computeSyncSpPreview();
   _pendingSyncSp = preview.toAdd;
   const orphans = preview.orphanProjects || [];
+  const below = preview.belowThreshold || [];
 
   let orphanHtml = '';
   if(orphans.length){
@@ -2371,16 +2406,27 @@ function openSyncSpModal(){
       + `</div>`;
   }
 
+  let belowHtml = '';
+  if(below.length){
+    const totalBelow = below.reduce(function(s,r){ return s+r.people.length; }, 0);
+    belowHtml = `<div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary)">
+      <div style="font-size:12px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px">ℹ️ ${totalBelow} người có task thật nhưng ĐÓNG GÓP CÒN NHỎ (Score &lt; ${MIN_SCORE_FOR_FULL_SHARE}) — không tự đề xuất thêm vào Backup, vì thêm lúc này sẽ vô tình tính đủ 100% dù chưa đủ ngưỡng. Vẫn muốn thêm thì vào "Sửa dự án" thêm tay:</div>`
+      + below.map(function(o){
+        return `<div style="font-size:11.5px;color:var(--color-text-tertiary);margin:3px 0"><b>${escapeHtml(o.projectName)}</b> — ${o.people.map(function(pe){ return escapeHtml(pe.name)+' (Score '+pe.score.toFixed(1)+')'; }).join(', ')}</div>`;
+      }).join('')
+      + `</div>`;
+  }
+
   if(!_pendingSyncSp.length){
-    box.innerHTML = orphanHtml + '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">'
-      + (orphans.length ? 'Không có ai cần đồng bộ vào dự án đã tồn tại — nhưng xem cảnh báo phía trên.' : '✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.')
+    box.innerHTML = orphanHtml + belowHtml + '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">'
+      + (orphans.length || below.length ? 'Không có ai đủ ngưỡng để tự động đồng bộ — xem ghi chú phía trên.' : '✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.')
       + '</div>';
     btn.disabled = true;
     return;
   }
   const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
-  box.innerHTML = orphanHtml
-    + `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
+  box.innerHTML = orphanHtml + belowHtml
+    + `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người ĐỦ NGƯỠNG (Score ≥ ${MIN_SCORE_FOR_FULL_SHARE}) cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
     + _pendingSyncSp.map(function(r){
       return `<div style="padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
         <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.projectName)}</div>
@@ -2399,7 +2445,7 @@ function closeSyncSpModal(){
 function confirmSyncSp(){
   if(!_pendingSyncSp.length) return;
   const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
-  if(!confirm(`Thêm ${totalNames} người vào danh sách Backup của ${_pendingSyncSp.length} dự án? Việc này chỉ ảnh hưởng hiển thị, không đổi cách tính điểm (SP vốn đã tự tính từ ActivityLog thật).`)) return;
+  if(!confirm(`Thêm ${totalNames} người vào danh sách Backup của ${_pendingSyncSp.length} dự án? Tất cả đều đã đủ ngưỡng Score ≥ ${MIN_SCORE_FOR_FULL_SHARE} nên việc này chỉ ảnh hưởng hiển thị, không đổi điểm (đã được tính đủ 100% từ trước qua ActivityLog thật rồi).`)) return;
   _pendingSyncSp.forEach(function(r){
     const p = projects.find(function(x){ return x.id === r.projectId; });
     if(!p) return;
@@ -3821,6 +3867,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 .al-cmp-row.al-cmp-me .al-cmp-bar{background:linear-gradient(90deg,#D85AA0,#A02A6B)}
 .al-cat-grid{display:flex;flex-wrap:wrap;gap:6px}
 .al-cat-tag{font-size:11px;padding:4px 10px;border-radius:20px;background:#EEEDFE;color:#534AB7;font-weight:500}
+.al-cat-count{font-weight:800;opacity:0.85}
 .al-cat-count{font-size:10px;opacity:.7;margin-left:2px}
 /* Knowledge */
 .al-know-section{margin-bottom:16px}
