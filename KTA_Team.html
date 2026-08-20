@@ -3344,7 +3344,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
         <input id="user-search-name" type="text" placeholder="Nhập tên của bạn (VD: Liam, Stuart...)"
           style="flex:1;padding:10px 14px;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px"
           oninput="userPortalSearch()" />
-        <button onclick="userPortalSearch()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
+        <button onclick="userPortalSearchAndGoLeaderboard()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
       </div>
 
       <!-- Loading indicator -->
@@ -6673,6 +6673,20 @@ const USER_LEVEL_COLOR = {
   'Leader':     {bg:'#FAECE7', color:'#993C1D'},
 };
 
+// Dùng riêng cho nút "Tìm →" — tìm xong MỚI nhảy sang tab Xếp hạng (khác với oninput ở ô nhập, chỉ chạy
+// search thuần theo từng ký tự gõ, không nhảy tab, tránh nhảy dở dang khi gõ chưa xong tên).
+function userPortalSearchAndGoLeaderboard(){
+  userPortalSearch();
+  const name = (document.getElementById('user-search-name').value || '').trim();
+  const resultEl = document.getElementById('user-portal-result');
+  const foundResult = resultEl && resultEl.style.display !== 'none';
+  const lbTab = document.getElementById('maintab-lb');
+  if(name && foundResult && lbTab){
+    switchMainTab('lb');
+    renderLeaderboard();
+  }
+}
+
 function userPortalSearch(){
   const name = (document.getElementById('user-search-name').value || '').trim();
   if(!name) return;
@@ -6702,14 +6716,6 @@ function userPortalSearch(){
   }
   emptyEl.style.display = 'none';
   resultEl.style.display = 'block';
-
-  // Tự động nhảy sang tab "Xếp hạng" ngay sau khi tìm thấy — tab Xếp hạng đã tự nhận diện đúng người
-  // đang tìm (qua ô user-search-name) để tô sao ⭐ đúng dòng của họ, nên nhảy tab lúc này là hợp lý nhất.
-  const lbTab = document.getElementById('maintab-lb');
-  if(lbTab){
-    switchMainTab('lb');
-    renderLeaderboard();
-  }
 
   // Render projects
   const projList = document.getElementById('user-proj-list');
