@@ -1660,6 +1660,7 @@ function _extractCandidatesFromExistingData(){
       <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
       <button class="pm-add-btn" style="background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)" onclick="openCsvModal()">⬆ Nhập từ CSV</button>
       <button class="pm-add-btn" style="background:#E6F1FB;color:#185FA5;border:0.5px solid #378ADD" onclick="openSyncSpModal()">👥 Đồng bộ SP từ ActivityLog</button>
+      <button class="pm-add-btn" style="background:#FEF3DC;color:#BA7517;border:0.5px solid #E8B84B" onclick="openCycleReviewModal()">🔄 Rà soát Chu kỳ chưa tick</button>
       <button class="pm-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveProjectsManual()">💾 Lưu dữ liệu</button>
       <span id="pm-save-toast" style="font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px;display:none">✓ Đã lưu!</span>
     </div>
@@ -1899,6 +1900,23 @@ function _extractCandidatesFromExistingData(){
     </div>
   </div>
 
+  <div class="pm-modal-overlay" id="pm-cyclereview-overlay" onclick="if(event.target===this) closeCycleReviewModal()">
+    <div class="pm-modal" style="max-width:680px;max-height:80vh;overflow-y:auto">
+      <div class="pm-modal-title">Rà soát Chu kỳ chưa tick</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
+        Liệt kê toàn bộ <b style="color:var(--color-text-primary)">Main chưa có task thật riêng</b> trên dự án
+        của mình (dù dự án có thể đã có log của người khác) — thường gặp khi họ đã hoàn thành việc chính
+        <b style="color:var(--color-text-primary)">TRƯỚC KHI</b> hệ thống dùng ActivityLog. Tick người nào
+        bạn xác nhận đã thực tế hoàn thành, rồi bấm Lưu — không tick thì bỏ qua, không ảnh hưởng gì.
+      </div>
+      <div id="pm-cyclereview-list" style="max-height:400px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px"></div>
+      <div class="pm-modal-actions">
+        <button class="pm-btn-cancel" onclick="closeCycleReviewModal()">Đóng</button>
+        <button class="pm-btn-save" onclick="confirmCycleReview()">Lưu các mục đã tick</button>
+      </div>
+    </div>
+  </div>
+
   <div class="pm-modal-overlay" id="pm-detail-overlay" onclick="if(event.target===this) closeProjectDetailModal()">
     <div class="pm-modal" style="max-width:700px;max-height:85vh;overflow-y:auto">
       <div class="pm-modal-title" id="pm-detail-title">Chi tiết dự án</div>
@@ -2039,9 +2057,9 @@ function saveProject(){
   const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
   const complexityLevel = calcComplexityLevel(cxCount);
 
-  // Thu thập tick tay "Chu kỳ dự án" — CHỈ có ý nghĩa khi dự án chưa có ActivityLog (lúc đó UI hiện
-  // checkbox thật). Nếu dự án đã có ActivityLog, UI hiện badge tự động (không có checkbox) nên đoạn
-  // này không tìm thấy phần tử nào và bỏ qua — giữ nguyên hành vi tự động, không ghi đè gì cả.
+  // Thu thập tick tay "Chu kỳ dự án" — giờ xét THEO TỪNG NGƯỜI: chỉ người chưa có task thật riêng trên
+  // dự án mới hiện checkbox thật (người đã có task riêng thì hiện badge tự động, không có checkbox, nên
+  // đoạn dưới tự bỏ qua họ, không ghi đè gì lên phần tự động).
   const doneCycleMembersManual = membersMain.filter(function(m){
     const cb = document.getElementById('dcm-'+normStr(m).replace(/\s+/g,'_'));
     return cb && cb.checked;
@@ -2208,8 +2226,11 @@ function renderProjects(){
       ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Chưa có task thật — điểm tính theo Status/Giai đoạn set tay">⚠ Chưa có ActivityLog</span>`
       : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật — điểm tự động tính theo % đóng góp">✓ Có ActivityLog</span>`;
     const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
-      const bonusTag = '';
-      const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (0%) —';
+      // Riêng giai đoạn CA: cộng thêm bonus theo Size (khớp đúng công thức tính điểm thật ở
+      // getProjectPhaseCompletionPct) — tránh hiển thị "CA (100%)" trong khi điểm thật tính 105-110%.
+      const basePct = PHASE_COMPLETION_PCT[ph] || 1;
+      const pct = (ph === 'CA') ? basePct + (CA_BONUS_BY_SIZE[p.size] || 0) : basePct;
+      const label = ph ? (ph+' ('+Math.round(pct*100)+'%)') : '— Chưa xác định (0%) —';
       const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
       return `<option value="${ph}"${sel}>${label}</option>`;
     }).join('');
@@ -2461,6 +2482,67 @@ function confirmSyncSp(){
   renderProjects();
   const toast = document.getElementById('pm-save-toast');
   if(toast){ toast.textContent = `✓ Đã thêm ${totalNames} người vào Backup!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
+}
+
+// ═══ Rà soát Chu kỳ chưa tick — quét TOÀN BỘ dự án, tìm mọi Main chưa có task thật riêng và CHƯA được
+// tick vào doneCycleMembers, gom về 1 màn hình duy nhất để Admin không phải mở từng dự án 1 để dò ═══
+function computeCycleReviewList(){
+  if(!projects || !projects.length) return [];
+  const result = [];
+  projects.forEach(function(p){
+    (p.membersMain||[]).forEach(function(m){
+      const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
+        return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===normStr(m); });
+      });
+      if(myOwnLog) return; // đã có task riêng -> đi theo tự động, không thuộc diện rà soát này
+      const alreadyTicked = (p.doneCycleMembers||[]).some(function(c){ return normStr(c)===normStr(m); });
+      if(alreadyTicked) return; // đã tick tay từ trước rồi, không cần hiện lại
+      result.push({ projectId: p.id, projectName: p.name, name: m, status: p.status });
+    });
+  });
+  return result;
+}
+
+function openCycleReviewModal(){
+  document.getElementById('pm-cyclereview-overlay').classList.add('open');
+  const list = computeCycleReviewList();
+  const box = document.getElementById('pm-cyclereview-list');
+  if(!list.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">✓ Không có ai cần rà soát — mọi Main chưa có task riêng đều đã được tick tay hoặc chưa phát sinh trường hợp nào.</div>';
+    return;
+  }
+  box.innerHTML = list.map(function(r, i){
+    const id = 'cr-'+i;
+    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer">
+      <input type="checkbox" id="${id}" data-proj="${r.projectId}" data-name="${escapeHtml(r.name)}">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.name)}</div>
+        <div style="font-size:11px;color:var(--color-text-tertiary)">${escapeHtml(r.projectName)} · Trạng thái: ${escapeHtml(r.status||'—')}</div>
+      </div>
+    </label>`;
+  }).join('');
+}
+
+function closeCycleReviewModal(){
+  document.getElementById('pm-cyclereview-overlay').classList.remove('open');
+}
+
+function confirmCycleReview(){
+  const checked = Array.from(document.querySelectorAll('#pm-cyclereview-list input[type="checkbox"]:checked'));
+  if(!checked.length){ closeCycleReviewModal(); return; }
+  checked.forEach(function(cb){
+    const p = projects.find(function(x){ return x.id === cb.dataset.proj; });
+    if(!p) return;
+    p.doneCycleMembers = p.doneCycleMembers || [];
+    if(!p.doneCycleMembers.some(function(c){ return normStr(c)===normStr(cb.dataset.name); })){
+      p.doneCycleMembers.push(cb.dataset.name);
+    }
+  });
+  persistProjects();
+  closeCycleReviewModal();
+  renderProjects();
+  const toast = document.getElementById('pm-save-toast');
+  if(toast){ toast.textContent = `✓ Đã tick chu kỳ cho ${checked.length} người!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
 }
 
 function handleCsvFile(evt){
@@ -2781,19 +2863,23 @@ function phaseQualifiesForCycle(phase){
 }
 
 // ═══ Xác định "Chu kỳ dự án" theo TỪNG NHÂN SỰ ═══
-// Dự án ĐÃ có ActivityLog thật → TỰ ĐỘNG hoàn toàn, không tick tay: (1) là Main, (2) dự án đạt tối thiểu
-// giai đoạn CYCLE_COMPLETE_MIN_PHASE, (3) người này có ít nhất 1 task thật trên dự án trong ActivityLog.
-// Dự án CHƯA có ActivityLog nào (dữ liệu lịch sử cũ trước khi hệ thống log hoạt động) → dùng danh sách
-// TICK TAY p.doneCycleMembers do Admin set thủ công (vì không có bằng chứng tự động để đối chiếu).
-// Ngay khi dự án bắt đầu có ActivityLog thật, hệ thống tự chuyển hẳn sang chế độ tự động, tick tay cũ
-// không còn được dùng nữa (nhưng vẫn giữ trong data, không xoá, để tham khảo lịch sử nếu cần).
+// QUAN TRỌNG: xét theo bằng chứng CỦA RIÊNG TỪNG NGƯỜI, không phải cấp cả dự án — vì 1 dự án có thể vừa
+// có ActivityLog (do người khác log task CA nhỏ về sau) VỪA có 1 Main cũ đã hoàn thành việc chính TỪ
+// TRƯỚC KHI hệ thống dùng ActivityLog (nên người đó không bao giờ có task nào để tự log). Nếu xét theo
+// cấp dự án như trước, người này sẽ vĩnh viễn kẹt "không tự động được, cũng không tick tay được" dù rõ
+// ràng đã hoàn thành thật.
+// (1) Phải là Main. (2) Nếu CHÍNH NGƯỜI NÀY có ≥1 task thật trên dự án → theo tự động, cần đạt Giai đoạn
+// tối thiểu CYCLE_COMPLETE_MIN_PHASE (trừ khi dự án đã Complete). (3) Nếu CHÍNH NGƯỜI NÀY không có task
+// nào (dù người khác trên dự án có) → luôn cho phép fallback tick tay p.doneCycleMembers.
 function personHasAutoDoneCycle(personName, proj){
   if(!personName || !proj) return false;
   const lower = normStr(personName);
   const isMain = (proj.membersMain||[]).some(function(m){ return normStr(m)===lower; });
   if(!isMain) return false;
-  const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
-  if(hasLog){
+  const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
+    return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
+  });
+  if(myOwnLog){
     // Dự án đã Complete LUÔN đủ điều kiện chu kỳ (rõ ràng đã xong, không cần bàn cãi) — kiểm tra riêng
     // trước, KHÔNG dựa vào getProjectPhaseLabel() vì hàm đó có thể trả về 'CA (Complete)' (nhãn hiển thị
     // fallback khi thiếu lastKnownPhase), một chuỗi KHÔNG khớp key nào trong PHASE_ORDER -> nếu chỉ dựa
@@ -2802,11 +2888,10 @@ function personHasAutoDoneCycle(personName, proj){
       const phase = getProjectPhaseLabel(proj.name);
       if(!phaseQualifiesForCycle(phase)) return false;
     }
-    return activityLog.some(function(t){
-      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
-    });
+    return true;
   }
-  // Chưa có ActivityLog — dùng giá trị tick tay của Admin cho data lịch sử
+  // CHÍNH NGƯỜI NÀY không có task riêng nào (dù dự án có thể đã có log của người khác) — vẫn cho fallback
+  // tick tay, vì rất có thể họ đã hoàn thành việc chính TRƯỚC KHI hệ thống dùng ActivityLog.
   return (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
 }
 
@@ -4360,10 +4445,13 @@ function renderProjListTable(breakdown, totalRaw){
   const tfoot = document.getElementById('proj-list-foot');
   if(!tbody || !tfoot) return;
 
-  // Get complexity from projects list for each project name
-  const projects = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
+  // Get complexity from projects list for each project name — đọc localStorage riêng CHỈ để lấy độ phức
+  // tạp hiển thị cột "Phức tạp" (không quan trọng phải tuyệt đối mới nhất). Đặt tên khác "projects" để
+  // KHÔNG che khuất biến global "projects" (dữ liệu sống, mới nhất) — phần Chu kỳ bên dưới bắt buộc phải
+  // dùng đúng biến global để khớp 100% với Bảng xếp hạng, tránh lệch số như đã từng xảy ra.
+  const localProjectsCache = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
   const cxMap = {};
-  projects.forEach(p => { cxMap[p.name] = p.complexityLevel || 'Simple'; });
+  localProjectsCache.forEach(p => { cxMap[p.name] = p.complexityLevel || 'Simple'; });
 
   tbody.innerHTML = breakdown.map((p,i) => {
     const rc = ROLE_COLOR[p.role] || ROLE_COLOR.support;
@@ -7012,31 +7100,44 @@ function renderDoneCyclesCheckboxes(members, projId){
   if(!members.length){ field.style.display='none'; box.innerHTML=''; return; }
   field.style.display='block';
   const proj = projId ? (projects||[]).find(x=>x.id===projId) : null;
-  const hasLog = proj && typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
 
-  if(!proj || hasLog){
-    // Chế độ TỰ ĐỘNG (dự án mới chưa lưu, hoặc đã có ActivityLog thật)
+  if(!proj){
+    // Dự án mới chưa lưu — chưa có gì để đối chiếu, hiện badge trống cho tất cả
     box.innerHTML = members.map(function(m){
-      const done = proj ? personHasAutoDoneCycle(m, proj) : false;
+      return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary)">— ${escapeHtml(m)}</span>`;
+    }).join('');
+    return;
+  }
+
+  // Xét TỪNG NGƯỜI riêng: ai CHÍNH HỌ có task thật trên dự án này → hiện badge tự động (✅/—).
+  // Ai KHÔNG có task thật của riêng mình (dù dự án có thể đã có log của người khác) → hiện checkbox tick
+  // tay — vì rất có thể họ đã hoàn thành việc chính TRƯỚC KHI hệ thống dùng ActivityLog (không còn gì để
+  // tự log), không nên bị kẹt vĩnh viễn "không tự động được, cũng không tick tay được".
+  const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return normStr(c); });
+  let anyManual = false;
+  box.innerHTML = members.map(function(m){
+    const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
+      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===normStr(m); });
+    });
+    if(myOwnLog){
+      const done = personHasAutoDoneCycle(m, proj);
       const bg = done ? '#EAF3DE' : 'var(--color-background-secondary)';
       const fg = done ? '#3B6D11' : 'var(--color-text-secondary)';
       const icon = done ? '✅' : '—';
       const title = done
-        ? 'Đạt 75% CD + có task thật — đủ 1 chu kỳ'
-        : 'Chưa đủ — cần đạt 75% CD + có task thật';
+        ? 'Đạt 75% CD (hoặc Complete) + có task thật của chính người này — đủ 1 chu kỳ'
+        : 'Chưa đủ — cần đạt 75% CD (hoặc Complete)';
       return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${bg};color:${fg}" title="${title}">${icon} ${escapeHtml(m)}</span>`;
-    }).join('');
-  } else {
-    // Chế độ TICK TAY (dự án cũ, chưa có ActivityLog nào — không có bằng chứng tự động)
-    const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return normStr(c); });
-    box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Dự án chưa có ActivityLog — tick tay cho data lịch sử (sẽ tự chuyển sang tự động khi có task thật)</div>'
-      + members.map(function(m){
-        const id = 'dcm-'+normStr(m).replace(/\s+/g,'_');
-        const isChecked = checkedLower.indexOf(normStr(m)) >= 0;
-        return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
-          <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
-        </label>`;
-      }).join('');
+    }
+    anyManual = true;
+    const id = 'dcm-'+normStr(m).replace(/\s+/g,'_');
+    const isChecked = checkedLower.indexOf(normStr(m)) >= 0;
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)" title="Người này chưa có task thật riêng trên dự án — tick tay nếu đã thực tế hoàn thành (VD từ trước khi có ActivityLog)">
+      <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
+    </label>`;
+  }).join('');
+  if(anyManual){
+    box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Người có checkbox chưa có task thật RIÊNG trên dự án này — tick tay nếu đã thực tế hoàn thành (VD xong việc từ trước khi có ActivityLog)</div>' + box.innerHTML;
   }
 }
 
