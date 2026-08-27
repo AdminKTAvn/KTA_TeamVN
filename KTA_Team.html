@@ -1902,12 +1902,12 @@ function _extractCandidatesFromExistingData(){
 
   <div class="pm-modal-overlay" id="pm-cyclereview-overlay" onclick="if(event.target===this) closeCycleReviewModal()">
     <div class="pm-modal" style="max-width:680px;max-height:80vh;overflow-y:auto">
-      <div class="pm-modal-title">Rà soát Chu kỳ chưa tick</div>
+      <div class="pm-modal-title">Rà soát Chu kỳ tick tay</div>
       <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
         Liệt kê toàn bộ <b style="color:var(--color-text-primary)">Main chưa có task thật riêng</b> trên dự án
-        của mình (dù dự án có thể đã có log của người khác) — thường gặp khi họ đã hoàn thành việc chính
-        <b style="color:var(--color-text-primary)">TRƯỚC KHI</b> hệ thống dùng ActivityLog. Tick người nào
-        bạn xác nhận đã thực tế hoàn thành, rồi bấm Lưu — không tick thì bỏ qua, không ảnh hưởng gì.
+        của mình. Dòng có <b style="color:#BA7517">⚠ vàng</b> là đã tick nhưng dự án CHƯA đạt Giai đoạn tối
+        thiểu (75% CD/Complete) — nên xem lại, bỏ tick nếu tick nhầm. Sửa xong bấm Lưu:
+        <b style="color:var(--color-text-primary)">tick thêm sẽ lưu thêm, bỏ tick sẽ gỡ khỏi danh sách</b>.
       </div>
       <div id="pm-cyclereview-list" style="max-height:400px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px"></div>
       <div class="pm-modal-actions">
@@ -2486,18 +2486,24 @@ function confirmSyncSp(){
 
 // ═══ Rà soát Chu kỳ chưa tick — quét TOÀN BỘ dự án, tìm mọi Main chưa có task thật riêng và CHƯA được
 // tick vào doneCycleMembers, gom về 1 màn hình duy nhất để Admin không phải mở từng dự án 1 để dò ═══
+// ═══ Rà soát Chu kỳ tick tay — quét TOÀN BỘ dự án, hiện MỌI Main chưa có task thật riêng, kèm trạng thái
+// tick hiện tại (đã tick hay chưa) — cho phép Admin xem lại VÀ bỏ tick hàng loạt trong 1 màn hình duy
+// nhất, không cần mở từng dự án 1 (hữu ích khi lỡ tick nhầm hàng loạt cần dọn lại). ═══
 function computeCycleReviewList(){
   if(!projects || !projects.length) return [];
   const result = [];
   projects.forEach(function(p){
+    const qualifies = p.status === 'Complete' || phaseQualifiesForCycle(getProjectPhaseLabel(p.name));
     (p.membersMain||[]).forEach(function(m){
       const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
         return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===normStr(m); });
       });
       if(myOwnLog) return; // đã có task riêng -> đi theo tự động, không thuộc diện rà soát này
-      const alreadyTicked = (p.doneCycleMembers||[]).some(function(c){ return normStr(c)===normStr(m); });
-      if(alreadyTicked) return; // đã tick tay từ trước rồi, không cần hiện lại
-      result.push({ projectId: p.id, projectName: p.name, name: m, status: p.status });
+      const isTicked = (p.doneCycleMembers||[]).some(function(c){ return normStr(c)===normStr(m); });
+      // Hiện trong danh sách nếu: (a) ĐÃ tick (dù đủ điều kiện hay chưa — để bạn xem lại/bỏ tick nếu sai),
+      // hoặc (b) CHƯA tick nhưng đã đủ điều kiện Giai đoạn (gợi ý nên tick).
+      if(!isTicked && !qualifies) return;
+      result.push({ projectId: p.id, projectName: p.name, name: m, status: p.status, isTicked: isTicked, qualifies: qualifies });
     });
   });
   return result;
@@ -2513,10 +2519,14 @@ function openCycleReviewModal(){
   }
   box.innerHTML = list.map(function(r, i){
     const id = 'cr-'+i;
-    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer">
-      <input type="checkbox" id="${id}" data-proj="${r.projectId}" data-name="${escapeHtml(r.name)}">
+    const warnBadge = (r.isTicked && !r.qualifies)
+      ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px">⚠ Đã tick nhưng CHƯA đủ Giai đoạn</span>'
+      : (r.isTicked ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px">✓ Đã tick, đủ điều kiện</span>' : '');
+    const rowBg = (r.isTicked && !r.qualifies) ? 'background:#FFFBEF' : '';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;${rowBg}">
+      <input type="checkbox" id="${id}" data-proj="${r.projectId}" data-name="${escapeHtml(r.name)}" ${r.isTicked?'checked':''}>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.name)}</div>
+        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.name)}${warnBadge}</div>
         <div style="font-size:11px;color:var(--color-text-tertiary)">${escapeHtml(r.projectName)} · Trạng thái: ${escapeHtml(r.status||'—')}</div>
       </div>
     </label>`;
@@ -2527,22 +2537,34 @@ function closeCycleReviewModal(){
   document.getElementById('pm-cyclereview-overlay').classList.remove('open');
 }
 
+// Lưu theo đúng trạng thái tick hiện tại trên màn hình — TICK thì thêm vào doneCycleMembers, BỎ TICK thì
+// gỡ ra khỏi doneCycleMembers (khác bản trước chỉ biết thêm, không biết gỡ — cần để dọn dữ liệu tick nhầm
+// hàng loạt trước đó).
 function confirmCycleReview(){
-  const checked = Array.from(document.querySelectorAll('#pm-cyclereview-list input[type="checkbox"]:checked'));
-  if(!checked.length){ closeCycleReviewModal(); return; }
-  checked.forEach(function(cb){
+  const allBoxes = Array.from(document.querySelectorAll('#pm-cyclereview-list input[type="checkbox"]'));
+  if(!allBoxes.length){ closeCycleReviewModal(); return; }
+  let addedCount = 0, removedCount = 0;
+  allBoxes.forEach(function(cb){
     const p = projects.find(function(x){ return x.id === cb.dataset.proj; });
     if(!p) return;
     p.doneCycleMembers = p.doneCycleMembers || [];
-    if(!p.doneCycleMembers.some(function(c){ return normStr(c)===normStr(cb.dataset.name); })){
+    const idx = p.doneCycleMembers.findIndex(function(c){ return normStr(c)===normStr(cb.dataset.name); });
+    if(cb.checked && idx === -1){
       p.doneCycleMembers.push(cb.dataset.name);
+      addedCount++;
+    } else if(!cb.checked && idx !== -1){
+      p.doneCycleMembers.splice(idx, 1);
+      removedCount++;
     }
   });
   persistProjects();
   closeCycleReviewModal();
   renderProjects();
   const toast = document.getElementById('pm-save-toast');
-  if(toast){ toast.textContent = `✓ Đã tick chu kỳ cho ${checked.length} người!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
+  if(toast){
+    toast.textContent = `✓ Đã cập nhật: +${addedCount} tick mới, -${removedCount} bỏ tick`;
+    toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000);
+  }
 }
 
 function handleCsvFile(evt){
@@ -2890,9 +2912,15 @@ function personHasAutoDoneCycle(personName, proj){
     }
     return true;
   }
-  // CHÍNH NGƯỜI NÀY không có task riêng nào (dù dự án có thể đã có log của người khác) — vẫn cho fallback
-  // tick tay, vì rất có thể họ đã hoàn thành việc chính TRƯỚC KHI hệ thống dùng ActivityLog.
-  return (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
+  // CHÍNH NGƯỜI NÀY không có task riêng nào (dù dự án có thể đã có log của người khác) — cho phép
+  // fallback tick tay, NHƯNG vẫn phải đạt tối thiểu Giai đoạn/Trạng thái như nhánh tự động — KHÔNG được
+  // miễn điều kiện Giai đoạn chỉ vì đã tick, tránh tick nhầm cho dự án còn ở giai đoạn rất sớm (VD mới
+  // Entitlement) mà không ai để ý kiểm tra lại.
+  const isTicked = (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
+  if(!isTicked) return false;
+  if(proj.status === 'Complete') return true;
+  const phase = getProjectPhaseLabel(proj.name);
+  return phaseQualifiesForCycle(phase);
 }
 
 // Danh sách dự án mà 1 người ĐÃ TỰ ĐỘNG đủ điều kiện tính 1 chu kỳ hoàn thành (thay hoàn toàn cho doneCycleMembers thủ công cũ)
