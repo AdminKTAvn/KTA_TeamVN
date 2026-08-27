@@ -866,6 +866,7 @@ function applyWeeklyStatusToProjects(){
         // Có dò được giai đoạn mới trong ghi chú tuần này → cập nhật + ghi nhớ lâu dài vào chính project
         weeklyPhaseByProject[key] = w.phase;
         p.lastKnownPhase = w.phase;
+        markCaStartDateIfNeeded(p, w.phase);
       } else if(p.lastKnownPhase){
         // Tuần này KHÔNG dò được giai đoạn (VD chỉ ghi "on hold") → giữ nguyên giai đoạn đã ghi nhớ trước đó,
         // KHÔNG để tính vống thành 100% chỉ vì thiếu từ khoá trong ghi chú tuần này.
@@ -2078,7 +2079,7 @@ function saveProject(){
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes; p.projectType=projectType;
       p.customAllocation = customAllocation; // null nếu không bật -> dùng công thức tự động
-      if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
+      if(phase){ p.lastKnownPhase = phase; markCaStartDateIfNeeded(p, phase); } // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
     }
@@ -2267,6 +2268,7 @@ function quickSetPhase(id, value){
   const p = projects.find(x=>x.id===id);
   if(!p) return;
   p.lastKnownPhase = value || '';
+  markCaStartDateIfNeeded(p, p.lastKnownPhase);
   persistProjects();
   renderProjects();
   if(currentPersonName && typeof autoFillProjectCount==='function') autoFillProjectCount(true);
@@ -2865,6 +2867,16 @@ const PHASE_LEGACY_ALIASES = {
   'Plan Check':           '25% CD',
   'Bid':                  '100% CD/Bid',
 };
+// Tự ghi nhận ngày dự án CHUYỂN SANG giai đoạn CA (chỉ ghi 1 LẦN DUY NHẤT, lần đầu tiên phase trở thành
+// 'CA' — không ghi đè lại nếu đã có, kể cả khi phase bị đổi qua đổi lại). Dùng làm mốc để tách đúng ai
+// THẬT SỰ làm việc trong giai đoạn CA (task log SAU mốc này) khỏi việc làm hồi thiết kế trước đó, phục
+// vụ chia bonus CA riêng (xem getCaBonusShareOverride trong calcProjectScore).
+function markCaStartDateIfNeeded(p, newPhase){
+  if(newPhase === 'CA' && !p.caStartDate){
+    p.caStartDate = new Date().toISOString().slice(0,10); // YYYY-MM-DD, khớp định dạng ActivityLog.date
+  }
+}
+
 function resolvePhaseAlias(phase){
   return PHASE_LEGACY_ALIASES[phase] || phase;
 }
@@ -3097,7 +3109,34 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
   const phasePct = getProjectPhaseCompletionPct(proj.name);
   const typeMult = getProjectTypeMultiplier(proj.projectType);
-  const projValue = (base + cxBonus) * phasePct * typeMult;
+  // Tách riêng: giá trị GỐC dự án luôn cap ở 100% (không bao giờ vượt), phần bonus CA (nếu có, 5-10% tuỳ
+  // Size) tách thành 1 POOL RIÊNG — không cộng thẳng vào giá trị gốc để chia theo tỷ lệ Main/SP như cũ,
+  // mà chia theo AI THẬT SỰ LÀM VIỆC CA (xem getCaBonusShare bên dưới). "Dự án chỉ max 100%" đúng theo
+  // yêu cầu — bonus là khoản CỘNG THÊM RIÊNG, không phải phần của cùng 1 pool.
+  const cappedPhasePct = Math.min(1.0, phasePct);
+  const caBonusFraction = phasePct - cappedPhasePct; // > 0 chỉ khi đang ở giai đoạn CA
+  const projValue = (base + cxBonus) * cappedPhasePct * typeMult;
+  const caBonusPoolValue = (base + cxBonus) * caBonusFraction * typeMult;
+
+  // Chia bonus CA cho ĐÚNG người thật sự làm CA — dựa vào task log SAU ngày dự án chuyển sang CA
+  // (proj.caStartDate, tự ghi nhận khi Admin đổi Giai đoạn sang CA). Trả về null nếu chưa xác định được
+  // (chưa có caStartDate, hoặc chưa ai log task CA nào) -> khi đó dùng TẠM tỷ lệ vai trò như phần gốc,
+  // tới khi có người thật sự log CA thì tự động chuyển sang chia đúng theo người đó.
+  const getCaBonusShareOverride = function(personLower){
+    if(caBonusPoolValue <= 0 || !proj.caStartDate) return null;
+    const caTaskCount = {};
+    activityLog.forEach(function(t){
+      if(!sameProjectName(t.projectName, proj.name)) return;
+      if((t.date||'') < proj.caStartDate) return;
+      (t.assignedTo||[]).forEach(function(a){
+        const k = normStr(a);
+        if(k) caTaskCount[k] = (caTaskCount[k]||0) + 1;
+      });
+    });
+    const totalCaTasks = Object.keys(caTaskCount).reduce(function(s,k){ return s+caTaskCount[k]; }, 0);
+    if(totalCaTasks === 0) return null; // chưa ai log CA thật -> chưa tách được, dùng fallback tỷ lệ cũ
+    return (caTaskCount[personLower] || 0) / totalCaTasks;
+  };
 
   if(explainOut){
     explainOut.mode_top = 'standard';
@@ -3105,7 +3144,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.cxCount = proj.complexityCount||0;
     explainOut.cxTotal = cxTotal;
     explainOut.cxBonus = cxBonus;
-    explainOut.phasePct = phasePct;
+    explainOut.phasePct = cappedPhasePct;
     explainOut.phaseSource = getProjectPhaseSource(proj.name);
     explainOut.projectType = proj.projectType || 'ARCH_FULL';
     explainOut.typeMult = typeMult;
@@ -3113,6 +3152,9 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.levelMult = levelMult;
     explainOut.size = proj.size;
     explainOut.personLevel = personLevel;
+    explainOut.caBonusFraction = caBonusFraction;
+    explainOut.caBonusPoolValue = caBonusPoolValue;
+    explainOut.caStartDate = proj.caStartDate || null;
   }
 
   if(!personName || typeof activityLog==='undefined') return 0;
@@ -3125,7 +3167,11 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     const matchKey = Object.keys(proj.customAllocation).find(function(k){ return normStr(k) === lowerForAlloc; });
     if(explainOut){ explainOut.mode = 'custom_allocation'; explainOut.customAllocationPct = matchKey ? proj.customAllocation[matchKey] : 0; }
     if(!matchKey) return 0; // dự án đã bật tỷ lệ tuỳ chỉnh nhưng không có tên người này -> 0 điểm
-    return projValue * (proj.customAllocation[matchKey] / 100) * levelMult;
+    const myPct = proj.customAllocation[matchKey] / 100;
+    const caShare = getCaBonusShareOverride(lowerForAlloc);
+    const myCaShare = caShare !== null ? caShare : myPct; // chưa tách được CA thật -> tạm dùng tỷ lệ tuỳ chỉnh sẵn có
+    if(explainOut) explainOut.caBonusShare = myCaShare;
+    return projValue * myPct * levelMult + caBonusPoolValue * myCaShare * levelMult;
   }
   const lower = normStr(personName);
   const mainList = proj.membersMain || [];
@@ -3223,7 +3269,10 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
       explainOut.usedPctByEvidence = usedPct;
       explainOut.remainingPool = remainingPool;
     }
-    return projValue * fallbackShare * levelMult;
+    const caShareFb = getCaBonusShareOverride(lower);
+    const myCaShareFb = caShareFb !== null ? caShareFb : fallbackShare; // chưa tách được CA thật -> tạm dùng tỷ lệ set tay sẵn có
+    if(explainOut) explainOut.caBonusShare = myCaShareFb;
+    return projValue * fallbackShare * levelMult + caBonusPoolValue * myCaShareFb * levelMult;
   }
 
   // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật (BƯỚC 1/2 ở trên)
@@ -3306,7 +3355,10 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.myRatio = myRatio;
   }
 
-  return projValue * myRatio * historicalLevelMult;
+  const caShareAl = getCaBonusShareOverride(lower);
+  const myCaShareAl = caShareAl !== null ? caShareAl : myRatio; // chưa tách được CA thật -> tạm dùng tỷ lệ Main/SP sẵn có
+  if(explainOut) explainOut.caBonusShare = myCaShareAl;
+  return projValue * myRatio * historicalLevelMult + caBonusPoolValue * myCaShareAl * historicalLevelMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
@@ -4372,6 +4424,18 @@ function buildScoreTooltip(p){
         ? `× Hệ số Level ${e.levelAtTaskTime} (tại thời điểm ${e.lastTaskDate}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultHistorical}`
         : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
+  }
+  // Bonus CA — hiển thị RIÊNG, không gộp vào phần trên, vì đây là 1 pool cộng thêm độc lập (dự án gốc
+  // luôn cap 100%, bonus không tự động chia theo tỷ lệ Main/SP cũ mà theo AI THẬT SỰ LÀM CA)
+  if((e.caBonusPoolValue||0) > 0){
+    lines.push('');
+    lines.push(`🎁 Bonus CA (+${Math.round((e.caBonusFraction||0)*100)}% tuỳ Size) = ${e.caBonusPoolValue.toFixed(2)} — CỘNG THÊM RIÊNG, không phải phần của pool Main/SP phía trên:`);
+    if(e.caStartDate){
+      lines.push(`× Tỷ trọng bonus = ${((e.caBonusShare||0)*100).toFixed(1)}% ${e.caBonusShare!==undefined ? '(chia theo số dòng task log TỪ '+e.caStartDate+' — ai thật sự làm CA)' : ''}`);
+    } else {
+      lines.push(`× Tỷ trọng bonus = ${((e.caBonusShare||0)*100).toFixed(1)}% (chưa xác định được ngày bắt đầu CA — tạm dùng tỷ trọng Main/SP hiện có)`);
+    }
+    lines.push(`+ Bonus của bạn = ${(e.caBonusPoolValue*(e.caBonusShare||0)*(e.levelMultHistorical||e.levelMult||1)).toFixed(2)}`);
   }
   lines.push('');
   lines.push(`= ${p.score} điểm`);
