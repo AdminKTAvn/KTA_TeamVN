@@ -1774,6 +1774,11 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field">
+        <label>Ngày nhập dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(tháng/năm — dùng để tra đúng Level lịch sử của người làm khi dự án CHƯA có ActivityLog, tránh áp nhầm Level hiện tại cho việc đã làm từ lâu)</span></label>
+        <input type="month" id="pm-f-startmonth" style="max-width:200px">
+      </div>
+
+      <div class="pm-field">
         <label>Tình trạng hoạt động</label>
         <select id="pm-f-status">
           <option value="Not Started">Chưa bắt đầu</option>
@@ -1996,6 +2001,7 @@ function openProjectModal(editId){
     document.getElementById('pm-edit-id').value=editId;
     document.getElementById('pm-f-name').value=p.name;
     document.getElementById('pm-f-status').value=p.status;
+    document.getElementById('pm-f-startmonth').value=p.startMonth||'';
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
     document.getElementById('pm-f-projecttype').value = p.projectType || 'ARCH_FULL';
@@ -2019,6 +2025,7 @@ function openProjectModal(editId){
     document.getElementById('pm-f-notes').value='';
     document.getElementById('pm-f-projecttype').value = 'ARCH_FULL';
     document.getElementById('pm-f-status').value='Not Started';
+    document.getElementById('pm-f-startmonth').value='';
     document.getElementById('pm-f-phase').value='';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
@@ -2044,6 +2051,7 @@ function saveProject(){
   const membersMain   = getMsValues('pm-ms-main');
   const membersBackup = getMsValues('pm-ms-backup');
   const status = document.getElementById('pm-f-status').value;
+  const startMonth = document.getElementById('pm-f-startmonth').value; // format "YYYY-MM", có thể rỗng
   const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
   const projectType = document.getElementById('pm-f-projecttype').value;
@@ -2078,6 +2086,7 @@ function saveProject(){
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes; p.projectType=projectType;
+      p.startMonth = startMonth || p.startMonth || ''; // giữ nguyên nếu để trống, không xoá giá trị cũ đã điền
       p.customAllocation = customAllocation; // null nếu không bật -> dùng công thức tự động
       if(phase){ p.lastKnownPhase = phase; markCaStartDateIfNeeded(p, phase); } // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
@@ -2088,7 +2097,7 @@ function saveProject(){
       id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
-      status, notes, createdAt: Date.now(), projectType,
+      status, notes, createdAt: Date.now(), projectType, startMonth: startMonth || '',
       customAllocation: customAllocation,
       lastKnownPhase: phase || '',
       doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
@@ -3258,6 +3267,24 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     } else if(isBackupRole && backupFallbackList.length > 0){
       fallbackShare = fallbackSpPool / backupFallbackList.length;
     }
+    // Hệ số Level cho dự án fallback (chưa có ActivityLog) — tra theo "Ngày nhập dự án" (proj.startMonth,
+    // dạng "YYYY-MM") nếu Admin đã điền, để không áp nhầm Level HIỆN TẠI cho việc đã làm từ trước khi lên
+    // level. Nếu chưa điền startMonth thì vẫn dùng Level hiện tại như cũ (không đổi hành vi, không phạt
+    // ai chỉ vì Admin chưa kịp bổ sung ngày).
+    let fallbackLevelMult = levelMult;
+    if(proj.startMonth && typeof members !== 'undefined' && members){
+      const memberRecFb = members.find(function(m){ return normStr(m.name) === lower; });
+      if(memberRecFb){
+        const startDateApprox = proj.startMonth + '-15'; // lấy giữa tháng làm mốc đại diện, đủ chính xác cho mục đích tra level theo tháng
+        const levelAtStart = getLevelAtDate(memberRecFb, startDateApprox);
+        fallbackLevelMult = LEVEL_SIZE_MULTIPLIER[levelAtStart]?.[proj.size] ?? 0;
+        if(explainOut){
+          explainOut.levelAtProjectStart = levelAtStart;
+          explainOut.projectStartMonth = proj.startMonth;
+          explainOut.levelMultAtStart = fallbackLevelMult;
+        }
+      }
+    }
     if(explainOut){
       explainOut.mode = 'fallback';
       explainOut.status = proj.status;
@@ -3272,7 +3299,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     const caShareFb = getCaBonusShareOverride(lower);
     const myCaShareFb = caShareFb !== null ? caShareFb : fallbackShare; // chưa tách được CA thật -> tạm dùng tỷ lệ set tay sẵn có
     if(explainOut) explainOut.caBonusShare = myCaShareFb;
-    return projValue * fallbackShare * levelMult + caBonusPoolValue * myCaShareFb * levelMult;
+    return projValue * fallbackShare * fallbackLevelMult + caBonusPoolValue * myCaShareFb * fallbackLevelMult;
   }
 
   // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật (BƯỚC 1/2 ở trên)
@@ -3318,8 +3345,9 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   // theo ngày task GẦN NHẤT của chính người này trên dự án này. Lý do: 1 người hiện đang Senior nhưng dự
   // án Large đó họ làm lúc còn Staff (Staff×Large=0, ngoài tầm) thì phải tính đúng theo lúc đó, không phải
   // tính theo Level bây giờ (sẽ sai lệch lịch sử, có thể tính hệ số cao hơn/thấp hơn thực tế đáng ra có).
-  // CHỈ áp dụng ở nhánh có ActivityLog thật (có ngày cụ thể để tra) — nhánh fallback (chưa có ActivityLog)
-  // không có ngày task nào để tra, nên vẫn giữ dùng Level hiện tại như cũ (levelMult tính sẵn ở đầu hàm).
+  // Đây là nhánh CÓ ActivityLog thật (có ngày task cụ thể để tra). Nhánh fallback (chưa có ActivityLog)
+  // dùng logic tương tự nhưng tra theo proj.startMonth (Ngày nhập dự án, do Admin điền tay) thay vì ngày
+  // task — xem đoạn "fallbackLevelMult" phía trên.
   let historicalLevelMult = levelMult;
   if(typeof members !== 'undefined' && members){
     const myTaskDates = activityLog
@@ -4395,10 +4423,14 @@ function buildScoreTooltip(p){
       lines.push('→ Phần dư = 0% (người có bằng chứng thật đã dùng hết 100%) ⇒ 0 điểm cho phần set tay');
     } else if(e.isMainRole){
       lines.push(`× Tỷ trọng Main (trong phần dư) ÷ ${e.mainCount} Main chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
-      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+      lines.push(e.levelAtProjectStart && e.levelAtProjectStart !== e.personLevel
+        ? `× Hệ số Level ${e.levelAtProjectStart} (tại thời điểm nhập dự án ${e.projectStartMonth}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultAtStart}`
+        : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}${e.projectStartMonth?'':' (chưa điền Ngày nhập dự án, dùng Level hiện tại)'}`);
     } else if(e.isBackupRole){
       lines.push(`× Tỷ trọng Backup (trong phần dư) ÷ ${e.backupCount} Backup chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
-      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
+      lines.push(e.levelAtProjectStart && e.levelAtProjectStart !== e.personLevel
+        ? `× Hệ số Level ${e.levelAtProjectStart} (tại thời điểm nhập dự án ${e.projectStartMonth}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultAtStart}`
+        : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}${e.projectStartMonth?'':' (chưa điền Ngày nhập dự án, dùng Level hiện tại)'}`);
     }
   } else if(e.mode === 'activitylog'){
     lines.push('');
@@ -4435,7 +4467,7 @@ function buildScoreTooltip(p){
     } else {
       lines.push(`× Tỷ trọng bonus = ${((e.caBonusShare||0)*100).toFixed(1)}% (chưa xác định được ngày bắt đầu CA — tạm dùng tỷ trọng Main/SP hiện có)`);
     }
-    lines.push(`+ Bonus của bạn = ${(e.caBonusPoolValue*(e.caBonusShare||0)*(e.levelMultHistorical||e.levelMult||1)).toFixed(2)}`);
+    lines.push(`+ Bonus của bạn = ${(e.caBonusPoolValue*(e.caBonusShare||0)*(e.levelMultHistorical ?? e.levelMultAtStart ?? e.levelMult ?? 1)).toFixed(2)}`);
   }
   lines.push('');
   lines.push(`= ${p.score} điểm`);
