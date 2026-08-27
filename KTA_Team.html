@@ -2192,8 +2192,8 @@ function renderProjects(){
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
     // Đã bỏ badge "Bonus" theo yêu cầu — giai đoạn phát sinh thêm vẫn tính điểm bình thường, không cần nhãn riêng
     const wPhaseBonus = '';
-    const wPhaseCycle = wPhase && phaseQualifiesForCycle(wPhase)
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Đạt 75% CD trở lên — đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
+    const wPhaseCycle = (p.status === 'Complete' || (wPhase && phaseQualifiesForCycle(wPhase)))
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Đạt 75% CD trở lên (hoặc đã Complete) — đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
       : '';
     const pType = p.projectType || 'ARCH_FULL';
     const typeBadge = pType !== 'ARCH_FULL'
@@ -2790,8 +2790,14 @@ function personHasAutoDoneCycle(personName, proj){
   if(!isMain) return false;
   const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
   if(hasLog){
-    const phase = getProjectPhaseLabel(proj.name);
-    if(!phaseQualifiesForCycle(phase)) return false;
+    // Dự án đã Complete LUÔN đủ điều kiện chu kỳ (rõ ràng đã xong, không cần bàn cãi) — kiểm tra riêng
+    // trước, KHÔNG dựa vào getProjectPhaseLabel() vì hàm đó có thể trả về 'CA (Complete)' (nhãn hiển thị
+    // fallback khi thiếu lastKnownPhase), một chuỗi KHÔNG khớp key nào trong PHASE_ORDER -> nếu chỉ dựa
+    // vào phaseQualifiesForCycle() thì dự án Complete dạng này sẽ bị tính SAI thành "chưa đủ chu kỳ".
+    if(proj.status !== 'Complete'){
+      const phase = getProjectPhaseLabel(proj.name);
+      if(!phaseQualifiesForCycle(phase)) return false;
+    }
     return activityLog.some(function(t){
       return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
     });
@@ -5456,7 +5462,9 @@ function renderPrereqCheck(){
 
   // Chỉ dùng điểm tích lũy dự án (raw) để check nợ — tránh bất hợp lý do tỷ trọng khác nhau giữa các level
   // VD: Key Member raw=13.1 → Staff OK (>=10) ✓ nhưng Senior chưa (13.1<15) → cần bù 1.9đ
-  const PROJ_BENCH = { 'Staff':10, 'Senior':15, 'Key Member':25, 'Leader':35 };
+  // Dùng chung LEVEL_BENCHMARK (nguồn thật duy nhất) thay vì khai báo bảng riêng — tránh lệch về sau
+  // giống trường hợp đã xảy ra ở renderLeaderboard().
+  const PROJ_BENCH = LEVEL_BENCHMARK;
 
   // Tính raw 1 lần ở level HIỆN TẠI
   const psNow  = (typeof calcPersonProjectScore==='function')
@@ -7340,7 +7348,10 @@ function renderLeaderboard(){
   const LEADERS_EXCLUDE = ['liam','stuart','nina'];
   const LEVEL_COLOR_BG = {'Staff':'#E6F1FB','Senior':'#EAF3DE','Key Member':'#FDE8F1','Leader':'#FAECE7'};
   const LEVEL_COLOR_TEXT = {'Staff':'#185FA5','Senior':'#3B6D11','Key Member':'#A02A6B','Leader':'#993C1D'};
-  const BENCH = {'Staff':8,'Senior':12,'Key Member':20,'Leader':35};
+  // Dùng chung LEVEL_BENCHMARK (nguồn thật duy nhất, khớp với calcPersonProjectScore) — tránh có 2 bảng
+  // benchmark khác nhau gây lệch số hiển thị so với số tính điểm thật (đã từng xảy ra: bảng cũ ở đây
+  // ghi {Staff:8, Senior:12, Key Member:20} trong khi công thức thật dùng {10,15,25,35}).
+  const BENCH = LEVEL_BENCHMARK;
 
   // Collect all unique members from projects (excluding leaders)
   const allMembers = new Set();
