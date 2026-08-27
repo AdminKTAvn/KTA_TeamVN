@@ -2192,8 +2192,12 @@ function renderProjects(){
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
     // Đã bỏ badge "Bonus" theo yêu cầu — giai đoạn phát sinh thêm vẫn tính điểm bình thường, không cần nhãn riêng
     const wPhaseBonus = '';
-    const wPhaseCycle = (p.status === 'Complete' || (wPhase && phaseQualifiesForCycle(wPhase)))
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Đạt 75% CD trở lên (hoặc đã Complete) — đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
+    // Chỉ hiện "Đủ chu kỳ" khi có ÍT NHẤT 1 Main thật sự đủ điều kiện (dùng đúng hàm tính chu kỳ thật) —
+    // không dựa thuần vào Giai đoạn/Trạng thái dự án như trước, vì dự án có thể đủ Giai đoạn nhưng
+    // KHÔNG có ai đứng Main (cột Main để trống "—") → không có ai để cộng chu kỳ vào, không nên hiện badge.
+    const cycleQualifyingMains = (p.membersMain||[]).filter(function(m){ return personHasAutoDoneCycle(m, p); });
+    const wPhaseCycle = cycleQualifyingMains.length > 0
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="${cycleQualifyingMains.map(escapeHtml).join(', ')} đã đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
       : '';
     const pType = p.projectType || 'ARCH_FULL';
     const typeBadge = pType !== 'ARCH_FULL'
@@ -3639,6 +3643,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:52px">Size</th>
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:90px">Vai trò</th>
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:80px">Phức tạp</th>
+            <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:56px">Chu kỳ</th>
             <th style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-secondary);width:52px">Điểm</th>
           </tr>
         </thead>
@@ -4370,6 +4375,17 @@ function renderProjListTable(breakdown, totalRaw){
     const phaseBadge = (p.phasePct !== undefined && p.phasePct < 1)
       ? `<span title="Giai đoạn ${p.phase||'?'} — tính ${Math.round(p.phasePct*100)}% tổng điểm" style="font-size:9px;padding:1px 5px;border-radius:6px;background:#E6F1FB;color:#185FA5;margin-left:6px;font-weight:600;white-space:nowrap">${p.phase||'?'} · ${Math.round(p.phasePct*100)}%</span>`
       : '';
+    // Chu kỳ — chỉ có ý nghĩa với vai trò Main (đúng điều kiện #1 của khái niệm Chu kỳ), dùng chung đúng
+    // 1 hàm personHasAutoDoneCycle() với mọi nơi khác trong app (Bảng xếp hạng, Danh sách dự án...).
+    let cycleCell = '<span style="color:var(--color-text-tertiary)">—</span>';
+    if(p.role === 'main'){
+      const projObj = projects.find(function(pr){ return normStr(pr.name) === normStr(p.name); });
+      const done = projObj && typeof currentPersonName !== 'undefined'
+        ? personHasAutoDoneCycle(currentPersonName, projObj) : false;
+      cycleCell = done
+        ? '<span title="Đủ 1 chu kỳ để lên level" style="color:#3B6D11;font-weight:600">✅</span>'
+        : '<span title="Chưa đủ chu kỳ — cần đạt tối thiểu 75% CD (hoặc Complete) và có ActivityLog thật" style="color:var(--color-text-tertiary)">—</span>';
+    }
     return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
       <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}${phaseBadge}</td>
       <td style="padding:5px 6px;text-align:center">
@@ -4379,13 +4395,14 @@ function renderProjListTable(breakdown, totalRaw){
         <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${rc.bg};color:${rc.color};font-weight:500;white-space:nowrap">${ROLE_LABEL[p.role]||p.role}</span>
       </td>
       <td style="padding:5px 6px;text-align:center;font-size:11px;color:${CX_COLOR[cx]||'inherit'};font-weight:500">${cx}</td>
+      <td style="padding:5px 6px;text-align:center">${cycleCell}</td>
       <td style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-primary);cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(p).replace(/"/g,'&quot;')}">${p.score}</td>
     </tr>`;
   }).join('');
 
   const totalTooltip = `Tổng điểm thô = tổng điểm từng dự án bên trên\n(rê chuột vào từng dòng để xem công thức chi tiết)`;
   tfoot.innerHTML = `<tr style="border-top:1px solid var(--color-border-secondary);background:var(--color-background-secondary)">
-    <td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
+    <td colspan="5" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
     <td style="padding:5px 10px;text-align:right;font-weight:600;color:var(--color-text-primary);cursor:help" title="${totalTooltip}">${parseFloat(totalRaw).toFixed(2)}</td>
   </tr>`;
 }
@@ -6733,9 +6750,14 @@ function userPortalSearch(){
         ? 'background:#1A1A18;color:#fff'
         : 'background:var(--color-background-secondary);color:var(--color-text-secondary)';
       const st = USER_STATUS_COLOR[p.status] || {bg:'#F1EFE8',color:'#5F5E5A'};
+      // Chu kỳ — chỉ có ý nghĩa với Main, dùng chung đúng 1 hàm personHasAutoDoneCycle() với mọi nơi khác
+      const cycleBadge = isMain && personHasAutoDoneCycle(name, p)
+        ? '<span title="Đủ 1 chu kỳ để lên level" style="font-size:10px;padding:2px 7px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600">✅ Chu kỳ</span>'
+        : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);margin-bottom:6px;background:var(--color-background-primary)">
         <div style="flex:1;font-size:13px;font-weight:500;color:var(--color-text-primary)">${p.name}</div>
         <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${roleStyle.split(';')[0].split(':')[1]};color:${roleStyle.split(';')[1].split(':')[1]};font-weight:500;${roleStyle}">${role}</span>
+        ${cycleBadge}
         <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${st.bg};color:${st.color};font-weight:500">${p.status||'–'}</span>
         <span style="font-size:11px;color:var(--color-text-tertiary)">${p.size||''}</span>
       </div>`;
@@ -7520,7 +7542,7 @@ function renderLeaderboard(){
         +'</table>'
         +'<div style="margin-bottom:'+(isAdmin?'20px':'0')+';padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">'
         +'<b style="color:var(--color-text-secondary)">📐 Công thức:</b> Điểm /10 = min(10, Tích lũy / '+bench+' × 10)<br>'
-        +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/25×10 = <b>4.52/10</b><br>'
+        +'Ví dụ — tích lũy '+(bench*0.45).toFixed(1)+'đ ở '+lv+': '+(bench*0.45).toFixed(1)+'/'+bench+'×10 = <b>4.5/10</b><br>'
         +'<b style="color:var(--color-text-secondary)">📌 Benchmark '+bench+'</b> = mức tích lũy cần đạt để được 10/10 ở '+lv+'.<br>'
         +'Benchmark tăng dần theo level vì kỳ vọng khối lượng công việc cao hơn — không liên quan đến size dự án (size đã được tính riêng ở điểm từng dự án).<br>'
         +'Staff=10 · Senior=15 · Key Member=25 · Leader=35'
