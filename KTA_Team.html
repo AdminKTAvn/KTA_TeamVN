@@ -3370,7 +3370,17 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
       .filter(Boolean)
       .sort();
     const lastTaskDate = myTaskDates.length ? myTaskDates[myTaskDates.length-1] : null;
-    if(lastTaskDate){
+    if(lastTaskDate && lastTaskDate < LEVEL_MULT_POLICY_START){
+      // Task log TRƯỚC mốc chính sách 09/2025 -> Level lịch sử thời điểm đó KHÔNG ĐÁNG TIN (dữ liệu
+      // levelHistory của nhiều người chỉ có 1 mốc duy nhất bắt đầu từ đợt rollout 09/2025, nên tra lùi về
+      // trước sẽ trả nhầm về Level hiện tại) -> không áp hệ số Level/Size, dùng trung lập ×1.
+      historicalLevelMult = 1;
+      if(explainOut){
+        explainOut.beforePolicyStartAl = true;
+        explainOut.lastTaskDate = lastTaskDate;
+        explainOut.levelMultHistorical = 1;
+      }
+    } else if(lastTaskDate){
       const memberRec = members.find(function(m){ return normStr(m.name) === lower; });
       if(memberRec){
         const levelAtThatTime = getLevelAtDate(memberRec, lastTaskDate);
@@ -4470,7 +4480,9 @@ function buildScoreTooltip(p){
       lines.push(e.isOfficiallyAssigned
         ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
         : `× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
-      lines.push(e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
+      lines.push(e.beforePolicyStartAl
+        ? `× Hệ số Level = ×1 (task log ${e.lastTaskDate} — TRƯỚC mốc chính sách LevelMult 09/2025, dữ liệu Level lịch sử trước đó không đáng tin, không áp hệ số Level/Size)`
+        : e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
         ? `× Hệ số Level ${e.levelAtTaskTime} (tại thời điểm ${e.lastTaskDate}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultHistorical}`
         : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
