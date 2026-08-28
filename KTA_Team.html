@@ -3132,6 +3132,14 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const projValue = (base + cxBonus) * cappedPhasePct * typeMult;
   const caBonusPoolValue = (base + cxBonus) * caBonusFraction * typeMult;
 
+  // Dự án được xem là "CŨ" (trước mốc chính sách LevelMult 09/2025) dựa vào Ngày nhập dự án
+  // (proj.startMonth) — tiêu chí là NGÀY DỰ ÁN, không phải ngày task. Dù dự án cũ có task MỚI log gần
+  // đây (VD 2026), hệ số Level vẫn giữ nguyên =1 vĩnh viễn, không đổi theo ngày task — vì bản chất đây là
+  // 1 dự án đã tồn tại từ trước khi có chính sách LevelMult, không công bằng nếu áp ngược lại. Áp dụng
+  // THỐNG NHẤT cho CẢ 2 nhánh (fallback lẫn activitylog) bên dưới. Nếu proj.startMonth CHƯA được điền,
+  // coi như chưa xác định được tuổi dự án -> giữ hành vi tính theo ngày/level như trước (không đổi).
+  const isOldProject = !!(proj.startMonth && proj.startMonth < LEVEL_MULT_POLICY_START);
+
   // Chia bonus CA cho ĐÚNG người thật sự làm CA — dựa vào task log SAU ngày dự án chuyển sang CA
   // (proj.caStartDate, tự ghi nhận khi Admin đổi Giai đoạn sang CA). Trả về null nếu chưa xác định được
   // (chưa có caStartDate, hoặc chưa ai log task CA nào) -> khi đó dùng TẠM tỷ lệ vai trò như phần gốc,
@@ -3272,14 +3280,11 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     } else if(isBackupRole && backupFallbackList.length > 0){
       fallbackShare = fallbackSpPool / backupFallbackList.length;
     }
-    // Hệ số Level cho dự án fallback (chưa có ActivityLog) — tra theo "Ngày nhập dự án" (proj.startMonth,
-    // dạng "YYYY-MM") nếu Admin đã điền. Nếu dự án bắt đầu TRƯỚC mốc chính sách LEVEL_MULT_POLICY_START
-    // (09/2025) → hệ số Level = 1 (trung lập), vì lúc đó chính sách LevelMult chưa tồn tại, không công
-    // bằng nếu áp ngược cho việc đã làm từ trước khi có chính sách. Từ mốc đó trở đi mới tra đúng Level
-    // tại thời điểm nhập dự án như bình thường. Nếu chưa điền startMonth thì vẫn dùng Level hiện tại như
-    // cũ (không đổi hành vi, không phạt ai chỉ vì Admin chưa kịp bổ sung ngày).
+    // Hệ số Level cho dự án fallback (chưa có ActivityLog) — nếu dự án CŨ (isOldProject) thì =1 vĩnh viễn.
+    // Nếu là dự án mới (từ 09/2025) thì tra theo "Ngày nhập dự án" (proj.startMonth) để lấy đúng Level
+    // tại thời điểm đó. Nếu chưa điền startMonth thì vẫn dùng Level hiện tại như cũ.
     let fallbackLevelMult = levelMult;
-    if(proj.startMonth && proj.startMonth < LEVEL_MULT_POLICY_START){
+    if(isOldProject){
       fallbackLevelMult = 1;
       if(explainOut){
         explainOut.beforePolicyStart = true;
@@ -3355,32 +3360,27 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const fullnessFactor = isOfficiallyAssigned ? 1.0 : Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
   const myRatio = baseShare * fullnessFactor;
 
-  // Hệ số Level tính theo Level TẠI THỜI ĐIỂM làm dự án (không phải Level hiện tại) — tra levelHistory
-  // theo ngày task GẦN NHẤT của chính người này trên dự án này. Lý do: 1 người hiện đang Senior nhưng dự
-  // án Large đó họ làm lúc còn Staff (Staff×Large=0, ngoài tầm) thì phải tính đúng theo lúc đó, không phải
-  // tính theo Level bây giờ (sẽ sai lệch lịch sử, có thể tính hệ số cao hơn/thấp hơn thực tế đáng ra có).
-  // Đây là nhánh CÓ ActivityLog thật (có ngày task cụ thể để tra). Nhánh fallback (chưa có ActivityLog)
-  // dùng logic tương tự nhưng tra theo proj.startMonth (Ngày nhập dự án, do Admin điền tay) thay vì ngày
-  // task — xem đoạn "fallbackLevelMult" phía trên.
+  // Hệ số Level tính theo Level TẠI THỜI ĐIỂM làm dự án (không phải Level hiện tại) — CHỈ áp dụng cho dự
+  // án MỚI (từ 09/2025, theo proj.startMonth). Dự án CŨ (isOldProject) luôn dùng hệ số =1, bất kể task
+  // log lúc nào (kể cả log rất gần đây) — vì bản chất dự án đã tồn tại từ trước khi có chính sách
+  // LevelMult, task mới log thêm vào không làm dự án "trẻ lại". Nếu proj.startMonth CHƯA điền (không xác
+  // định được tuổi dự án), vẫn tra theo ngày task GẦN NHẤT như logic gốc ban đầu (không đổi hành vi).
   let historicalLevelMult = levelMult;
-  if(typeof members !== 'undefined' && members){
+  if(isOldProject){
+    historicalLevelMult = 1;
+    if(explainOut){
+      explainOut.beforePolicyStartAl = true;
+      explainOut.projectStartMonth = proj.startMonth;
+      explainOut.levelMultHistorical = 1;
+    }
+  } else if(typeof members !== 'undefined' && members){
     const myTaskDates = activityLog
       .filter(function(t){ return sameProjectName(t.projectName, proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; }); })
       .map(function(t){ return t.date || ''; })
       .filter(Boolean)
       .sort();
     const lastTaskDate = myTaskDates.length ? myTaskDates[myTaskDates.length-1] : null;
-    if(lastTaskDate && lastTaskDate < LEVEL_MULT_POLICY_START){
-      // Task log TRƯỚC mốc chính sách 09/2025 -> Level lịch sử thời điểm đó KHÔNG ĐÁNG TIN (dữ liệu
-      // levelHistory của nhiều người chỉ có 1 mốc duy nhất bắt đầu từ đợt rollout 09/2025, nên tra lùi về
-      // trước sẽ trả nhầm về Level hiện tại) -> không áp hệ số Level/Size, dùng trung lập ×1.
-      historicalLevelMult = 1;
-      if(explainOut){
-        explainOut.beforePolicyStartAl = true;
-        explainOut.lastTaskDate = lastTaskDate;
-        explainOut.levelMultHistorical = 1;
-      }
-    } else if(lastTaskDate){
+    if(lastTaskDate){
       const memberRec = members.find(function(m){ return normStr(m.name) === lower; });
       if(memberRec){
         const levelAtThatTime = getLevelAtDate(memberRec, lastTaskDate);
@@ -4481,7 +4481,7 @@ function buildScoreTooltip(p){
         ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
         : `× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
       lines.push(e.beforePolicyStartAl
-        ? `× Hệ số Level = ×1 (task log ${e.lastTaskDate} — TRƯỚC mốc chính sách LevelMult 09/2025, dữ liệu Level lịch sử trước đó không đáng tin, không áp hệ số Level/Size)`
+        ? `× Hệ số Level = ×1 (dự án nhập ${e.projectStartMonth} — TRƯỚC mốc chính sách LevelMult 09/2025, dù có task mới log gần đây thì hệ số vẫn giữ =1)`
         : e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
         ? `× Hệ số Level ${e.levelAtTaskTime} (tại thời điểm ${e.lastTaskDate}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultHistorical}`
         : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
