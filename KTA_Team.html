@@ -2222,7 +2222,12 @@ function renderProjects(){
   }
   empty.style.display='none';
   tbody.innerHTML = filtered.slice().sort((a,b)=>{
-    // Use explicit order field if available, else createdAt ascending
+    // Ưu tiên sắp theo "Ngày nhập dự án" (startMonth, format YYYY-MM) tăng dần — tháng nhỏ lên trên,
+    // tháng lớn xuống dưới. Dự án chưa điền startMonth bị đẩy xuống cuối (không có mốc để so).
+    if(a.startMonth && b.startMonth && a.startMonth !== b.startMonth) return a.startMonth < b.startMonth ? -1 : 1;
+    if(a.startMonth && !b.startMonth) return -1;
+    if(!a.startMonth && b.startMonth) return 1;
+    // Cùng startMonth (hoặc đều chưa có) — dùng order/createdAt như cũ để ổn định thứ tự
     if(a.order!==undefined && b.order!==undefined) return a.order - b.order;
     return a.createdAt - b.createdAt;
   }).map((p, __rowIdx)=>{
