@@ -1687,6 +1687,9 @@ function _extractCandidatesFromExistingData(){
         <option value="Priorities">Priorities</option>
         <option value="Deadline">Deadline</option>
       </select>
+      <select class="pm-filter-select" id="pm-filter-year" onchange="renderProjects()">
+        <option value="">Tất cả năm</option>
+      </select>
     </div>
   </div>
 
@@ -1703,6 +1706,7 @@ function _extractCandidatesFromExistingData(){
     <table class="pm-table">
       <thead>
         <tr>
+          <th style="width:40px">STT</th>
           <th>Tên dự án</th>
           <th>Quy mô</th>
           <th>Độ phức tạp</th>
@@ -2146,9 +2150,21 @@ function renderProjects(){
   const fTeam=document.getElementById('pm-filter-team').value;
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
+  const fYearSel=document.getElementById('pm-filter-year');
+  const fYear=fYearSel.value;
+
+  // Populate danh sách năm động, dựa trên startMonth ("YYYY-MM") của các dự án đã có —
+  // giữ nguyên lựa chọn hiện tại của người dùng nếu năm đó vẫn còn tồn tại trong danh sách.
+  const yearsSet = new Set();
+  projects.forEach(p=>{ if(p.startMonth && p.startMonth.length>=4) yearsSet.add(p.startMonth.slice(0,4)); });
+  const years = Array.from(yearsSet).sort((a,b)=>b-a); // mới nhất trước
+  const yearOptionsHtml = '<option value="">Tất cả năm</option>' +
+    years.map(y=>`<option value="${y}"${y===fYear?' selected':''}>${y}</option>`).join('');
+  if(fYearSel.innerHTML !== yearOptionsHtml) fYearSel.innerHTML = yearOptionsHtml;
 
   const filtered = projects.filter(p=>
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
+    && (!fYear || (p.startMonth && p.startMonth.slice(0,4)===fYear))
   );
 
   // ── Stats ──
@@ -2209,7 +2225,7 @@ function renderProjects(){
     // Use explicit order field if available, else createdAt ascending
     if(a.order!==undefined && b.order!==undefined) return a.order - b.order;
     return a.createdAt - b.createdAt;
-  }).map(p=>{
+  }).map((p, __rowIdx)=>{
     const cxCount = p.complexityCount||0;
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
@@ -2246,6 +2262,7 @@ function renderProjects(){
     }).join('');
     return `
     <tr>
+      <td style="color:var(--color-text-tertiary);text-align:center">${__rowIdx+1}</td>
       <td>
         <div class="pm-proj-name" style="cursor:pointer" onclick="openProjectDetailModal('${p.id}')" title="Xem chi tiết dự án & điểm từng người">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
