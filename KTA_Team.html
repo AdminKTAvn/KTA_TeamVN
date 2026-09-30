@@ -4826,6 +4826,30 @@ function onPersonNameSelect(name){
     const officialLevel = getCurrentLevelOfMember(matchedMember);
     if(officialLevel && typeof setLevel==='function') setLevel(officialLevel);
   }
+
+  // ─ Đồng bộ "Ngày vào team" từ tab Nhân sự (nguồn duy nhất đáng tin) ─
+  // Ghi đè bản ghi đánh giá cũ (nếu có joinDate khác/thiếu) để không còn hiện dữ liệu cũ/sai,
+  // và lưu lại ngay để nhóm Level (chip Leader/KM/Senior/Staff) cũng cập nhật mà không cần bấm "Lưu".
+  if(matchedMember && matchedMember.joinDate){
+    const jdInp = document.getElementById('person-joindate-input');
+    const needFix = jdInp && jdInp.value !== matchedMember.joinDate;
+    if(needFix){
+      jdInp.value = matchedMember.joinDate;
+      const senEl = document.getElementById('person-seniority');
+      if(senEl){ const s=calcSeniority(matchedMember.joinDate); senEl.style.display='block'; senEl.textContent='📅 Thâm niên: '+s; }
+      try{
+        const key = getStorageKey(name);
+        const existing = JSON.parse(localStorage.getItem(key)||'null') || { name, scores3:{}, scores2:{}, notes3:{} };
+        existing.joinDate = matchedMember.joinDate;
+        if(currentLevel) existing.currentLevel = currentLevel;
+        existing.ts = Date.now();
+        localStorage.setItem(key, JSON.stringify(existing));
+        const list = getPersonList();
+        if(!list.includes(name)){ list.push(name); savePersonList(list); }
+      }catch(e){}
+      if(typeof renderPersonList==='function') renderPersonList();
+    }
+  }
 }
 
 // Populate person dropdown from all members in projects
