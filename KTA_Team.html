@@ -5948,7 +5948,8 @@ async function connectSheets(){
 
 // ── Core request helper ──
 async function sheetsRequest(url, payload){
-  const scriptUrl = url || sheetsScriptUrl;
+  let scriptUrl = url || sheetsScriptUrl;
+  if(!scriptUrl){ try{ scriptUrl = (getSheetsConfig()||{}).scriptUrl || ''; if(scriptUrl) sheetsScriptUrl = scriptUrl; }catch(e){} }
   if(!scriptUrl) return {ok:false, error:'Chưa cấu hình Script URL'};
   const res = await fetch(scriptUrl, {
     method: 'POST',
