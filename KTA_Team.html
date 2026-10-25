@@ -3299,15 +3299,17 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
   <div class="main-panel" id="mainpanel-office">
     <style>
 .ofc-wrap{background:#F6F1E7;border-radius:16px;padding:24px 24px 28px;font-family:'DM Sans',system-ui,sans-serif;color:#14202b}
-.ofc-ch{position:absolute;width:44px;height:62px;cursor:pointer;transition:left 1s ease-in-out,top 1s ease-in-out,opacity .4s}
+.ofc-ch{position:absolute;width:44px;height:62px;cursor:pointer;transition:opacity .4s}
+.ofc-rot{width:44px;height:62px;transition:transform .3s}
+.ofc-walking{animation:ofcwalk .45s ease-in-out infinite}
 .ofc-in{position:relative;width:44px;height:62px}
 .ofc-work{animation:ofcwork .9s ease-in-out infinite}
 .ofc-walk{animation:ofcwalk .5s ease-in-out 3}
 @keyframes ofcwork{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 @keyframes ofcwalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .ofc-badge{position:absolute;left:30px;top:-2px;min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:9px;background:#14202b;color:#F6F1E7;font-size:11px;font-weight:700;line-height:18px;text-align:center}
-.ofc-tag{position:absolute;left:-12px;top:-15px;width:68px;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b}
-.ofc-say{position:absolute;left:-38px;top:-40px;width:120px;box-sizing:border-box;padding:3px 6px;border-radius:10px;background:#fff;border:2px solid #14202b;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b;pointer-events:none}
+.ofc-tag{position:absolute;left:-8px;top:56px;width:60px;box-sizing:border-box;background:#fff;border:1px solid #14202b;border-radius:8px;text-align:center;font-size:10px;font-weight:700;line-height:14px;color:#14202b;pointer-events:none}
+.ofc-say{position:absolute;left:-38px;top:-34px;z-index:5;width:120px;box-sizing:border-box;padding:3px 6px;border-radius:10px;background:#fff;border:2px solid #14202b;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b;pointer-events:none}
 .ofc-hud{min-width:92px;box-sizing:border-box;padding:4px 12px;border-radius:12px;background:#14202b;color:#F6F1E7;display:flex;flex-direction:column}
 .ofc-hud span{font-size:18px;font-weight:700;line-height:1.1}.ofc-hud i{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#c9d3e1}
 .ofc-pill{position:absolute;white-space:nowrap;background:#14202b;color:#F6F1E7;font-weight:700;font-size:12px;line-height:20px;padding:0 10px;border-radius:12px;z-index:5}
@@ -7364,16 +7366,43 @@ function getProjectCountForCurrentPerson(){
 const OFC = (function(){
   const NAMES = ['Alice','Andrew','Bonnie','Dale','Daniel','Henry','Jayce','Jayson','Kane','Liam','Mei','Nick','Nina','Nora','Rhys','Sam','Sayid','Stuart','Vanessa','Wilder','William','Zolius'];
   const GONE = [8]; // Kane đã nghỉ
-  const TEAMCOL = { L:'#6190d1', S:'#e37f54', N:'#84cdae' };
-  const ZONES = [
-    { label:'Nhóm Liam', t:'L', x0:4, cols:3, who:[1,4,9,10,19,20] },
-    { label:'Nhóm Stuart', t:'S', x0:308, cols:4, who:[0,2,3,5,7,17,18] },
-    { label:'Nhóm Nina', t:'N', x0:704, cols:4, who:[6,11,12,13,14,15,16,21] },
-  ];
-  const LIAM=9, STU=17, NINA=12, TICK=1800;
+  const TEAMCOL = { L:'#f0a3a3', S:'#8fcf9f', N:'#f5b97a' };
+  const TEAMOF = { L:[1,4,9,10,19,20], S:[0,2,3,5,7,17,18], N:[6,11,12,13,14,15,16,21] };
+  const BG = "<div style=\"position:absolute;left:4px;top:24px;width:1112px;height:592px;box-sizing:border-box;border:2px solid #14202b;border-top:none;background:#efe9da\"></div><div style=\"position:absolute;left:4px;top:16px;width:1112px;height:14px;box-sizing:border-box;z-index:3;border:2px solid #14202b;background:repeating-linear-gradient(90deg,rgba(20,32,43,.6) 0 3px,transparent 3px 112px),rgba(127,209,255,.5)\"></div><div style=\"position:absolute;left:6px;top:34px;width:36px;height:310px;box-sizing:border-box;background:#e6d3c9;border:2px dashed #b99a8a\"><span style=\"position:absolute;left:0;right:0;top:50%;margin-top:-14px;text-align:center;font-size:22px;line-height:28px;color:#b08f7e;writing-mode:vertical-rl;letter-spacing:8px\">&rsaquo;&rsaquo;&rsaquo;&rsaquo;</span></div><div style=\"position:absolute;left:290px;top:34px;width:52px;height:310px;box-sizing:border-box;background:#e6d3c9;border:2px dashed #b99a8a\"><span style=\"position:absolute;left:0;right:0;top:50%;margin-top:-14px;text-align:center;font-size:22px;line-height:28px;color:#b08f7e;writing-mode:vertical-rl;letter-spacing:8px\">&rsaquo;&rsaquo;&rsaquo;&rsaquo;</span></div><div style=\"position:absolute;left:290px;top:416px;width:52px;height:196px;box-sizing:border-box;background:#e6d3c9;border:2px dashed #b99a8a\"><span style=\"position:absolute;left:0;right:0;top:50%;margin-top:-14px;text-align:center;font-size:22px;line-height:28px;color:#b08f7e;writing-mode:vertical-rl;letter-spacing:8px\">&rsaquo;&rsaquo;&rsaquo;</span></div><div style=\"position:absolute;left:596px;top:34px;width:40px;height:310px;box-sizing:border-box;background:#e6d3c9;border:2px dashed #b99a8a\"><span style=\"position:absolute;left:0;right:0;top:50%;margin-top:-14px;text-align:center;font-size:22px;line-height:28px;color:#b08f7e;writing-mode:vertical-rl;letter-spacing:8px\">&rsaquo;&rsaquo;&rsaquo;&rsaquo;</span></div><div style=\"position:absolute;left:4px;top:352px;width:696px;height:60px;box-sizing:border-box;background:#e6d3c9;border-top:2px dashed #b99a8a;border-bottom:2px dashed #b99a8a\"></div><div style=\"position:absolute;left:124px;top:56px;width:80px;height:288px;box-sizing:border-box;z-index:1;border:2px solid #14202b;border-radius:8px;background:#c3c8d0;box-shadow:0 4px 0 #9aa1ad\"></div><div style=\"position:absolute;left:124px;top:460px;width:80px;height:144px;box-sizing:border-box;z-index:1;border:2px solid #14202b;border-radius:8px;background:#c3c8d0;box-shadow:0 4px 0 #9aa1ad\"></div><div style=\"position:absolute;left:426px;top:56px;width:80px;height:288px;box-sizing:border-box;z-index:1;border:2px solid #14202b;border-radius:8px;background:#c3c8d0;box-shadow:0 4px 0 #9aa1ad\"></div><div style=\"position:absolute;left:426px;top:460px;width:80px;height:144px;box-sizing:border-box;z-index:1;border:2px solid #14202b;border-radius:8px;background:#c3c8d0;box-shadow:0 4px 0 #9aa1ad\"></div><div style=\"position:absolute;left:670px;top:128px;width:64px;height:216px;box-sizing:border-box;z-index:1;border:2px solid #14202b;border-radius:8px;background:#c3c8d0;box-shadow:0 4px 0 #9aa1ad\"></div><div style=\"position:absolute;left:640px;top:36px;width:44px;height:44px;box-sizing:border-box;border:2px solid #14202b;background:#6aa9e0;border-radius:4px\"></div><div style=\"position:absolute;left:626px;top:86px;width:72px;height:22px;box-sizing:border-box;border:2px solid #14202b;background:#8b5a3c;border-radius:4px;color:#fff;font-weight:700;font-size:12px;line-height:18px;text-align:center;letter-spacing:.12em\">KTA</div><div style=\"position:absolute;left:648px;top:366px;width:40px;height:44px;z-index:5\"></div><div style=\"position:absolute;left:648px;top:366px;width:40px;height:44px;z-index:5\"><div style=\"position:absolute;left:2px;top:0;width:36px;height:30px;box-sizing:border-box;border:2px solid #14202b;border-radius:50%;background:#6bbf59\"></div><div style=\"position:absolute;left:10px;top:26px;width:20px;height:18px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px 3px 6px 6px;background:#c9724a\"></div></div><div style=\"position:absolute;left:740px;top:147px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:3px 8px 8px 3px;background:#e9e3d3\"></div><div style=\"position:absolute;left:708px;top:136px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:708px;top:166px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:740px;top:219px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:3px 8px 8px 3px;background:#e9e3d3\"></div><div style=\"position:absolute;left:708px;top:208px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:708px;top:238px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:740px;top:291px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:3px 8px 8px 3px;background:#e9e3d3\"></div><div style=\"position:absolute;left:708px;top:280px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:708px;top:310px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:880px;top:250px;width:222px;height:210px;box-sizing:border-box;border:3px solid #14202b;border-radius:14px;background:#cfe8cf\"><span style=\"position:absolute;left:12px;top:10px;font-size:13px;font-weight:700;color:#14202b\">Meeting Room</span><div style=\"position:absolute;left:46px;top:62px;width:130px;height:84px;box-sizing:border-box;border:2px solid #14202b;border-radius:42px;background:#fff;box-shadow:0 4px 0 #a9c7a9\"></div><div style=\"position:absolute;left:64px;top:36px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:98px;top:36px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:132px;top:36px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:64px;top:152px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:98px;top:152px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:132px;top:152px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:16px;top:92px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div><div style=\"position:absolute;left:178px;top:92px;width:24px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:8px;background:#8e9bb0\"></div></div><div style=\"position:absolute;left:616px;top:408px;width:150px;height:8px;box-sizing:border-box;z-index:4;background:repeating-linear-gradient(45deg,#14202b 0 3px,#6b7787 3px 7px)\"></div><div style=\"position:absolute;left:616px;top:408px;width:8px;height:208px;box-sizing:border-box;z-index:4;background:repeating-linear-gradient(45deg,#14202b 0 3px,#6b7787 3px 7px)\"></div><div style=\"position:absolute;left:632px;top:420px;width:70px;height:31px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:6px;background:#fff\"><div style=\"position:absolute;left:8px;top:2px;width:22px;height:22px;box-sizing:border-box;border:2px solid #14202b;border-radius:50%;background:#7fd1ff\"></div><div style=\"position:absolute;left:34px;top:9px;width:24px;height:10px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#e6ebf1\"></div><div style=\"position:absolute;left:58px;top:7px;width:5px;height:6px;background:#14202b\"></div></div><div style=\"position:absolute;left:632px;top:455px;width:95px;height:35px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:6px;background:#dfe5ec\"><div style=\"position:absolute;left:46px;top:0;width:2px;height:31px;background:#14202b\"></div><div style=\"position:absolute;left:38px;top:8px;width:4px;height:14px;border-radius:2px;background:#14202b\"></div><div style=\"position:absolute;left:52px;top:8px;width:4px;height:14px;border-radius:2px;background:#14202b\"></div><div style=\"position:absolute;left:8px;top:6px;width:16px;height:16px;box-sizing:border-box;border:2px solid #6aa9e0;border-radius:3px\"></div></div><div style=\"position:absolute;left:632px;top:494px;width:49px;height:114px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:6px;background:#9fd0f0;box-shadow:0 3px 0 #7fb0d0\"><div style=\"position:absolute;left:7px;top:8px;width:28px;height:36px;box-sizing:border-box;border:2px solid #14202b;border-radius:4px;background:#3a4754\"><div style=\"position:absolute;left:5px;top:4px;width:14px;height:8px;border-radius:2px;background:#7fd1ff\"></div><div style=\"position:absolute;left:8px;top:20px;width:8px;height:10px;border-radius:1px 1px 4px 4px;background:#fff\"></div></div><div style=\"position:absolute;left:8px;top:60px;width:12px;height:16px;box-sizing:border-box;border:2px solid #14202b;border-radius:2px 2px 5px 5px;background:#fff\"></div><div style=\"position:absolute;left:24px;top:60px;width:12px;height:16px;box-sizing:border-box;border:2px solid #14202b;border-radius:2px 2px 5px 5px;background:#fff\"></div><div style=\"position:absolute;left:12px;top:88px;width:20px;height:14px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#e9edf2\"></div></div><div style=\"position:absolute;left:4px;top:612px;width:727px;height:8px;box-sizing:border-box;z-index:4;background:#14202b\"></div><div style=\"position:absolute;left:827px;top:612px;width:133px;height:8px;box-sizing:border-box;z-index:4;background:#14202b\"></div><div style=\"position:absolute;left:731px;top:606px;width:96px;height:20px;box-sizing:border-box;z-index:4;border:3px solid #14202b;background:rgba(127,209,255,.6)\"><div style=\"position:absolute;left:43px;top:0;width:3px;height:14px;background:#14202b\"></div></div><div style=\"position:absolute;left:4px;top:620px;width:1112px;height:70px;box-sizing:border-box;background:#e2dccd\"><span style=\"position:absolute;left:96px;top:44px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6a6556\">Corridor</span></div><div style=\"position:absolute;left:80px;top:690px;width:622px;height:8px;box-sizing:border-box;background:#14202b\"></div><div style=\"position:absolute;left:842px;top:690px;width:98px;height:8px;box-sizing:border-box;background:#14202b\"></div><div style=\"position:absolute;left:702px;top:690px;width:140px;height:70px;box-sizing:border-box;z-index:4;border:3px solid #14202b;border-top:none;border-radius:0 0 8px 8px;background:#a8744f\"><span style=\"position:absolute;left:0;right:0;top:4px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff\">Elevator</span><div style=\"position:absolute;left:8px;top:22px;width:36px;height:42px;box-sizing:border-box;border:2px solid #14202b;background:#d5dbe3\"><div style=\"position:absolute;left:16px;top:0;width:2px;height:38px;background:#14202b\"></div></div><div style=\"position:absolute;left:52px;top:22px;width:36px;height:42px;box-sizing:border-box;border:2px solid #14202b;background:#d5dbe3\"><div style=\"position:absolute;left:16px;top:0;width:2px;height:38px;background:#14202b\"></div></div><div style=\"position:absolute;left:96px;top:22px;width:36px;height:42px;box-sizing:border-box;border:2px solid #14202b;background:#d5dbe3\"><div style=\"position:absolute;left:16px;top:0;width:2px;height:38px;background:#14202b\"></div></div></div><div style=\"position:absolute;left:6px;top:634px;width:78px;height:98px;box-sizing:border-box;z-index:4;border:2px solid #14202b;border-radius:8px;background:#cfc3e8\"><span style=\"position:absolute;left:0;right:0;top:4px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#3b2f5c\">Pantry</span><div style=\"position:absolute;left:6px;top:28px;width:34px;height:28px;box-sizing:border-box;border:2px solid #14202b;border-radius:4px;background:#fff\"><div style=\"position:absolute;left:4px;top:8px;width:22px;height:12px;border-radius:3px;background:#9fd0f0;border:2px solid #14202b;box-sizing:border-box\"></div></div><div style=\"position:absolute;left:48px;top:30px;width:22px;height:30px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px 3px 6px 6px;background:#8e9bb0\"></div><div style=\"position:absolute;left:6px;top:64px;width:64px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:4px;background:#e9edf2\"></div></div><div style=\"position:absolute;left:960px;top:626px;width:104px;height:80px;box-sizing:border-box;border:3px solid #14202b;background:#fff;border-radius:6px;font-family:Georgia,serif;font-size:30px;font-weight:700;line-height:74px;text-align:center;color:#14202b\">W/C</div><div style=\"position:absolute;left:40px;top:75px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#f0a3a3\"></div><div style=\"position:absolute;left:267px;top:75px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:342px;top:75px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#8fcf9f\"></div><div style=\"position:absolute;left:569px;top:75px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#8fcf9f\"></div><div style=\"position:absolute;left:40px;top:147px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#f0a3a3\"></div><div style=\"position:absolute;left:267px;top:147px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:342px;top:147px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#f0a3a3\"></div><div style=\"position:absolute;left:569px;top:147px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#8fcf9f\"></div><div style=\"position:absolute;left:40px;top:219px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:8px 3px 3px 8px;background:#e9e3d3\"></div><div style=\"position:absolute;left:130px;top:208px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:130px;top:238px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:267px;top:219px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:342px;top:219px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#8fcf9f\"></div><div style=\"position:absolute;left:569px;top:219px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:40px;top:291px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#8fcf9f\"></div><div style=\"position:absolute;left:267px;top:291px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:342px;top:291px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#f0a3a3\"></div><div style=\"position:absolute;left:569px;top:291px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:40px;top:479px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:8px 3px 3px 8px;background:#e9e3d3\"></div><div style=\"position:absolute;left:130px;top:468px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:130px;top:498px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:267px;top:479px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f0a3a3\"></div><div style=\"position:absolute;left:342px;top:479px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#f0a3a3\"></div><div style=\"position:absolute;left:569px;top:479px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div><div style=\"position:absolute;left:40px;top:551px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px dashed #14202b;border-radius:8px 3px 3px 8px;background:#e9e3d3\"></div><div style=\"position:absolute;left:130px;top:540px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:130px;top:570px;width:14px;height:26px;box-sizing:border-box;z-index:5;border:2px solid #14202b;border-radius:3px;background:#55616f\"></div><div style=\"position:absolute;left:267px;top:551px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#8fcf9f\"></div><div style=\"position:absolute;left:342px;top:551px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:8px 3px 3px 8px;background:#8fcf9f\"></div><div style=\"position:absolute;left:569px;top:551px;width:22px;height:34px;box-sizing:border-box;z-index:2;border:2px solid #14202b;border-radius:3px 8px 8px 3px;background:#f5b97a\"></div>";
+  const LIAM=9, STU=17, NINA=12, TICK=1800, SPEED=190, AY=356;
+  const COFFEE_FANS = ['Rhys','Zolius','Jayson'];      // hay đi pha cà phê
+  const G1 = ['Daniel','Rhys','Sayid','Nina','Dale','Mei','Zolius','William','Henry','Andrew','Sam','Jayce','Nora']; // 07:30
+  const CX={A:90,D:239,E:392,H:541}, ROT={A:90,D:-90,E:90,H:-90}, WX={A:24,D:316,E:316,H:610}, MONX={A:130,D:184,E:432,H:486};
+  const CY={1:92,2:164,3:236,4:308,6:496,7:568};
+  const GRID=[['William',1,'A'],['Rhys',1,'D'],['Jayson',1,'E'],['Dale',1,'H'],['Andrew',2,'A'],['Zolius',2,'D'],['Daniel',2,'E'],['Vanessa',2,'H'],
+    ['Nina',3,'D'],['Stuart',3,'E'],['Nick',3,'H'],['Alice',4,'A'],['Sam',4,'D'],['Liam',4,'E'],['Sayid',4,'H'],
+    ['Mei',6,'D'],['Wilder',6,'E'],['Jayce',6,'H'],['Henry',7,'D'],['Bonnie',7,'E'],['Nora',7,'H']];
   const seat={}, tcol={}, team={};
-  ZONES.forEach(z=>z.who.forEach((p,k)=>{ const c=k%z.cols, r=Math.floor(k/z.cols); seat[p]=[z.x0+54+c*92, 472+r*98]; tcol[p]=TEAMCOL[z.t]; team[p]=z.t; }));
-  let days=[], st={idx:0, tk:0, trips:{}, journey:false, sel:-1}, timer=null, built=false, R={};
+  GRID.forEach(g=>{ const i=NAMES.indexOf(g[0]); seat[i]={x:CX[g[2]],y:CY[g[1]],rot:ROT[g[2]],wx:WX[g[2]],c:g[2]}; });
+  Object.keys(TEAMOF).forEach(t=>TEAMOF[t].forEach(i=>{ team[i]=t; tcol[i]=TEAMCOL[t]; }));
+  const arrTick = i => (G1.indexOf(NAMES[i])>=0 ? 1 : 3);
+  // vị trí đứng họp: vòng quanh bàn + đứng ngoài cửa phòng họp
+  const MP=[]; for(let k=0;k<14;k++){ const a=k/14*Math.PI*2-Math.PI/2; MP.push([991+Math.cos(a)*88, 358+Math.sin(a)*62]); }
+  [[800,300],[846,300],[800,364],[846,364],[800,428],[846,428],[823,334]].forEach(p=>MP.push(p));
+  // ── vị trí & đường đi ──
+  const seatLoc=i=>({key:'s'+i,x:seat[i].x,y:seat[i].y,seat:true,rot:seat[i].rot,wx:seat[i].wx,br:[{x:seat[i].wx,y:seat[i].y},{x:seat[i].wx,y:AY}]});
+  const standLoc=j=>({key:'w'+j,x:seat[j].wx,y:seat[j].y,wx:seat[j].wx,br:[{x:seat[j].wx,y:AY}]});
+  const meetLoc=k=>({key:'m'+k,x:MP[k][0],y:MP[k][1],br:[{x:840,y:AY}]});
+  const nookLoc=(x,y)=>({key:'n'+Math.round(x)+','+Math.round(y),x:x,y:y,br:[{x:779,y:y},{x:779,y:AY}]});
+  const corLoc=(x,y)=>({key:'c'+Math.round(x)+','+Math.round(y),x:x,y:y,br:[{x:779,y:655},{x:779,y:AY}]});
+  const ELEV={key:'e',x:772,y:716,hide:true,br:[{x:779,y:655},{x:779,y:AY}]};
+  function route(f,t){
+    let pts;
+    if(f.wx!==undefined && t.wx!==undefined && f.wx===t.wx) pts=[{x:f.wx,y:f.y},{x:t.wx,y:t.y},{x:t.x,y:t.y}];
+    else pts=f.br.concat(t.br.slice().reverse(),[{x:t.x,y:t.y}]);
+    const out=[]; let c={x:f.x,y:f.y};
+    pts.forEach(p=>{ if(Math.abs(p.x-c.x)>0.5||Math.abs(p.y-c.y)>0.5){ out.push(p); c=p; } });
+    return out;
+  }
+  function routeLen(f,t){ let c={x:f.x,y:f.y},d=0; route(f,t).forEach(p=>{ d+=Math.hypot(p.x-c.x,p.y-c.y); c=p; }); return d; }
+  const etaTicks=(f,t)=>Math.max(1,Math.ceil(routeLen(f,t)/(SPEED*TICK/1000)));
+  let days=[], st={idx:0,tk:0,trips:{},journey:false,sel:-1,snap:true}, timer=null, built=false;
+  const C={};
   function nk(p){ return (p||'').toString().replace(/^\s*\d{2}-\d{2}\s*/,'').toLowerCase().replace('manning','maning').replace(/[^a-z0-9]/g,''); }
   function shortName(p){ return (p||'').toString().replace(/^\s*\d{2}-\d{2}\s*/,'').trim(); }
   function idxOf(a){ const f=(a||'').toString().trim().split(/\s+/)[0].toLowerCase(); return NAMES.findIndex(n=>n.toLowerCase()===f); }
@@ -7385,7 +7414,7 @@ const OFC = (function(){
       const rows=byDate[d], pc={}, label={}, ev={};
       rows.forEach(t=>{
         const k=nk(t.projectName); pc[k]=(pc[k]||0)+1; label[k]=shortName(t.projectName);
-        (t.assignedTo||[]).forEach(a=>{ const i=idxOf(a); if(i<0||GONE.indexOf(i)>=0) return; (ev[i]=ev[i]||[]).push(k); });
+        (t.assignedTo||[]).forEach(a=>{ const i=idxOf(a); if(i<0||GONE.indexOf(i)>=0||!seat[i]) return; (ev[i]=ev[i]||[]).push(k); });
       });
       const acts={};
       Object.keys(ev).forEach(i=>{
@@ -7398,9 +7427,15 @@ const OFC = (function(){
       return { date:d.slice(8,10)+'/'+d.slice(5,7), wd:(g+6)%7, acts:acts, projs:projs, tasks:rows.length };
     });
   }
-  function cfg(){ return st.journey ? {cyc:12, meet:3} : {cyc:32, meet:6}; }
-  function meetPos(k){ return [250+Math.floor(k/2)*58, 312-(k%2)*28]; }
-  function activeList(day){ return Object.keys(day.acts).map(Number); }
+  // mốc thời gian trong 1 chu kỳ (mỗi tick ~1,8 giây)
+  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false} : {cyc:40, meetEnd:9, work:13, arrive:true}; }
+  const activeList=day=>Object.keys(day.acts).map(Number).sort((a,b)=>a-b);
+  // ── hoạt động ngẫu nhiên trong giờ làm việc ──
+  function newTrip(i,kind,dest,stay,say,extra){
+    const from=seatLoc(i), e=etaTicks(from,dest);
+    return Object.assign({kind:kind,dest:dest,say:say,stage:'go',n:e,stay:stay,eta:e},extra||{});
+  }
+  function jit(v,a){ return v+(Math.random()*2-1)*a; }
   function tick(){
     const panel=document.getElementById('mainpanel-office');
     if(!panel || !panel.classList.contains('active') || !days.length) return;
@@ -7408,25 +7443,40 @@ const OFC = (function(){
     let tk=st.tk+1;
     if(tk>=cf.cyc){
       if(st.journey){ if(st.idx>=last) st.journey=false; else st.idx++; }
-      st.tk=0; st.trips={}; paint(); return;
+      st.tk=0; st.trips={}; st.snap=true; paint(); return;
     }
-    const day=days[st.idx], act=day.acts, trips={}; let n=0;
-    Object.keys(st.trips).forEach(k=>{ const t=st.trips[k]; if(t.left-1>0){ trips[k]=Object.assign({},t,{left:t.left-1}); n++; } });
-    if(tk>cf.meet){
-      const busy={}; Object.keys(trips).forEach(k=>{ busy[k]=1; if(trips[k].to!==undefined) busy[trips[k].to]=1; });
+    const day=days[st.idx], act=day.acts, trips={}, busy={}; let n=0;
+    // cập nhật các chuyến đang diễn ra
+    Object.keys(st.trips).forEach(k=>{
+      const t=Object.assign({},st.trips[k]); t.n--;
+      if(t.n<=0){
+        if(t.stage==='go'){ t.stage='stay'; t.n=t.stay; }
+        else if(t.stage==='stay'){ if(t.kind==='bcsit'){ return; } t.stage='back'; t.n=etaTicks(t.dest,seatLoc(+k)); }
+        else return; // về tới chỗ
+      }
+      trips[k]=t; busy[k]=1; if(t.to!==undefined) busy[t.to]=1; n++;
+    });
+    if(tk>=cf.work && tk<cf.cyc-6){
       const active=activeList(day), rnd=p=>Math.random()<p;
-      const water=i=>{ trips[i]={kind:'water',tx:118+Math.random()*56,ty:282+Math.random()*26,left:4,walk:true,say:'Đi lấy nước'}; busy[i]=1; n++; };
-      const wc=i=>{ trips[i]={kind:'wc',tx:1012+Math.random()*56,ty:282+Math.random()*26,left:4,walk:true,say:'Đi vệ sinh'}; busy[i]=1; n++; };
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
       active.forEach(i=>{
-        if(busy[i]||n>=7) return;
-        if(i===LIAM && rnd(0.22)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)]; trips[i]={kind:'bc',to:j,tx:seat[j][0]+48,ty:seat[j][1],left:4,walk:true,say:'Back check cho '+NAMES[j],hostSay:'Liam đang back check cho mình'}; busy[i]=1; busy[j]=1; n++; return; } }
-        if(i===STU && rnd(0.22)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)];
-          if(rnd(0.5)) trips[i]={kind:'bc',to:j,tx:seat[j][0]+48,ty:seat[j][1],left:4,walk:true,say:'Back check cho '+NAMES[j],hostSay:'Stuart đang back check cho mình'};
-          else trips[i]={kind:'bcsit',to:j,tx:seat[i][0],ty:seat[i][1],left:3,walk:false,say:'Back check cho '+NAMES[j]+' từ chỗ ngồi'};
+        if(busy[i]||n>=5) return;
+        const nm=NAMES[i];
+        if(i===LIAM && rnd(0.10)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)]; trips[i]=newTrip(i,'bc',standLoc(j),3,'Back check cho '+NAMES[j],{to:j,hostSay:'Liam đang back check cho mình'}); busy[i]=1; busy[j]=1; n++; return; } }
+        if(i===STU && rnd(0.10)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)];
+          if(rnd(0.5)) trips[i]=newTrip(i,'bc',standLoc(j),3,'Back check cho '+NAMES[j],{to:j,hostSay:'Stuart đang back check cho mình'});
+          else trips[i]={kind:'bcsit',dest:seatLoc(i),say:'Back check cho '+NAMES[j]+' từ chỗ ngồi',stage:'stay',n:3,stay:3,to:j};
           busy[i]=1; busy[j]=1; n++; return; } }
-        if(i!==LIAM && i!==STU && i!==NINA && team[i]==='N' && act[NINA] && !busy[NINA] && rnd(0.05)){ trips[i]={kind:'bcnina',to:NINA,tx:seat[NINA][0]+48,ty:seat[NINA][1],left:4,walk:true,say:'Nhờ Nina back check',hostSay:'Đang back check cho '+NAMES[i]}; busy[i]=1; busy[NINA]=1; n++; return; }
-        if(rnd(0.035)) water(i); else if(rnd(0.025)) wc(i);
+        if(i!==LIAM && i!==STU && i!==NINA && team[i]==='N' && act[NINA] && !busy[NINA] && rnd(0.025)){
+          trips[i]=newTrip(i,'bcnina',standLoc(NINA),3,'Nhờ Nina back check',{to:NINA,hostSay:'Đang back check cho '+nm}); busy[i]=1; busy[NINA]=1; n++; return; }
+        const fan=COFFEE_FANS.indexOf(nm)>=0;
+        if(rnd(fan?0.06:0.006)){ trips[i]=newTrip(i,'coffee',nookLoc(jit(704,5),jit(545,25)),3,'Pha cà phê'); busy[i]=1; n++; return; }
+        if(rnd(0.01)){ trips[i]=newTrip(i,'water',nookLoc(jit(718,4),jit(436,3)),2,'Lấy nước uống'); busy[i]=1; n++; return; }
+        if(rnd(0.005)){ trips[i]=newTrip(i,'fridge',nookLoc(jit(748,3),jit(474,6)),2,'Lấy đồ trong tủ lạnh'); busy[i]=1; n++; return; }
+        if(rnd(0.006)){ trips[i]=newTrip(i,'dish',corLoc(114,jit(650,6)),3,'Rửa ly'); busy[i]=1; n++; return; }
+        if(rnd(0.004)){ trips[i]=newTrip(i,'trash',corLoc(114,jit(668,4)),2,'Đổ rác'); busy[i]=1; n++; return; }
+        if(rnd(0.007)){ trips[i]=newTrip(i,'wc',corLoc(jit(975,6),jit(662,4)),3,'Đi vệ sinh'); trips[i].dest.hide=true; busy[i]=1; n++; return; }
+        if(rnd(0.004)){ trips[i]=newTrip(i,'out',ELEV,6,'Ra ngoài lấy đồ'); busy[i]=1; n++; return; }
       });
     }
     st.tk=tk; st.trips=trips; paint();
@@ -7435,44 +7485,33 @@ const OFC = (function(){
   const WD=['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'];
   function build(){
     const root=$('ofc-root'); if(!root) return;
-    let rooms='', desks='', chairs='', chs='';
-    ZONES.forEach(z=>{ rooms+=`<div style="position:absolute;left:${z.x0}px;top:360px;width:${z.cols*92+16}px;height:244px;box-sizing:border-box;border:2px solid #14202b;border-radius:22px;background:#e3e9f2;box-shadow:0 6px 0 #9ea9bc;overflow:hidden"><div style="height:28px;box-sizing:border-box;border-bottom:2px solid #14202b;background:${TEAMCOL[z.t]};font-size:13px;font-weight:700;line-height:26px;text-align:center;color:#14202b">${z.label}</div></div>`; });
+    let mons='', chs='';
     NAMES.forEach((nm,i)=>{
-      if(GONE.indexOf(i)>=0) return;
+      if(!seat[i]) return;
       const s=seat[i];
-      chairs+=`<div style="position:absolute;left:${s[0]-17}px;top:${s[1]-30}px;width:34px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:#8e9bb0;z-index:2"></div>`;
-      desks+=`<div style="position:absolute;left:${s[0]-36}px;top:${s[1]}px;width:72px;height:22px;box-sizing:border-box;border:2px solid #14202b;border-radius:6px;background:#fff;box-shadow:0 4px 0 #b9c3d4;z-index:30"><div id="ofc-scr${i}" style="position:absolute;left:4px;top:-16px;width:24px;height:16px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f"></div><div style="position:absolute;left:36px;top:4px;width:26px;height:6px;border-radius:2px;background:#c9d3e1"></div></div>`;
-      chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}"><div class="ofc-in"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:${tcol[i]}"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an${i}"></use></svg><div class="ofc-badge" id="ofc-b${i}"></div></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
+      mons+=[-28,2].map((dy,k)=>`<div id="ofc-m${i}${k}" style="position:absolute;left:${MONX[s.c]}px;top:${s.y+dy}px;width:14px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f;z-index:5"></div>`).join('');
+      chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}" style="left:${s.x-22}px;top:${s.y-31}px"><div class="ofc-rot" id="ofc-r${i}"><div class="ofc-in"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:${tcol[i]}"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an${i}"></use></svg></div></div><div class="ofc-badge" id="ofc-b${i}"></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
     });
     const hud=(id,lb)=>`<div class="ofc-hud"><span id="${id}">0</span><i>${lb}</i></div>`;
+    const board=`<div style="position:absolute;left:846px;top:52px;width:256px;height:156px;box-sizing:border-box;z-index:5;border:3px solid #14202b;border-radius:10px;background:#1c2b3a;box-shadow:0 5px 0 #9ea9bc;padding:10px 14px;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fd1ff;margin-bottom:4px"><span id="ofc-wbh">Daily report</span><span id="ofc-wbn"></span></div>
+      ${[0,1,2,3,4].map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;line-height:22px;height:22px;color:#F6F1E7"><span id="ofc-w${k}t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span id="ofc-w${k}n" style="font-weight:700;color:#f0c98a"></span></div>`).join('')}
+    </div>`;
     root.innerHTML=`
 <div class="ofc-wrap">
   <div style="font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#5b4a2e" id="ofc-range"></div>
   <h2 style="margin:6px 0 8px;font-family:Georgia,serif;font-size:34px;line-height:1.1;color:#14202b">Văn phòng KTA</h2>
-  <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#3a4754;max-width:760px">Mỗi sáng cả team vào phòng họp nhận việc theo ActivityLog, rồi về chỗ ngồi để làm. Trong ngày, Liam, Stuart và Nina back check cho nhóm, các bạn tự đi lấy nước, đi vệ sinh. Văn phòng tự chạy lặp lại ngày gần nhất. Bấm vào một bạn để xem công việc.</p>
-  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px">
+  <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#3a4754;max-width:780px">Mỗi sáng cả team đi thang máy vào văn phòng (07:30 và 08:00), họp nhận việc theo ActivityLog rồi về chỗ ngồi làm trên 2 màn hình. Trong ngày, Liam, Stuart và Nina back check cho nhóm, các bạn tự đi pha cà phê, lấy nước, rửa ly, đổ rác, đi vệ sinh hoặc ra ngoài lấy đồ. Văn phòng tự chạy lặp lại ngày gần nhất. Bấm vào một bạn để xem công việc.</p>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:12px">
     <button id="ofc-btn" class="ofc-btn"></button>
     <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
     <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
   </div>
-  <div style="overflow-x:auto;border-radius:18px;border:2px solid #14202b;background:#f3cfa5">
-   <div style="position:relative;width:1120px;height:620px;background:#f3cfa5">
-    <div style="position:absolute;left:4px;top:6px;display:flex;gap:8px;z-index:80">${hud('ofc-h0','Thành viên')}${hud('ofc-h1','Đang làm')}${hud('ofc-h2','Task trong ngày')}${hud('ofc-h3','Đang đi lại')}</div>
-    <div style="position:absolute;left:4px;top:50px;width:1112px;height:296px;box-sizing:border-box;border:2px solid #14202b;border-radius:22px;background:#e9efe3;box-shadow:0 6px 0 #a8b59c"></div>
-    <div style="position:absolute;left:196px;top:58px;width:712px;height:282px;box-sizing:border-box;border:2px dashed #14202b;border-radius:18px;background:#f3ecdc"></div>
-    <div class="ofc-pill" style="left:212px;top:66px">Phòng họp</div>
-    <div style="position:absolute;left:372px;top:64px;width:360px;height:152px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 5px 0 #c9d3e1;padding:8px 12px;display:flex;flex-direction:column;gap:1px;color:#14202b">
-      <span id="ofc-wbh" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5b4a2e"></span>
-      ${[0,1,2,3,4].map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;line-height:19px;height:19px"><span id="ofc-w${k}t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span id="ofc-w${k}n" style="font-weight:700"></span></div>`).join('')}
-      <span id="ofc-wbp" style="font-size:11px;color:#3a4754"></span>
-    </div>
-    <div style="position:absolute;left:262px;top:298px;width:560px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 4px 0 #c9d3e1;z-index:3"></div>
-    <div style="position:absolute;left:868px;top:250px;width:30px;height:30px;box-sizing:border-box;border:2px solid #14202b;border-radius:50%;background:#6bbf59;z-index:3"></div>
-    <div class="ofc-pill" style="left:70px;top:262px">Máy nước</div>
-    <div style="position:absolute;left:88px;top:120px;width:46px;height:130px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 5px 0 #c9d3e1"><div style="position:absolute;left:5px;top:5px;width:32px;height:46px;box-sizing:border-box;border:2px solid #14202b;border-radius:14px 14px 6px 6px;background:#7fd1ff"></div><div style="position:absolute;left:14px;top:66px;width:14px;height:8px;border-radius:3px;background:#14202b"></div></div>
-    <div class="ofc-pill" style="left:990px;top:262px">Vệ sinh</div>
-    <div style="position:absolute;left:990px;top:104px;width:88px;height:150px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 0 0;background:#c9d3e1;box-shadow:0 5px 0 #a8b59c"><div style="position:absolute;left:10px;top:10px;width:64px;height:130px;box-sizing:border-box;border:2px solid #14202b;border-radius:6px 6px 0 0;background:#8e9bb0"></div></div>
-    ${rooms}${chairs}${desks}${chs}
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">${hud('ofc-h0','Thành viên')}${hud('ofc-h1','Đang làm')}${hud('ofc-h2','Task trong ngày')}${hud('ofc-h3','Đang đi lại')}
+    <span style="display:inline-flex;gap:14px;margin-left:8px;font-size:13px">${[['L','Nhóm Liam'],['S','Nhóm Stuart'],['N','Nhóm Nina']].map(a=>`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:14px;border-radius:4px;border:2px solid #14202b;background:${TEAMCOL[a[0]]};display:inline-block"></span>${a[1]}</span>`).join('')}</span></div>
+  <div style="overflow-x:auto;border-radius:18px;border:2px solid #14202b;background:#d9d3c4">
+   <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden">
+    ${BG}${mons}${board}${chs}
     <div id="ofc-pop" style="position:absolute;width:220px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
    </div>
   </div>
@@ -7480,64 +7519,119 @@ const OFC = (function(){
     <div class="ofc-card"><span class="ofc-cl">Ngày này trong văn phòng</span><span id="ofc-st" style="font-family:Georgia,serif;font-weight:700;font-size:22px;line-height:1.2"></span><span id="ofc-bz" style="font-size:14px;line-height:1.5;color:#3a4754"></span></div>
     <div class="ofc-card"><span class="ofc-cl">Thành viên off</span><span id="ofc-off" style="font-size:15px;line-height:1.45"></span></div>
   </div>
-  <p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:#3a4754;max-width:820px">Chỗ ngồi, bàn máy sáng đèn, dự án và số task lấy từ ActivityLog. Các chuyến back check, lấy nước, đi vệ sinh được dàn dựng thêm cho sinh động, không phải dữ liệu thật. Bạn mờ là hôm đó chưa ghi việc, chưa chắc là nghỉ. Không hiện nội dung chi tiết và không xếp hạng ai.</p>
+  <p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:#3a4754;max-width:820px">Chỗ ngồi, bàn 2 màn hình sáng đèn, dự án và số task lấy từ ActivityLog. Giờ vào thang máy, các chuyến back check, pha cà phê, lấy nước, rửa ly, đổ rác, đi vệ sinh được dàn dựng thêm cho sinh động, không phải dữ liệu thật. Bạn mờ là hôm đó chưa ghi việc, chưa chắc là nghỉ. Không hiện nội dung chi tiết và không xếp hạng ai.</p>
 </div>`;
+    NAMES.forEach((nm,i)=>{ C[i]=null; });
     root.querySelectorAll('.ofc-ch').forEach(el=>{ el.addEventListener('click',()=>{ const i=+el.dataset.i; st.sel=(st.sel===i)?-1:i; paint(); }); });
-    $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } st.tk=0; st.trips={}; paint(); });
-    $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); st.tk=0; st.trips={}; st.journey=false; paint(); });
+    const reset=()=>{ st.tk=0; st.trips={}; st.snap=true; };
+    $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } reset(); paint(); });
+    $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); reset(); st.journey=false; paint(); });
     built=true;
+  }
+  // ── di chuyển theo đường đi ──
+  function place(i,x,y){ const el=$('ofc-c'+i); el.style.left=(x-22)+'px'; el.style.top=(y-31)+'px'; }
+  function go(i,loc,instant){
+    const el=$('ofc-c'+i), rot=$('ofc-r'+i), inn=el.querySelector('.ofc-in');
+    let c=C[i];
+    if(!c){ c=C[i]={loc:null,key:'',timers:[],moving:false}; }
+    if(c.key===loc.key && !instant) return;
+    c.timers.forEach(clearTimeout); c.timers=[];
+    const from=c.loc; c.loc=loc; c.key=loc.key;
+    const seated=()=>{ c.moving=false; rot.style.transform='rotate('+(loc.seat?loc.rot:0)+'deg)'; el.style.opacity=loc.hide?0:(c.base!==undefined?c.base:1); el.style.pointerEvents=loc.hide?'none':'auto'; refresh(i); };
+    if(instant || !from){
+      el.style.transition='none'; place(i,loc.x,loc.y); el.style.zIndex=loc.seat?40:50+Math.round(loc.y/20);
+      void el.offsetWidth; el.style.transition='';
+      seated(); return;
+    }
+    const pts=route(from,loc);
+    el.style.opacity=1; el.style.pointerEvents='auto';
+    rot.style.transform='rotate(0deg)'; c.moving=true; inn.className='ofc-in ofc-walking';
+    el.style.zIndex=60;
+    let cur={x:from.x,y:from.y}, t=0;
+    pts.forEach(p=>{
+      const d=Math.hypot(p.x-cur.x,p.y-cur.y), dur=d/SPEED, px=p.x, py=p.y;
+      c.timers.push(setTimeout(()=>{ el.style.transition='left '+dur+'s linear, top '+dur+'s linear, opacity .4s'; place(i,px,py); },t));
+      t+=dur*1000+30; cur=p;
+    });
+    c.timers.push(setTimeout(()=>{ el.style.zIndex=loc.seat?40:50+Math.round(loc.y/20); seated(); },t+50));
+  }
+  function refresh(i){ // trạng thái đứng yên: gõ phím khi ngồi làm
+    const c=C[i]; if(!c||c.moving) return;
+    const inn=document.querySelector('#ofc-c'+i+' .ofc-in'); if(!inn) return;
+    inn.className='ofc-in'+(c.working?' ofc-work':'');
   }
   function paint(){
     if(!built||!days.length) return;
-    const day=days[st.idx], act=day.acts, cf=cfg(), inMeet=st.tk<cf.meet, trips=st.trips;
-    const order=activeList(day).sort((a,b)=>a-b), mpos={}; order.forEach((p,k)=>mpos[p]=meetPos(k));
-    const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.left>=2) hosting[t.to]=t.hostSay; });
+    const day=days[st.idx], act=day.acts, cf=cfg(), trips=st.trips, tk=st.tk, snap=st.snap;
+    const order=activeList(day), slot={}; order.forEach((p,k)=>slot[p]=k);
+    const meeting = tk<cf.meetEnd, working = tk>=cf.work;
+    const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.stage==='stay') hosting[t.to]=t.hostSay; });
     const info={};
     NAMES.forEach((nm,i)=>{
-      if(GONE.indexOf(i)>=0) return;
-      const a=act[i], t=trips[i], home=seat[i], el=$('ofc-c'+i);
-      let fx=home[0], fy=home[1], walking=false, say='';
-      if(a && inMeet){ fx=mpos[i][0]; fy=mpos[i][1]; if(st.tk===0){ say='Vào phòng họp'; walking=true; } }
-      else if(a && st.tk===cf.meet){ walking=true; say='Về chỗ làm việc'; }
-      else if(t){ if(t.left>=2){ fx=t.tx; fy=t.ty; say=t.say; if(t.left===4 && t.walk) walking=true; } else if(t.walk) walking=true; }
+      if(!seat[i]) return;
+      const a=act[i], t=trips[i], el=$('ofc-c'+i);
+      let loc=seatLoc(i), say='';
+      if(!a){ loc=seatLoc(i); }
+      else if(cf.arrive && tk<arrTick(i)) loc=ELEV;
+      else if(meeting) loc=meetLoc(slot[i]);
+      else if(t){
+        if(t.stage==='go'){ loc=t.dest; say=t.say; }
+        else if(t.stage==='stay'){ loc=t.dest; say=t.say; }
+        else { loc=seatLoc(i); }
+      }
       else if(hosting[i]) say=hosting[i];
-      el.style.left=(fx-22)+'px'; el.style.top=(fy-62)+'px'; el.style.opacity=a?1:0.45; el.style.zIndex=10+Math.round(fy/10);
+      if(a && !meeting && tk===cf.meetEnd) say='Về chỗ làm việc';
+      if(a && cf.arrive && tk===arrTick(i)) say=(arrTick(i)===1?'07:30':'08:00')+', vào văn phòng';
+      if(a && meeting && tk===cf.meetEnd-1) say='';
+      const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
+      c.base=a?1:0.45; c.working=!!a && working && loc.seat===true;
       el.title=a? nm+': '+a.n+' việc, '+a.proj : nm+': hôm nay chưa ghi việc';
-      const inn=el.firstChild; inn.className='ofc-in'+(walking?' ofc-walk':(a&&!inMeet?' ofc-work':''));
+      go(i,loc,snap);
+      if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
       const b=$('ofc-b'+i); b.textContent=a?a.n:''; b.style.opacity=a?1:0;
       $('ofc-t'+i).style.opacity=a?1:0.7;
       const s=$('ofc-s'+i); s.textContent=say; s.style.opacity=say?1:0;
-      $('ofc-scr'+i).style.background=(a&&!inMeet)?'#7fd1ff':'#55616f';
-      info[i]={fx:fx,fy:fy,say:say,a:a};
+      if(say) el.style.zIndex=70;
+      const lit=!!a && working;
+      [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(m) m.style.background=lit?'#7fd1ff':'#55616f'; });
+      info[i]={loc:loc,say:say,a:a};
     });
+    st.snap=false;
     const pop=$('ofc-pop');
     if(st.sel>=0 && info[st.sel]){
-      const c=info[st.sel], px=Math.min(Math.max(c.fx-110,4),1112-220), py=(c.fy-62-118>54)?c.fy-62-118:c.fy+34;
+      const c=info[st.sel], px=Math.min(Math.max(c.loc.x-110,4),1120-224), py=(c.loc.y-31-124>40)?c.loc.y-31-124:c.loc.y+40;
       pop.style.display='flex'; pop.style.left=px+'px'; pop.style.top=py+'px';
       $('ofc-p0').textContent=NAMES[st.sel];
       $('ofc-p1').textContent=c.a?'Dự án chính: '+c.a.proj:'Hôm nay chưa ghi việc';
       $('ofc-p2').textContent=c.a?c.a.n+' việc trong ngày'+(c.a.others?', cùng '+c.a.others+' dự án khác':''):'Chưa chắc là nghỉ';
       $('ofc-p3').textContent=c.say||(c.a?'Đang ngồi làm tại bàn':'Đang ở chỗ ngồi');
     } else pop.style.display='none';
-    const PS=5, pages=Math.max(1,Math.ceil(day.projs.length/PS)), page=Math.floor(st.tk/2)%pages;
-    for(let k=0;k<PS;k++){ const o=day.projs[page*PS+k]; $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?o.c+' task':''; }
-    $('ofc-wbh').textContent='Việc hôm nay: '+day.tasks+' task · '+day.projs.length+' dự án';
-    $('ofc-wbp').textContent=pages>1?'Trang '+(page+1)+'/'+pages:'';
+    const PS=5, pages=Math.max(1,Math.ceil(day.projs.length/PS)), page=Math.floor(tk/3)%pages;
+    for(let k=0;k<PS;k++){ const o=day.projs[page*PS+k]; $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?String(o.c):''; }
+    $('ofc-wbh').textContent='Daily report'+(pages>1?' '+(page+1)+'/'+pages:'');
+    $('ofc-wbn').textContent=day.tasks+' tasks';
     const nAct=order.length, total=NAMES.length-GONE.length;
-    $('ofc-h0').textContent=total; $('ofc-h1').textContent=inMeet?0:nAct; $('ofc-h2').textContent=day.tasks;
-    $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].walk).length;
+    $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?nAct:0; $('ofc-h2').textContent=day.tasks;
+    $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+' đến '+days[days.length-1].date;
     $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
     const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx;
     $('ofc-day').textContent=WD[day.wd]+', '+day.date;
-    $('ofc-phase').textContent=inMeet?'Họp sáng, nhận việc':'Giờ làm việc';
+    let ph;
+    if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
+    else if(cf.arrive && tk<3) ph='07:30, nhóm đầu vào văn phòng';
+    else if(cf.arrive && tk<5) ph='08:00, nhóm sau vào văn phòng';
+    else if(meeting) ph='Họp sáng, nhận việc';
+    else if(!working) ph='Về chỗ ngồi';
+    else ph='Giờ làm việc';
+    $('ofc-phase').textContent=ph;
     $('ofc-btn').textContent=st.journey?'Dừng, về ngày gần nhất':'Xem lại cả hành trình';
     $('ofc-st').textContent=nAct+' bạn có việc, '+day.projs.length+' dự án, '+day.tasks+' task';
     const byp={}; order.forEach(i=>{ const k=act[i].key; byp[k]=(byp[k]||0)+1; });
     let bk=null,bn=0; Object.keys(byp).forEach(k=>{ if(byp[k]>bn){ bn=byp[k]; bk=k; } });
     const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
     $('ofc-bz').textContent=bn>=2?'Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.':'Hôm nay mỗi bạn làm một việc riêng.';
-    const off=NAMES.filter((nm,i)=>GONE.indexOf(i)<0 && !act[i]);
+    const off=NAMES.filter((nm,i)=>seat[i] && !act[i]);
     $('ofc-off').textContent=off.length?off.length+' bạn chưa ghi việc: '+off.join(', ')+'.':'Hôm nay cả team đều có việc.';
   }
   function show(){
@@ -7546,7 +7640,7 @@ const OFC = (function(){
     if(!days.length){ root.innerHTML='<div style="padding:40px;text-align:center;color:#888;font-size:14px">Chưa có dữ liệu ActivityLog để dựng văn phòng.</div>'; built=false; return; }
     if(!built || !$('ofc-btn')) build();
     st.idx=Math.min(st.idx,days.length-1);
-    if(!st.started){ st.started=true; st.idx=days.length-1; st.tk=0; st.trips={}; }
+    if(!st.started){ st.started=true; st.idx=days.length-1; st.tk=0; st.trips={}; st.snap=true; }
     paint();
     if(!timer) timer=setInterval(tick,TICK);
   }
