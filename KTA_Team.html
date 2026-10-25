@@ -7451,11 +7451,25 @@ const OFC = (function(){
   // Cột: type | who | with | text | reply | chance.  type = line / sit / walk / birthday / meal / music
   const EV0=EVENTS.length, IDLE0={};
   const nameIdx=x=>{ const f=String(x||'').trim().split(/\s+/)[0].toLowerCase(); return NAMES.findIndex(n=>n.toLowerCase()===f); };
+  let MEET=null;
+  const WDMAP={mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
+  // trả về true/false nếu cột date hợp lệ (ngày cụ thể hoặc thứ trong tuần), null nếu trống/không hiểu
+  function dayMatch(g,iso){
+    g=String(g||'').trim(); if(!g) return null;
+    const d1=parseDay(g); if(d1) return d1===iso;
+    const dow=new Date(iso+'T00:00:00').getDay(); let ok=null;
+    g.toLowerCase().split(/[,;/]+/).forEach(x=>{ x=x.trim(); let n=null, m;
+      if(/chủ nhật|chu nhat|^cn$|^sun/.test(x)) n=0;
+      else if((m=x.match(/^(?:thứ|thu|t)\s*([2-7])$/))) n=+m[1]-1;
+      else if((m=x.match(/^(mon|tue|wed|thu|fri|sat)/))) n=WDMAP[m[1]];
+      if(n!==null){ ok=(ok===true)||n===dow; } });
+    return ok;
+  }
   const parseDay=d=>{ d=String(d||'').trim(); let m=d.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3]; m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2); return ''; };
   const TRAITS=[['quiet',/ít giao tiếp|it giao tiep|quiet|im lặng/i],['talk',/hay nói|hay noi|talk|nói nhiều/i],['coffee',/cà phê|ca phe|coffee/i],['snack',/ăn vặt|an vat|snack|ăn uống/i],['ask',/hỏi việc|hoi viec|ask/i],['support',/support|hỗ trợ|ho tro/i],['late',/ở lại|o lai|muộn|late/i]];
   function applyOffice(){
     let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
-    EVENTS.length=EV0;
+    EVENTS.length=EV0; MEET=null;
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
     if(!Array.isArray(rows)) return;
@@ -7471,7 +7485,12 @@ const OFC = (function(){
         if(ty==='meal'&&(iso||md)){ const e={type:'meal',title:String(r[1]||'Tiệc ăn uống cả team')}; if(iso) e.date=iso; else e.md=md; EVENTS.push(e); }
         return;
       }
-      const dated=parseDay(r[6]); if(dated && dated!==viewIso) return;   // dòng có ngày: chỉ chạy đúng ngày đó
+      if(ty==='meeting'||ty==='agenda'){ const dm0=dayMatch(r[6],viewIso); if(dm0===false) return;
+        if(!MEET) MEET={title:'Team meeting',sub:'',items:[]};
+        if(ty==='meeting'){ MEET.title=tx||MEET.title; MEET.sub=rp; } else if(tx) MEET.items.push({t:tx,w:who,r:rp});
+        return; }
+      const dm=dayMatch(r[6],viewIso); if(dm===false) return;   // dòng có ngày/thứ: chỉ chạy đúng ngày đó
+      const dated=dm===true;
       if(who<0) return; const P=PERS[NAMES[who]];
       if(ty==='trait'){ const t=TRAITS.find(x=>x[1].test(tx)); if(t) P.tr[t[0]]=isNaN(ch)?4:Math.max(1,Math.min(5,Math.round(ch))); return; }
       if(ty==='line'&&tx){ if(dated){ P.idleDay.push(tx); P.idleP=Math.max(P.idleP||0,.12); } else { (P.idle=P.idle||[]).push(tx); if(!P.idleP) P.idleP=.04; } }
@@ -7527,7 +7546,7 @@ const OFC = (function(){
     return e?Object.assign({title:e.type==='birthday'?('Sinh nhật '+(e.who||'')):'Tiệc ăn uống cả team'},e):null;
   }
   // mốc thời gian trong 1 chu kỳ (mỗi tick ~1,8 giây)
-  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:236, meetEnd:9, work:13, arrive:true, leave:224, span:9}; }
+  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:236, meetEnd:MEET?18:9, work:MEET?22:13, arrive:true, leave:224, span:9}; }
   const hhmm=m=>(m===null||m===undefined)?'':(('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2));
   const activeList=day=>Object.keys(day.acts).map(Number).sort((a,b)=>a-b);
   // ── hoạt động ngẫu nhiên trong giờ làm việc ──
@@ -7766,6 +7785,7 @@ const OFC = (function(){
       if(a && tk===leaveTk[i]) say='Ra về';
       if(a && evOn){ if(tk===EV.s) say=ev.type==='birthday'?'Đi mừng sinh nhật':(ev.type==='award'?'Đi dự lễ vinh danh':'Đi ăn tiệc'); else if(tk>=EV.s+4){ if(ev.type==='award' && ev.who2.indexOf(i)>=0) say=(tk%2?'Cảm ơn cả nhà!':'Nhận bonus nè!'); else if(ev.type==='award' && (i*7+tk)%11===0) say='Chúc mừng nha!'; else if(ev.type==='birthday' && NAMES[i]===ev.who) say='Cảm ơn cả nhà!'; else if((i*7+tk)%13===0) say=ev.type==='birthday'?'Chúc mừng sinh nhật!':(ev.type==='award'?'Hoan hô!':'Ăn thôi!'); } }
       if(a && cf.arrive && tk===arrTick(i)) say=(arrTick(i)===1?'07:30':'08:00')+', vào văn phòng';
+      if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
       c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && loc.seat===true;
@@ -7793,10 +7813,11 @@ const OFC = (function(){
       $('ofc-p4').textContent=tl&&tl.d?'Đang làm: '+tl.d:'';
       $('ofc-p3').textContent=c.say||(c.a?'Đang ngồi làm tại bàn':'Đang ở chỗ ngồi');
     } else pop.style.display='none';
-    const PS=5, pages=Math.max(1,Math.ceil(day.projs.length/PS)), page=Math.floor(tk/3)%pages;
-    for(let k=0;k<PS;k++){ const o=day.projs[page*PS+k]; $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?String(o.c):''; }
-    $('ofc-wbh').textContent='Daily report'+(pages>1?' '+(page+1)+'/'+pages:'');
-    $('ofc-wbn').textContent=day.tasks+' tasks';
+    const PL=(MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs;
+    const PS=5, pages=Math.max(1,Math.ceil(PL.length/PS)), page=Math.floor(tk/3)%pages;
+    for(let k=0;k<PS;k++){ const o=PL[page*PS+k]; $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?String(o.c):''; }
+    $('ofc-wbh').textContent=(MEET?MEET.title:'Daily report')+(pages>1?' '+(page+1)+'/'+pages:'');
+    $('ofc-wbn').textContent=(MEET&&MEET.items.length)?'':day.tasks+' tasks';
     const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e;
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.length, total=NAMES.length-GONE.length;
