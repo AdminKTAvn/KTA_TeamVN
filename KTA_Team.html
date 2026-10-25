@@ -7473,6 +7473,7 @@ const OFC = (function(){
     EVENTS.length=EV0; MEET=null;
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
+    if(st.demoMeet) MEET={title:'Team meeting',sub:'Chào cả team, bắt đầu giao ban!',items:[{t:'Tổng kết tuần qua',w:NAMES.indexOf('Liam'),r:'Tuần qua mình chốt xong 5 dự án'},{t:'Kế hoạch tuần mới',w:NAMES.indexOf('Stuart'),r:'Tuần mới ưu tiên các dự án gấp'},{t:'Nhắc deadline',w:NAMES.indexOf('Nina'),r:'Nhớ chốt bản vẽ đúng hạn nhé'}]};
     if(!Array.isArray(rows)) return;
     rows.forEach(r=>{
       if(!r) return; const ty=String(r[0]||'').trim().toLowerCase(), who=nameIdx(r[1]), wi=nameIdx(r[2]), tx=String(r[3]||'').trim(), rp=String(r[4]||'').trim(), ch=parseFloat(String(r[5]||'').replace(',','.'));
@@ -7536,13 +7537,26 @@ const OFC = (function(){
     const lb='tháng '+(+a.month.slice(5,7));
     return { type:'award', who2:a.who, title:'🏆 Vinh danh '+lb+': '+NAMES[a.who[0]]+' & '+NAMES[a.who[1]]+(demo?' (demo)':'') };
   }
+  const AW={s:60};
+  const pad2=n=>('0'+n).slice(-2);
+  // Vinh danh tháng: Liam trao cúp cho top 1-2 trong NGÀY LÀM VIỆC ĐẦU của tháng kế tiếp; cúp ở lại bàn đến khi có kết quả tháng mới
+  function awardFor(day){
+    if(st.journey) return null;
+    let a=awardInfo(), demo=false;
+    if(st.preview==='award'){ if(!a){ a={month:'2026-09',who:[NAMES.indexOf('Alice'),NAMES.indexOf('Henry')]}; } return {who2:a.who,ceremony:true,show:true,month:a.month}; }
+    if(!a) return null;
+    const y=+a.month.slice(0,4), mo=+a.month.slice(5,7), nsIso=(mo===12?y+1:y)+'-'+pad2(mo===12?1:mo+1)+'-01';
+    const isLast=st.idx===days.length-1, real=isLast?localIso():'';
+    const show=day.iso>=nsIso || (isLast && real>=nsIso);
+    const first=days.find(d=>d.iso>=nsIso);
+    const ceremony=show && (first?first.iso===day.iso:isLast);
+    return {who2:a.who,ceremony:ceremony,show:show,month:a.month};
+  }
   function eventFor(day){
     if(st.journey) return null;
-    if(st.preview==='award'){ const a=awardInfo()||{month:'2026-09',who:[NAMES.indexOf('Alice'),NAMES.indexOf('Henry')]}; return awardEv(a,!awardInfo()); }
+    if(st.preview==='award') return null;
     if(st.preview) return { type:st.preview, who:st.pwho, title:st.preview==='birthday'?('Sinh nhật '+(st.pwho||'cả team')):'Tiệc ăn uống cả team' };
     const ti=localIso(), isLast=st.idx===days.length-1;
-    const aw=awardInfo();
-    if(aw){ const ns=nextMonthStart(aw.month), ne=new Date(ns.getTime()+14*864e5), dd=new Date((isLast?ti:day.iso)+'T00:00:00'); if(dd>=ns && dd<ne) return awardEv(aw,false); }
     const e=EVENTS.find(e=>(e.date&&(e.date===day.iso||(isLast&&e.date===ti)))||(e.md&&(e.md===day.iso.slice(5)||(isLast&&e.md===ti.slice(5)))));
     return e?Object.assign({title:e.type==='birthday'?('Sinh nhật '+(e.who||'')):'Tiệc ăn uống cả team'},e):null;
   }
@@ -7580,6 +7594,14 @@ const OFC = (function(){
       }
       trips[k]=t; busy[k]=1; if(t.to!==undefined) busy[t.to]=1; if(t.kind!=='sit') n++;
     });
+    const awd=awardFor(day);
+    if(tk===1) st.cup={};
+    Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.kind==='award' && t.stage==='stay'){ st.cup=st.cup||{}; st.cup[t.to]=true; } });
+    if(awd && awd.ceremony && act[LIAM] && awd.who2.every(w=>act[w])){
+      const go2=k=>{ const w=awd.who2[k]; trips[LIAM]=newTrip(LIAM,'award',standLoc(w),5,'Tặng cúp tháng '+(+awd.month.slice(5,7))+' cho '+NAMES[w]+'!',{to:w,hostSay:'Cảm ơn Liam!'}); busy[LIAM]=1; busy[w]=1; };
+      if(tk===AW.s) go2(0); else if(tk===AW.s+18) go2(1);
+      if(tk>=AW.s-2 && tk<AW.s+40){ busy[LIAM]=1; awd.who2.forEach(w=>busy[w]=1); }
+    }
     if(tk>=cf.work && tk<cf.leave-2 && !evBlock){
       const active=activeList(day), rnd=p=>R()<p;
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
@@ -7642,6 +7664,7 @@ const OFC = (function(){
       if(!seat[i]) return;
       const s=seat[i];
       mons+=[-28,2].map((dy,k)=>`<div id="ofc-m${i}${k}" style="position:absolute;left:${MONX[s.c]}px;top:${s.y+dy}px;width:14px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f;z-index:5"></div>`).join('');
+      mons+=`<div id="ofc-tr${i}" style="position:absolute;left:${MONX[s.c]+((s.c==='A'||s.c==='E')?20:-24)}px;top:${s.y-10}px;font-size:17px;line-height:20px;display:none;z-index:6">🏆</div>`;
       chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}" style="left:${s.x-22}px;top:${s.y-31}px"><div class="ofc-rot" id="ofc-r${i}"><div class="ofc-in"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:${tcol[i]}"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an${i}"></use></svg></div></div><div class="ofc-badge" id="ofc-b${i}"></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
     });
     const hud=(id,lb)=>`<div class="ofc-hud"><span id="${id}">0</span><i>${lb}</i></div>`;
@@ -7659,7 +7682,7 @@ const OFC = (function(){
     <button id="ofc-mus" type="button" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 16px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b;cursor:pointer">🎵 Nhạc: Tắt</button>
     <span id="ofc-musbox" style="position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none"></span>
     <select id="ofc-spd" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="mid">Tốc độ: Vừa</option><option value="slow">Tốc độ: Chậm</option></select>
-    <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">Sự kiện: theo lịch</option><option value="birthday">Xem thử sinh nhật</option><option value="meal">Xem thử tiệc ăn uống</option><option value="award">Xem thử vinh danh tháng</option></select>
+    <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">Sự kiện: theo lịch</option><option value="birthday">Xem thử sinh nhật</option><option value="meal">Xem thử tiệc ăn uống</option><option value="award">Xem thử vinh danh tháng</option><option value="meeting">Xem thử họp giao ban</option></select>
     <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
   </div>
   <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">${hud('ofc-h0','Thành viên')}${hud('ofc-h1','Đang làm')}${hud('ofc-h2','Task trong ngày')}${hud('ofc-h3','Đang đi lại')}
@@ -7682,22 +7705,24 @@ const OFC = (function(){
     $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); reset(); st.journey=false; paint(); });
     let musOn=false;
     const musUrl=()=>{ try{ applyOffice(); return (window.KTA_MUSIC||localStorage.getItem('kta_music')||'').trim(); }catch(e){ return (window.KTA_MUSIC||'').trim(); } };
-    const musStop=()=>{ $('ofc-musbox').innerHTML=''; musOn=false; $('ofc-mus').textContent='🎵 Nhạc: Tắt'; };
+    const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1));
+    const musHide='position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none', musShow='position:fixed;right:12px;bottom:12px;width:250px;height:170px;z-index:99999;border-radius:12px;overflow:hidden;border:2px solid #14202b;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.35)';
+    const musStop=()=>{ $('ofc-musbox').innerHTML=''; $('ofc-musbox').style.cssText=musHide; musOn=false; $('ofc-mus').textContent='🎵 Nhạc: Tắt'; };
     $('ofc-mus').addEventListener('click',()=>{
       if(musOn){ musStop(); return; }
       const u=musUrl();
       if(!u){ $('ofc-mus').textContent='🎵 Chưa có link nhạc'; setTimeout(()=>{ if(!musOn) $('ofc-mus').textContent='🎵 Nhạc: Tắt'; },2500); return; }
       let h='';
-      if(/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(u)) h='<audio src="'+u.replace(/"/g,'')+'" autoplay loop></audio>';
+      if(/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(u)){ h='<audio src="'+u.replace(/"/g,'')+'" autoplay loop playsinline></audio>'; }
       else {
         const lm=u.match(/[?&]list=([\w-]+)/), vm=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
         let src='';
         if(lm) src='https://www.youtube.com/embed/'+(vm?vm[1]:'videoseries')+'?list='+lm[1]+'&autoplay=1&loop=1';
         else if(vm) src='https://www.youtube.com/embed/'+vm[1]+'?autoplay=1&loop=1&playlist='+vm[1];
         if(!src){ $('ofc-mus').textContent='🎵 Link nhạc chưa đúng'; setTimeout(()=>{ if(!musOn) $('ofc-mus').textContent='🎵 Nhạc: Tắt'; },2500); return; }
-        h='<iframe width="200" height="200" src="'+src+'" allow="autoplay; encrypted-media" frameborder="0"></iframe>';
+        h='<iframe width="'+(isIOS?250:200)+'" height="'+(isIOS?170:200)+'" src="'+src+(isIOS?'&playsinline=1':'')+'" allow="autoplay; encrypted-media; picture-in-picture" frameborder="0"></iframe>';
       }
-      $('ofc-musbox').innerHTML=h; musOn=true; $('ofc-mus').textContent='🎵 Nhạc: Bật';
+      $('ofc-musbox').style.cssText=(isIOS&&/<iframe/.test(h))?musShow:musHide; $('ofc-musbox').innerHTML=h; { const au=$('ofc-musbox').querySelector('audio'); if(au){ const pr=au.play(); if(pr&&pr.catch) pr.catch(()=>{}); } } musOn=true; $('ofc-mus').textContent=(isIOS&&/<iframe/.test(h))?'🎵 Chạm ▶ trong khung video':'🎵 Nhạc: Bật';
     });
     $('ofc-spd').addEventListener('change',e=>{
       if(e.target.value==='mid'){ TICK=1800; SPEED=120; } else { TICK=3000; SPEED=80; }
@@ -7705,11 +7730,12 @@ const OFC = (function(){
       st.trips={}; st.tk=0; st.snap=true; paint();
     });
     $('ofc-evsel').addEventListener('change',e=>{
-      const v=e.target.value; st.preview=v||''; st.journey=false;
+      const v=e.target.value; st.demoMeet=(v==='meeting'); st.preview=(v==='meeting')?'':(v||''); st.journey=false; applyOffice();
       const act=days[st.idx].acts, ids=Object.keys(act).map(Number).filter(i=>seat[i]);
       st.pwho=ids.length?NAMES[ids[Math.floor(R()*ids.length)]]:'';
-      st.trips={}; st.tk=v?Math.max(cfg().work,EV.s-3):0; st.snap=true; paint();
+      st.trips={}; st.cup={}; st.tk=(v==='award')?AW.s-3:((v&&v!=='meeting')?Math.max(cfg().work,EV.s-3):0); st.snap=true; paint();
     });
+    NAMES.forEach((nm,i)=>{ const el=$('ofc-c'+i); if(!el) return; const d=document.createElement('div'); d.id='ofc-cr'+i; d.textContent='🏆'; d.style.cssText='position:absolute;left:26px;top:14px;font-size:16px;line-height:16px;display:none;z-index:3;pointer-events:none'; el.appendChild(d); });
     built=true;
     fitScene();
     if(!window._ofcFit){ window._ofcFit=true; window.addEventListener('resize',()=>{ try{ fitScene(); }catch(e){} }); }
@@ -7764,6 +7790,7 @@ const OFC = (function(){
     const meeting = tk<cf.meetEnd, working = tk>=cf.work;
     const ev=eventFor(day), evOn=!!ev && tk>=EV.s && tk<EV.e, evSlot={};
     if(evOn){ let k=1; order.forEach(p=>{ if(ev.type==='birthday' && NAMES[p]===ev.who) evSlot[p]=0; else if(ev.type==='award' && ev.who2.indexOf(p)>=0) evSlot[p]=ev.who2.indexOf(p); else { evSlot[p]=k+(ev.type==='award'?1:0); k++; } }); if(ev.type!=='birthday'||!Object.keys(evSlot).some(p=>evSlot[p]===0)){ /* không có người đặc biệt */ } }
+    const aw=awardFor(day), wasCup=st.cup||{}; let awStay=false; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.kind==='award' && t.stage==='stay') awStay=true; });
     const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.stage==='stay') hosting[t.to]=t.hostSay; });
     const info={};
     NAMES.forEach((nm,i)=>{
@@ -7785,6 +7812,11 @@ const OFC = (function(){
       if(a && !meeting && tk===cf.meetEnd) say='Về chỗ làm việc';
       if(a && tk===leaveTk[i]) say='Ra về';
       if(a && evOn){ if(tk===EV.s) say=ev.type==='birthday'?'Đi mừng sinh nhật':(ev.type==='award'?'Đi dự lễ vinh danh':'Đi ăn tiệc'); else if(tk>=EV.s+4){ if(ev.type==='award' && ev.who2.indexOf(i)>=0) say=(tk%2?'Cảm ơn cả nhà!':'Nhận bonus nè!'); else if(ev.type==='award' && (i*7+tk)%11===0) say='Chúc mừng nha!'; else if(ev.type==='birthday' && NAMES[i]===ev.who) say='Cảm ơn cả nhà!'; else if((i*7+tk)%13===0) say=ev.type==='birthday'?'Chúc mừng sinh nhật!':(ev.type==='award'?'Hoan hô!':'Ăn thôi!'); } }
+      const wIdx=aw?aw.who2.indexOf(i):-1;
+      const carrying=!!a && i===LIAM && !!t && t.kind==='award' && t.stage==='go';
+      const onDesk=!!a && wIdx>=0 && aw.show && (!aw.ceremony || wasCup[i]) && tk>=cf.work-1 && tk<leaveTk[i];
+      if(a && !say && awStay && aw && aw.ceremony && i!==LIAM && wIdx<0 && loc.seat && (i*5+tk)%7===0) say=['Chúc mừng!','Giỏi quá!','Hoan hô!'][(i+tk)%3];
+      { const cr=$('ofc-cr'+i), tr=$('ofc-tr'+i); if(cr) cr.style.display=carrying?'block':'none'; if(tr) tr.style.display=onDesk?'block':'none'; }
       if(a && cf.arrive && tk===arrTick(i)) say=(arrTick(i)===1?'07:30':'08:00')+', vào văn phòng';
       if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
@@ -7832,6 +7864,7 @@ const OFC = (function(){
     if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
     else if(cf.arrive && tk<3) ph='07:30, nhóm đầu vào văn phòng';
     else if(cf.arrive && tk<5) ph='08:00, nhóm sau vào văn phòng';
+    else if(aw&&aw.ceremony&&tk>=AW.s-2&&tk<AW.s+40) ph='🏆 Vinh danh tháng '+(+aw.month.slice(5,7))+': '+NAMES[aw.who2[0]]+' & '+NAMES[aw.who2[1]]+(st.preview==='award'&&!awardInfo()?' (demo)':'');
     else if(evOn) ph=ev.title;
     else if(meeting) ph='Họp sáng, nhận việc';
     else if(!working) ph='Về chỗ ngồi';
