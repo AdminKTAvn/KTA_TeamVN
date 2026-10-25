@@ -7836,7 +7836,7 @@ const OFC = (function(){
   <h2 style="margin:6px 0 8px;font-family:Georgia,serif;font-size:34px;line-height:1.1;color:#14202b">${T('Văn phòng KTA')}</h2>
   <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:12px">
     <button id="ofc-btn" class="ofc-btn"></button>
-    <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
+    <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div id="ofc-stars" style="position:relative;height:0;margin:0 0 2px"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
     <button id="ofc-mus" type="button" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 16px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b;cursor:pointer">${T('🎵 Nhạc: Tắt')}</button>
     <span id="ofc-musbox" style="position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none"></span>
     <select id="ofc-spd" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="mid">${T('Tốc độ: Vừa')}</option><option value="slow">${T('Tốc độ: Chậm')}</option></select>
@@ -7898,6 +7898,24 @@ const OFC = (function(){
     fitScene();
     if(!window._ofcFit){ window._ofcFit=true; window.addEventListener('resize',()=>{ try{ fitScene(); }catch(e){} }); }
     try{ if(window.ResizeObserver) new ResizeObserver(()=>fitScene()).observe($('ofc-fit')); }catch(e){}
+  }
+  function renderStars(){
+    const box=$('ofc-stars'); if(!box||!days.length) return;
+    let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
+    const meetD={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ if(r&&String(r[0]||'').trim().toLowerCase()==='meeting'){ const d=parseDay(r[6]); if(d) meetD[d]=String(r[3]||'Team meeting'); } });
+    const save=st.idx, pv=st.preview, mx=days.length-1, out=[];
+    days.forEach((d,i)=>{
+      const t=[];
+      EVENTS.forEach(e=>{ if((e.date&&e.date===d.iso)||(e.md&&e.md===d.iso.slice(5))) t.push(e.type==='birthday'?('🎂 '+L_('Sinh nhật ','Birthday ')+(e.who||'')):('🍽 '+L_('Tiệc ăn uống','Team meal'))); });
+      if(meetD[d.iso]) t.push('📋 '+meetD[d.iso]);
+      if(!pv){ st.idx=i; try{ const aw=awardFor(d); if(aw&&aw.ceremony) t.push('🏆 '+L_('Vinh danh tháng ','Monthly award ')+(+aw.month.slice(5,7))); }catch(e){} st.idx=save; }
+      if(t.length) out.push([i,t.join(' · ')]);
+    });
+    const key=out.map(o=>o[0]+o[1]).join('|')+'#'+mx;
+    if(box.dataset.k===key) return; box.dataset.k=key;
+    box.innerHTML=out.map(o=>'<button type="button" data-i="'+o[0]+'" title="'+o[1].replace(/"/g,'')+'" style="position:absolute;top:0;left:calc(8px + (100% - 16px) * '+(mx?o[0]/mx:0)+');transform:translateX(-50%);border:0;background:none;padding:0;margin:0;font-size:15px;line-height:18px;cursor:pointer">⭐</button>').join('');
+    box.style.height=out.length?'18px':'0';
+    box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ st.idx=+b.dataset.i; st.tk=0; st.trips={}; st.snap=true; st.journey=false; setTimeout(applyOffice,0); paint(); }));
   }
   function fitScene(){
     const f=$('ofc-fit'), sc=$('ofc-scene'); if(!f||!sc) return;
@@ -8016,7 +8034,7 @@ const OFC = (function(){
     $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+L_(' đến ',' to ')+days[days.length-1].date;
     $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
-    const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx;
+    const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx; try{ renderStars(); }catch(e){} try{ const staff=(typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader'); $('ofc-evsel').style.display=staff?'':'none'; if(!staff&&(st.preview||st.demoMeet)){ st.preview=''; st.demoMeet=false; $('ofc-evsel').value=''; } }catch(e){}
     $('ofc-day').textContent=T(WD[day.wd])+', '+day.date;
     let ph;
     if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
