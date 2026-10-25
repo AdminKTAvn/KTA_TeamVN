@@ -7377,7 +7377,7 @@ const OFC = (function(){
   const WHISPER=['(thì thầm) Biết gì chưa...','(thì thầm) Nghe nói đó...','(thì thầm) Bí mật nha...'];
   const JOKE=['Haha!','Vui quá đi!','Hôm nay ai mời cà phê?','Cười xíu cho khỏe!'];
   const YT=['Video này hay nè!','Xem tí YouTube...','Clip mới của kênh yêu thích!','Tập này hài ghê!'];
-  const EAT=['Ngon quá!','Ai ăn gì không?','Đồ ăn vặt ở đâu nhỉ?'];
+  const EAT=['Ngon quá!','Ai ăn gì không?','Đồ ăn vặt ở đâu nhỉ?','Trà sữa ngon số dzách!','Trà sữa là chân ái!'];
   const SERIOUS=['Tập trung...'];
   const GUOT=['Anh Guột đâu rồi nhỉ?','Anh Guột nhắc việc hoài!','Hỏi anh Guột thử xem!'];
   const PERS={
@@ -7387,7 +7387,7 @@ const OFC = (function(){
     Henry:{idle:WHISPER,idleP:.07,chatAny:true,chatP:.05},
     Alice:{idle:EAT,idleP:.04,snackP:.05},
     Nora:{idle:SERIOUS,idleP:.01,ask:'Jayce',askP:.05}, Jayce:{idle:SERIOUS,idleP:.01,ask:'Nora',askP:.05},
-    Liam:{idle:JOKE,idleP:.04,chatWith:['Sayid','Nick'],chatP:.04},
+    Liam:{idle:JOKE,idleP:.04,chatWith:['Sayid','Nick'],chatP:.04,tease:'Sayid',teaseP:.07,tq:['Sayid, chưa về hả?','Ê, chưa về hả ông?','Chưa về hả? Trễ rồi nha!'],ta:['Nay tui ở lại luôn!','Ở lại luôn, ông về trước đi!','Nay ở lại luôn nha!']},
     Sayid:{idle:JOKE,idleP:.04,chatWith:['Liam'],chatP:.02,ask:'Nick',askP:.05},
     Nick:{idle:JOKE,idleP:.04,chatWith:['Liam'],chatP:.02,ask:'Sayid',askP:.09},
     Dale:{idle:YT,idleP:.05,yt:true},
@@ -7518,7 +7518,7 @@ const OFC = (function(){
         if(BUYG.indexOf(nm)>=0 && rnd(0.012)){ const g=BUYG.map(x=>NAMES.indexOf(x)).filter(j=>act[j]&&!busy[j]); if(g.length>=2){ g.forEach((j,k)=>{ trips[j]=newTrip(j,'buy',ELEV,6,'Đi mua nước chung',{lag:k*600}); busy[j]=1; n++; }); return; } }
         if(P.hello && rnd(P.helloP)){ const f=free(P.hello); if(f.length){ social(f[Math.floor(Math.random()*f.length)],'chat','Hello mấy cục dàng!','Anh Guột qua kìa!'); return; } }
         if(P.ask && rnd(P.askP)){ const f=free([P.ask]); if(f.length){ sit(f[0],ASKQ[Math.floor(Math.random()*ASKQ.length)],ASKA[Math.floor(Math.random()*ASKA.length)]); return; } }
-        if(P.tease && rnd(P.teaseP)){ const f=free([P.tease]); if(f.length){ sit(f[0],nm==='William'?'Ê, làm ăn gì đó!':'Ông làm tới đâu rồi?',nm==='William'?'Im đi, lo việc của ông!':'Haha, để tui xem!'); return; } }
+        if(P.tease && rnd(P.teaseP)){ const f=free([P.tease]); if(f.length){ const pk=a=>a[Math.floor(Math.random()*a.length)]; if(P.tq) sit(f[0],pk(P.tq),pk(P.ta)); else sit(f[0],nm==='William'?'Ê, làm ăn gì đó!':'Ông làm tới đâu rồi?',nm==='William'?'Im đi, lo việc của ông!':'Haha, để tui xem!'); return; } }
         if(P.chatWith && rnd(P.chatP)){ const f=free(P.chatWith); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'chat','Rảnh không, nói chuyện xíu!','Ừ, qua đây đi!'); return; } }
         if(P.chatAny && rnd(P.chatP)){ const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'chat','(thì thầm) Nghe gì chưa?','Hả? Kể nghe coi!'); return; } }
         if(P.supportP && rnd(P.supportP)){ const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'support','Để mình chỉ cho!','Cảm ơn Daniel!'); return; } }
@@ -7538,6 +7538,7 @@ const OFC = (function(){
         if(rnd(0.006)){ trips[i]=newTrip(i,'dish',corLoc(114,jit(650,6)),3,'Rửa ly'); busy[i]=1; n++; return; }
         if(rnd(0.004)){ trips[i]=newTrip(i,'trash',corLoc(114,jit(668,4)),2,'Đổ rác'); busy[i]=1; n++; return; }
         if(rnd(0.007)){ trips[i]=newTrip(i,'wc',corLoc(jit(975,6),jit(662,4)),3,'Đi vệ sinh'); trips[i].dest.hide=true; busy[i]=1; n++; return; }
+        if(nm==='Alice' && rnd(0.012)){ trips[i]=newTrip(i,'buy',ELEV,6,'Đi mua trà sữa',{back:'Trà sữa về rồi!'}); busy[i]=1; n++; return; }
         if(rnd(0.006)){ trips[i]=newTrip(i,'buy',ELEV,6,'Đi mua nước'); busy[i]=1; n++; return; }
         if(rnd(0.004)){ trips[i]=newTrip(i,'out',ELEV,6,'Ra ngoài lấy đồ'); busy[i]=1; n++; return; }
       });
@@ -7666,7 +7667,7 @@ const OFC = (function(){
       else if(t){
         if(t.stage==='go'){ loc=t.dest; say=t.say; }
         else if(t.stage==='stay'){ loc=t.dest; say=t.say; }
-        else { loc=seatLoc(i); if(t.kind==='buy'||t.kind==='out') say='Mang đồ về'; }
+        else { loc=seatLoc(i); if(t.kind==='buy'||t.kind==='out') say=t.back||'Mang đồ về'; }
       }
       else if(hosting[i]) say=hosting[i];
       else if(working && st.idle && st.idle[i] && loc.seat) say=st.idle[i];
@@ -7685,7 +7686,8 @@ const OFC = (function(){
       const s=$('ofc-s'+i); s.textContent=say; s.style.opacity=say?1:0;
       if(say) el.style.zIndex=70;
       const lit=!!a && working, yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
-      [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(m) m.style.background=yt?'#e5484d':(lit?'#7fd1ff':'#55616f'); });
+      [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(!m) return; const red=yt&&k===1; m.style.background=red?'#e5484d':(lit?'#7fd1ff':'#55616f'); const h=red?'<div style="position:absolute;left:3px;top:6px;width:0;height:0;border-left:6px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent"></div>':''; if(m.dataset.h!==h){ m.innerHTML=h; m.dataset.h=h; } });
+      if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=say; sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
     });
     st.snap=false;
