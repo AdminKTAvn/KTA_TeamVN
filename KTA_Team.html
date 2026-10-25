@@ -7379,29 +7379,32 @@ const OFC = (function(){
   const YT=['Video này hay nè!','Xem tí YouTube...','Clip mới của kênh yêu thích!','Tập này hài ghê!'];
   const EAT=['Ngon quá!','Ai ăn gì không?','Đồ ăn vặt ở đâu nhỉ?'];
   const SERIOUS=['Tập trung...'];
+  const GUOT=['Anh Guột đâu rồi nhỉ?','Anh Guột nhắc việc hoài!','Hỏi anh Guột thử xem!'];
   const PERS={
-    William:{tease:'Andrew',teaseP:.05}, Andrew:{tease:'William',teaseP:.05},
+    William:{tease:'Andrew',teaseP:.05,idle:GUOT,idleP:.03}, Andrew:{tease:'William',teaseP:.05,idle:GUOT,idleP:.03},
     Stuart:{idle:RAP,idleP:.06,chatWith:['Daniel'],chatP:.03},
     Mei:{idle:DREAM,idleP:.05},
     Henry:{idle:WHISPER,idleP:.07,chatAny:true,chatP:.05},
     Alice:{idle:EAT,idleP:.04,snackP:.05},
-    Nora:{idle:SERIOUS,idleP:.01}, Jayce:{idle:SERIOUS,idleP:.01},
+    Nora:{idle:SERIOUS,idleP:.01,ask:'Jayce',askP:.05}, Jayce:{idle:SERIOUS,idleP:.01,ask:'Nora',askP:.05},
     Liam:{idle:JOKE,idleP:.04,chatWith:['Sayid','Nick'],chatP:.04},
-    Sayid:{idle:JOKE,idleP:.04,chatWith:['Liam','Nick'],chatP:.04},
-    Nick:{idle:JOKE,idleP:.04,chatWith:['Liam','Sayid'],chatP:.04},
+    Sayid:{idle:JOKE,idleP:.04,chatWith:['Liam'],chatP:.02,ask:'Nick',askP:.05},
+    Nick:{idle:JOKE,idleP:.04,chatWith:['Liam'],chatP:.02,ask:'Sayid',askP:.09},
     Dale:{idle:YT,idleP:.05,yt:true},
     Zolius:{silent:true}, Rhys:{silent:true},
-    Daniel:{supportP:.05,chatWith:['Stuart'],chatP:.04}
+    Daniel:{supportP:.05,chatWith:['Stuart'],chatP:.04,hello:['Andrew','William'],helloP:.05}
   };
+  const ASKQ=['Task này làm sao nhỉ?','Chỗ này bạn thấy sao?','Check giúp mình bản vẽ này!','Hỏi chút về task nè!'], ASKA=['Để mình xem!','Gửi mình xem thử!','Chỗ này làm vậy nè!'];
   const BUYG=['Jayson','Henry','Andrew','William'];   // hay đi mua nước chung (theo thứ tự)
-  const BONNIE=2, WILDER=19, LAG=1100; const LIAM=9, STU=17, NINA=12, TICK=1800, SPEED=190, AY=356;
+  const ALICE=0, BONNIE=2, WILDER=19, LAG=1100; const LIAM=9, STU=17, NINA=12, AY=356;
+  let TICK=1800, SPEED=120;   // tốc độ Vừa (mặc định); chọn Chậm ở ô tốc độ để thư giãn hơn
   // ── SỰ KIỆN: thêm dòng vào đây (date: 'YYYY-MM-DD' một lần, hoặc md: 'MM-DD' lặp hằng năm) ──
   // type: 'birthday' (kèm who: tên) hoặc 'meal' (ăn uống cả team). title: tiêu đề hiện trên bảng.
   const EVENTS = [
     // { md:'03-14', type:'birthday', who:'Mei' },
     // { date:'2026-12-24', type:'meal', title:'Tiệc cuối năm cả team' },
   ];
-  const EV={s:18,e:30};
+  const EV={s:108,e:120};
   const COFFEE_FANS = ['Rhys','Zolius','Jayson'];      // hay đi pha cà phê
   const G1 = ['Daniel','Rhys','Sayid','Nina','Dale','Mei','Zolius','William','Henry','Andrew','Sam','Jayce','Nora']; // 07:30
   const CX={A:90,D:239,E:392,H:541}, ROT={A:90,D:-90,E:90,H:-90}, WX={A:24,D:316,E:316,H:610}, MONX={A:130,D:184,E:432,H:486};
@@ -7471,7 +7474,7 @@ const OFC = (function(){
     return e?Object.assign({title:e.type==='birthday'?('Sinh nhật '+(e.who||'')):'Tiệc ăn uống cả team'},e):null;
   }
   // mốc thời gian trong 1 chu kỳ (mỗi tick ~1,8 giây)
-  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:46, meetEnd:9, work:13, arrive:true, leave:36, span:8}; }
+  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:236, meetEnd:9, work:13, arrive:true, leave:224, span:9}; }
   const hhmm=m=>(m===null||m===undefined)?'':(('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2));
   const activeList=day=>Object.keys(day.acts).map(Number).sort((a,b)=>a-b);
   // ── hoạt động ngẫu nhiên trong giờ làm việc ──
@@ -7497,10 +7500,10 @@ const OFC = (function(){
       const t=Object.assign({},st.trips[k]); t.n--;
       if(t.n<=0){
         if(t.stage==='go'){ t.stage='stay'; t.n=t.stay; }
-        else if(t.stage==='stay'){ if(t.kind==='bcsit'){ return; } t.stage='back'; t.n=etaTicks(t.dest,seatLoc(+k)); }
+        else if(t.stage==='stay'){ if(t.kind==='bcsit'||t.kind==='sit'){ return; } t.stage='back'; t.n=etaTicks(t.dest,seatLoc(+k)); }
         else return; // về tới chỗ
       }
-      trips[k]=t; busy[k]=1; if(t.to!==undefined) busy[t.to]=1; n++;
+      trips[k]=t; busy[k]=1; if(t.to!==undefined) busy[t.to]=1; if(t.kind!=='sit') n++;
     });
     if(tk>=cf.work && tk<cf.leave-2 && !evBlock){
       const active=activeList(day), rnd=p=>Math.random()<p;
@@ -7510,9 +7513,12 @@ const OFC = (function(){
         if(i===WILDER && act[BONNIE]) { return; }   // Wilder chỉ đi theo Bonnie
         const nm=NAMES[i], P=PERS[nm]||{};
         const social=(j,kind,say,reply)=>{ trips[i]=newTrip(i,kind,standLoc(j),3,say,{to:j,hostSay:reply}); busy[i]=1; busy[j]=1; n++; };
-        const free=names=>names.map(x=>NAMES.indexOf(x)).filter(j=>j!==i&&act[j]&&!busy[j]);
+        const free=names=>names.map(x=>NAMES.indexOf(x)).filter(j=>j!==i&&j!==NINA&&act[j]&&!busy[j]);
+        const sit=(j,say,reply)=>{ trips[i]={kind:'sit',dest:seatLoc(i),say:P.silent?'':say,stage:'stay',n:3,stay:3,to:j,hostSay:reply}; busy[i]=1; busy[j]=1; };
         if(BUYG.indexOf(nm)>=0 && rnd(0.012)){ const g=BUYG.map(x=>NAMES.indexOf(x)).filter(j=>act[j]&&!busy[j]); if(g.length>=2){ g.forEach((j,k)=>{ trips[j]=newTrip(j,'buy',ELEV,6,'Đi mua nước chung',{lag:k*600}); busy[j]=1; n++; }); return; } }
-        if(P.tease && rnd(P.teaseP)){ const f=free([P.tease]); if(f.length){ social(f[0],'tease',nm==='William'?'Ê, làm ăn gì đó!':'Ông làm tới đâu rồi?',nm==='William'?'Im đi, lo việc của ông!':'Haha, để tui xem!'); return; } }
+        if(P.hello && rnd(P.helloP)){ const f=free(P.hello); if(f.length){ social(f[Math.floor(Math.random()*f.length)],'chat','Hello mấy cục dàng!','Anh Guột qua kìa!'); return; } }
+        if(P.ask && rnd(P.askP)){ const f=free([P.ask]); if(f.length){ sit(f[0],ASKQ[Math.floor(Math.random()*ASKQ.length)],ASKA[Math.floor(Math.random()*ASKA.length)]); return; } }
+        if(P.tease && rnd(P.teaseP)){ const f=free([P.tease]); if(f.length){ sit(f[0],nm==='William'?'Ê, làm ăn gì đó!':'Ông làm tới đâu rồi?',nm==='William'?'Im đi, lo việc của ông!':'Haha, để tui xem!'); return; } }
         if(P.chatWith && rnd(P.chatP)){ const f=free(P.chatWith); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'chat','Rảnh không, nói chuyện xíu!','Ừ, qua đây đi!'); return; } }
         if(P.chatAny && rnd(P.chatP)){ const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'chat','(thì thầm) Nghe gì chưa?','Hả? Kể nghe coi!'); return; } }
         if(P.supportP && rnd(P.supportP)){ const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const j=f[Math.floor(Math.random()*f.length)]; social(j,'support','Để mình chỉ cho!','Cảm ơn Daniel!'); return; } }
@@ -7568,6 +7574,7 @@ const OFC = (function(){
   <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:12px">
     <button id="ofc-btn" class="ofc-btn"></button>
     <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
+    <select id="ofc-spd" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="mid">Tốc độ: Vừa</option><option value="slow">Tốc độ: Chậm</option></select>
     <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">Sự kiện: theo lịch</option><option value="birthday">Xem thử sinh nhật</option><option value="meal">Xem thử tiệc ăn uống</option></select>
     <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
   </div>
@@ -7590,6 +7597,11 @@ const OFC = (function(){
     const reset=()=>{ st.tk=0; st.trips={}; st.snap=true; };
     $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } reset(); paint(); });
     $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); reset(); st.journey=false; paint(); });
+    $('ofc-spd').addEventListener('change',e=>{
+      if(e.target.value==='mid'){ TICK=1800; SPEED=120; } else { TICK=3000; SPEED=80; }
+      if(timer){ clearInterval(timer); timer=setInterval(tick,TICK); }
+      st.trips={}; st.tk=0; st.snap=true; paint();
+    });
     $('ofc-evsel').addEventListener('change',e=>{
       const v=e.target.value; st.preview=v||''; st.journey=false;
       const act=days[st.idx].acts, ids=Object.keys(act).map(Number).filter(i=>seat[i]);
@@ -7636,6 +7648,7 @@ const OFC = (function(){
     const order=activeList(day), slot={}; order.forEach((p,k)=>slot[p]=k);
     const byLeave=order.slice().sort((x,y)=>{ const a1=act[x].t, b1=act[y].t; if(a1===null&&b1===null) return x-y; if(a1===null) return 1; if(b1===null) return -1; return a1-b1||x-y; });
     const leaveTk={}; byLeave.forEach((p,k)=>leaveTk[p]=cf.leave+Math.floor(k*cf.span/Math.max(1,byLeave.length)));
+    [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(leaveTk[pr[0]],leaveTk[pr[1]]); leaveTk[pr[0]]=m; leaveTk[pr[1]]=m; } });
     const meeting = tk<cf.meetEnd, working = tk>=cf.work;
     const ev=eventFor(day), evOn=!!ev && tk>=EV.s && tk<EV.e, evSlot={};
     if(evOn){ let k=1; order.forEach(p=>{ if(ev.type==='birthday' && NAMES[p]===ev.who) evSlot[p]=0; else { evSlot[p]=k; k++; } }); if(ev.type!=='birthday'||!Object.keys(evSlot).some(p=>evSlot[p]===0)){ /* không có người đặc biệt */ } }
@@ -7665,7 +7678,7 @@ const OFC = (function(){
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
       c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && loc.seat===true;
       el.title=a? nm+': '+a.n+' việc, '+a.proj : nm+': hôm nay chưa ghi việc';
-      go(i,loc,snap,(t&&t.lag)?t.lag:0);
+      go(i,loc,snap,(t&&t.lag)?t.lag:((a&&tk>=leaveTk[i]&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
       const b=$('ofc-b'+i); b.textContent=a?a.n:''; b.style.opacity=(a&&!loc.meet)?1:0;
       $('ofc-t'+i).style.opacity=loc.meet?0:(a?1:0.7);
