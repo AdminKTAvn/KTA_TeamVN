@@ -104,6 +104,7 @@ button{font-family:var(--font-sans)}
     <div class="main-tab" id="maintab-eval" onclick="switchMainTab('eval')"><span>📊</span> <span data-i18n="tab.eval">Đánh giá năng lực</span></div>
     <div class="main-tab" id="maintab-user" onclick="switchMainTab('user')" style="display:none"><span>👤</span> <span data-i18n="tab.user">Tra cứu của tôi</span></div>
     <div class="main-tab" id="maintab-lb" onclick="switchMainTab('lb');renderLeaderboard()" style="display:none"><span>🏆</span> <span data-i18n="tab.lb">Xếp hạng</span></div>
+    <div class="main-tab" id="maintab-office" onclick="switchMainTab('office');OFC.show()"><span>🏢</span> <span data-i18n="tab.office">Văn phòng</span></div>
   </div>
 
   <!-- ═══════════ PANEL 0: MEMBERS ═══════════ -->
@@ -311,6 +312,7 @@ const I18N = {
     'tab.eval': 'Đánh giá năng lực',
     'tab.user': 'Tra cứu của tôi',
     'tab.lb': 'Xếp hạng',
+    'tab.office': 'Văn phòng',
   },
   en: {
     'login.title': 'KTA TeamVN',
@@ -334,6 +336,7 @@ const I18N = {
     'tab.eval': 'Competency Evaluation',
     'tab.user': 'My Lookup',
     'tab.lb': 'Leaderboard',
+    'tab.office': 'Office',
   }
 };
 
@@ -866,7 +869,6 @@ function applyWeeklyStatusToProjects(){
         // Có dò được giai đoạn mới trong ghi chú tuần này → cập nhật + ghi nhớ lâu dài vào chính project
         weeklyPhaseByProject[key] = w.phase;
         p.lastKnownPhase = w.phase;
-        markCaStartDateIfNeeded(p, w.phase);
       } else if(p.lastKnownPhase){
         // Tuần này KHÔNG dò được giai đoạn (VD chỉ ghi "on hold") → giữ nguyên giai đoạn đã ghi nhớ trước đó,
         // KHÔNG để tính vống thành 100% chỉ vì thiếu từ khoá trong ghi chú tuần này.
@@ -915,12 +917,7 @@ function calcContributionPerProject(personName, projectName){
   const byImpact = { Major:0, Medium:0, Minor:0 };
   tasks.forEach(function(t){ if(byImpact[t.impact]!==undefined) byImpact[t.impact]++; });
   const categories = [];
-  const categoryCounts = {};
-  tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){
-    if(!c) return;
-    if(!categories.includes(c)) categories.push(c);
-    categoryCounts[c] = (categoryCounts[c]||0) + 1;
-  }); });
+  tasks.forEach(function(t){ (t.categories||[]).forEach(function(c){ if(!categories.includes(c)) categories.push(c); }); });
   const knowledge = tasks.filter(function(t){ return t.knowledge && t.knowledge.trim(); }).map(function(t){ return stripHtml(t.knowledge); }).filter(Boolean);
   // Danh sách task rút gọn (mô tả ngắn) để hiển thị ngữ cảnh, mới nhất lên trước
   const taskDetails = tasks
@@ -928,7 +925,7 @@ function calcContributionPerProject(personName, projectName){
     .map(function(t){ return { date: t.date||'', impact: t.impact||'', description: stripHtml(t.description) }; })
     .filter(function(td){ return td.description; })
     .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  return { projectName, score, taskCount: tasks.length, byImpact, categories, categoryCounts, knowledge, taskDetails, lastDate };
+  return { projectName, score, taskCount: tasks.length, byImpact, categories, knowledge, taskDetails, lastDate };
 }
 
 // Tính toàn bộ Contribution cho 1 người
@@ -945,15 +942,9 @@ function calcContribution(personName){
   const totalScore = perProject.reduce(function(s,p){ return s+p.score; }, 0);
   const totalTasks = perProject.reduce(function(s,p){ return s+p.taskCount; }, 0);
 
-  // Category diversity — đếm tổng số lần xuất hiện qua TẤT CẢ dự án, để biết người này làm nhiều nhất phần nào
+  // Category diversity
   const allCats = [];
-  const allCatCounts = {};
-  perProject.forEach(function(p){
-    p.categories.forEach(function(c){ if(!allCats.includes(c)) allCats.push(c); });
-    Object.keys(p.categoryCounts||{}).forEach(function(c){ allCatCounts[c] = (allCatCounts[c]||0) + p.categoryCounts[c]; });
-  });
-  // Sắp theo số lần giảm dần — phần làm nhiều nhất lên đầu, dễ nhìn ra ai chuyên mảng gì
-  allCats.sort(function(a,b){ return (allCatCounts[b]||0) - (allCatCounts[a]||0); });
+  perProject.forEach(function(p){ p.categories.forEach(function(c){ if(!allCats.includes(c)) allCats.push(c); }); });
 
   // Knowledge entries
   const allKnowledge = [];
@@ -978,7 +969,7 @@ function calcContribution(personName){
     return { ...pp, isMain, isSupport, ratio, validation };
   });
 
-  return { totalScore, totalTasks, perProject: roleValidation, allCats, allCatCounts, allKnowledge };
+  return { totalScore, totalTasks, perProject: roleValidation, allCats, allKnowledge };
 }
 
 // Lấy mốc bắt đầu của chu kỳ 2 tuần (yyyy-mm-dd, luôn là Thứ 2) chứa 1 ngày cho trước
@@ -1346,11 +1337,7 @@ function renderActivityLog(personName){
   // Category diversity
   if(data.allCats.length){
     html += '<div class="al-cat-section"><div class="al-cat-title">🏷️ Category Diversity ('+data.allCats.length+' loại)</div><div class="al-cat-grid">';
-    data.allCats.forEach(function(c){
-      const n = (data.allCatCounts && data.allCatCounts[c]) || 1;
-      const countLabel = n > 1 ? ' <span class="al-cat-count">×'+n+'</span>' : '';
-      html += '<span class="al-cat-tag" title="'+n+' task thuộc mảng '+_mbEscape(c)+'">'+_mbEscape(c)+countLabel+'</span>';
-    });
+    data.allCats.forEach(function(c){ html += '<span class="al-cat-tag">'+_mbEscape(c)+'</span>'; });
     html += '</div></div>';
   }
 
@@ -1661,7 +1648,6 @@ function _extractCandidatesFromExistingData(){
       <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
       <button class="pm-add-btn" style="background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)" onclick="openCsvModal()">⬆ Nhập từ CSV</button>
       <button class="pm-add-btn" style="background:#E6F1FB;color:#185FA5;border:0.5px solid #378ADD" onclick="openSyncSpModal()">👥 Đồng bộ SP từ ActivityLog</button>
-      <button class="pm-add-btn" style="background:#FEF3DC;color:#BA7517;border:0.5px solid #E8B84B" onclick="openCycleReviewModal()">🔄 Rà soát Chu kỳ chưa tick</button>
       <button class="pm-add-btn" style="background:#EAF3DE;color:#3B6D11;border:0.5px solid #639922" onclick="saveProjectsManual()">💾 Lưu dữ liệu</button>
       <span id="pm-save-toast" style="font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px;display:none">✓ Đã lưu!</span>
     </div>
@@ -1687,9 +1673,6 @@ function _extractCandidatesFromExistingData(){
         <option value="Priorities">Priorities</option>
         <option value="Deadline">Deadline</option>
       </select>
-      <select class="pm-filter-select" id="pm-filter-year" onchange="renderProjects()">
-        <option value="">Tất cả năm</option>
-      </select>
     </div>
   </div>
 
@@ -1706,7 +1689,6 @@ function _extractCandidatesFromExistingData(){
     <table class="pm-table">
       <thead>
         <tr>
-          <th style="width:40px">STT</th>
           <th>Tên dự án</th>
           <th>Quy mô</th>
           <th>Độ phức tạp</th>
@@ -1778,11 +1760,6 @@ function _extractCandidatesFromExistingData(){
       </div>
 
       <div class="pm-field">
-        <label>Ngày nhập dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(tháng/năm — dùng để tra đúng Level lịch sử của người làm khi dự án CHƯA có ActivityLog, tránh áp nhầm Level hiện tại cho việc đã làm từ lâu)</span></label>
-        <input type="month" id="pm-f-startmonth" style="max-width:200px">
-      </div>
-
-      <div class="pm-field">
         <label>Tình trạng hoạt động</label>
         <select id="pm-f-status">
           <option value="Not Started">Chưa bắt đầu</option>
@@ -1804,9 +1781,9 @@ function _extractCandidatesFromExistingData(){
           <option value="25% CD">25% CD / Plan Check #1 (65%)</option>
           <option value="50% CD">50% CD (78%)</option>
           <option value="75% CD">🚩 75% CD — đủ 1 chu kỳ (88%)</option>
-          <option value="95% CD">95% CD (96%)</option>
-          <option value="100% CD/Bid">100% CD / Bid (100%)</option>
-          <option value="CA">🎁 CA (105-110%)</option>
+          <option value="95% CD">95% CD — phát sinh thêm (96%)</option>
+          <option value="100% CD/Bid">100% CD / Bid — phát sinh thêm (100%)</option>
+          <option value="CA">🎁 CA — bonus CỘNG THÊM 5-10% tuỳ Size (105-110%)</option>
         </select>
       </div>
 
@@ -1910,35 +1887,6 @@ function _extractCandidatesFromExistingData(){
     </div>
   </div>
 
-  <div class="pm-modal-overlay" id="pm-cyclereview-overlay" onclick="if(event.target===this) closeCycleReviewModal()">
-    <div class="pm-modal" style="max-width:680px;max-height:80vh;overflow-y:auto">
-      <div class="pm-modal-title">Rà soát Chu kỳ tick tay</div>
-      <div style="font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:1rem;line-height:1.7">
-        Liệt kê toàn bộ <b style="color:var(--color-text-primary)">Main chưa có task thật riêng</b> trên dự án
-        của mình. Dòng có <b style="color:#BA7517">⚠ vàng</b> là đã tick nhưng dự án CHƯA đạt Giai đoạn tối
-        thiểu (75% CD/Complete) — nên xem lại, bỏ tick nếu tick nhầm. Sửa xong bấm Lưu:
-        <b style="color:var(--color-text-primary)">tick thêm sẽ lưu thêm, bỏ tick sẽ gỡ khỏi danh sách</b>.
-      </div>
-      <div id="pm-cyclereview-list" style="max-height:400px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px"></div>
-      <div class="pm-modal-actions">
-        <button class="pm-btn-cancel" onclick="closeCycleReviewModal()">Đóng</button>
-        <button class="pm-btn-save" onclick="confirmCycleReview()">Lưu các mục đã tick</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="pm-modal-overlay" id="pm-detail-overlay" onclick="if(event.target===this) closeProjectDetailModal()">
-    <div class="pm-modal" style="max-width:700px;max-height:85vh;overflow-y:auto">
-      <div class="pm-modal-title" id="pm-detail-title">Chi tiết dự án</div>
-      <div id="pm-detail-body"></div>
-      <div class="pm-modal-actions">
-        <button class="pm-btn-cancel" onclick="closeProjectDetailModal()">Đóng</button>
-      </div>
-    </div>
-  </div>
-
-
-
 <script>
 // ═══════════ PROJECT MANAGEMENT MODULE ═══════════
 let projects = [];
@@ -2005,7 +1953,6 @@ function openProjectModal(editId){
     document.getElementById('pm-edit-id').value=editId;
     document.getElementById('pm-f-name').value=p.name;
     document.getElementById('pm-f-status').value=p.status;
-    document.getElementById('pm-f-startmonth').value=p.startMonth||'';
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
     document.getElementById('pm-f-projecttype').value = p.projectType || 'ARCH_FULL';
@@ -2029,7 +1976,6 @@ function openProjectModal(editId){
     document.getElementById('pm-f-notes').value='';
     document.getElementById('pm-f-projecttype').value = 'ARCH_FULL';
     document.getElementById('pm-f-status').value='Not Started';
-    document.getElementById('pm-f-startmonth').value='';
     document.getElementById('pm-f-phase').value='';
     document.querySelectorAll('input[name=pm-size]').forEach(r=>r.checked=false);
     document.querySelectorAll('input[name=pm-team]').forEach(r=>r.checked=false);
@@ -2055,7 +2001,6 @@ function saveProject(){
   const membersMain   = getMsValues('pm-ms-main');
   const membersBackup = getMsValues('pm-ms-backup');
   const status = document.getElementById('pm-f-status').value;
-  const startMonth = document.getElementById('pm-f-startmonth').value; // format "YYYY-MM", có thể rỗng
   const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
   const projectType = document.getElementById('pm-f-projecttype').value;
@@ -2070,9 +2015,9 @@ function saveProject(){
   const cxCount = CX_KEYS.filter(k=>complexity[k]).length;
   const complexityLevel = calcComplexityLevel(cxCount);
 
-  // Thu thập tick tay "Chu kỳ dự án" — giờ xét THEO TỪNG NGƯỜI: chỉ người chưa có task thật riêng trên
-  // dự án mới hiện checkbox thật (người đã có task riêng thì hiện badge tự động, không có checkbox, nên
-  // đoạn dưới tự bỏ qua họ, không ghi đè gì lên phần tự động).
+  // Thu thập tick tay "Chu kỳ dự án" — CHỈ có ý nghĩa khi dự án chưa có ActivityLog (lúc đó UI hiện
+  // checkbox thật). Nếu dự án đã có ActivityLog, UI hiện badge tự động (không có checkbox) nên đoạn
+  // này không tìm thấy phần tử nào và bỏ qua — giữ nguyên hành vi tự động, không ghi đè gì cả.
   const doneCycleMembersManual = membersMain.filter(function(m){
     const cb = document.getElementById('dcm-'+normStr(m).replace(/\s+/g,'_'));
     return cb && cb.checked;
@@ -2090,9 +2035,8 @@ function saveProject(){
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
       p.status=status; p.notes=notes; p.projectType=projectType;
-      p.startMonth = startMonth || p.startMonth || ''; // giữ nguyên nếu để trống, không xoá giá trị cũ đã điền
       p.customAllocation = customAllocation; // null nếu không bật -> dùng công thức tự động
-      if(phase){ p.lastKnownPhase = phase; markCaStartDateIfNeeded(p, phase); } // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
+      if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
       p.complexity=complexity; p.complexityLevel=complexityLevel; p.complexityCount=cxCount;
     }
@@ -2101,7 +2045,7 @@ function saveProject(){
       id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
-      status, notes, createdAt: Date.now(), projectType, startMonth: startMonth || '',
+      status, notes, createdAt: Date.now(), projectType,
       customAllocation: customAllocation,
       lastKnownPhase: phase || '',
       doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
@@ -2150,21 +2094,9 @@ function renderProjects(){
   const fTeam=document.getElementById('pm-filter-team').value;
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
-  const fYearSel=document.getElementById('pm-filter-year');
-  const fYear=fYearSel.value;
-
-  // Populate danh sách năm động, dựa trên startMonth ("YYYY-MM") của các dự án đã có —
-  // giữ nguyên lựa chọn hiện tại của người dùng nếu năm đó vẫn còn tồn tại trong danh sách.
-  const yearsSet = new Set();
-  projects.forEach(p=>{ if(p.startMonth && p.startMonth.length>=4) yearsSet.add(p.startMonth.slice(0,4)); });
-  const years = Array.from(yearsSet).sort((a,b)=>b-a); // mới nhất trước
-  const yearOptionsHtml = '<option value="">Tất cả năm</option>' +
-    years.map(y=>`<option value="${y}"${y===fYear?' selected':''}>${y}</option>`).join('');
-  if(fYearSel.innerHTML !== yearOptionsHtml) fYearSel.innerHTML = yearOptionsHtml;
 
   const filtered = projects.filter(p=>
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
-    && (!fYear || (p.startMonth && p.startMonth.slice(0,4)===fYear))
   );
 
   // ── Stats ──
@@ -2222,15 +2154,10 @@ function renderProjects(){
   }
   empty.style.display='none';
   tbody.innerHTML = filtered.slice().sort((a,b)=>{
-    // Ưu tiên sắp theo "Ngày nhập dự án" (startMonth, format YYYY-MM) tăng dần — tháng nhỏ lên trên,
-    // tháng lớn xuống dưới. Dự án chưa điền startMonth bị đẩy xuống cuối (không có mốc để so).
-    if(a.startMonth && b.startMonth && a.startMonth !== b.startMonth) return a.startMonth < b.startMonth ? -1 : 1;
-    if(a.startMonth && !b.startMonth) return -1;
-    if(!a.startMonth && b.startMonth) return 1;
-    // Cùng startMonth (hoặc đều chưa có) — dùng order/createdAt như cũ để ổn định thứ tự
+    // Use explicit order field if available, else createdAt ascending
     if(a.order!==undefined && b.order!==undefined) return a.order - b.order;
     return a.createdAt - b.createdAt;
-  }).map((p, __rowIdx)=>{
+  }).map(p=>{
     const cxCount = p.complexityCount||0;
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
@@ -2241,12 +2168,8 @@ function renderProjects(){
     const wPhaseColor = wPhaseSrc==='activitylog' ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#E6F1FB',fg:'#185FA5'};
     // Đã bỏ badge "Bonus" theo yêu cầu — giai đoạn phát sinh thêm vẫn tính điểm bình thường, không cần nhãn riêng
     const wPhaseBonus = '';
-    // Chỉ hiện "Đủ chu kỳ" khi có ÍT NHẤT 1 Main thật sự đủ điều kiện (dùng đúng hàm tính chu kỳ thật) —
-    // không dựa thuần vào Giai đoạn/Trạng thái dự án như trước, vì dự án có thể đủ Giai đoạn nhưng
-    // KHÔNG có ai đứng Main (cột Main để trống "—") → không có ai để cộng chu kỳ vào, không nên hiện badge.
-    const cycleQualifyingMains = (p.membersMain||[]).filter(function(m){ return personHasAutoDoneCycle(m, p); });
-    const wPhaseCycle = cycleQualifyingMains.length > 0
-      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="${cycleQualifyingMains.map(escapeHtml).join(', ')} đã đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
+    const wPhaseCycle = wPhase && phaseQualifiesForCycle(wPhase)
+      ? ` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;vertical-align:middle" title="Đạt 75% CD trở lên — đủ 1 chu kỳ để lên level (tách biệt với điểm số)">✅ Đủ chu kỳ</span>`
       : '';
     const pType = p.projectType || 'ARCH_FULL';
     const typeBadge = pType !== 'ARCH_FULL'
@@ -2257,19 +2180,15 @@ function renderProjects(){
       ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px;white-space:nowrap" title="Chưa có task thật — điểm tính theo Status/Giai đoạn set tay">⚠ Chưa có ActivityLog</span>`
       : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px;white-space:nowrap" title="Đã có task thật — điểm tự động tính theo % đóng góp">✓ Có ActivityLog</span>`;
     const phaseOptions = ['',...Object.keys(PHASE_COMPLETION_PCT)].map(function(ph){
-      // Riêng giai đoạn CA: cộng thêm bonus theo Size (khớp đúng công thức tính điểm thật ở
-      // getProjectPhaseCompletionPct) — tránh hiển thị "CA (100%)" trong khi điểm thật tính 105-110%.
-      const basePct = PHASE_COMPLETION_PCT[ph] || 1;
-      const pct = (ph === 'CA') ? basePct + (CA_BONUS_BY_SIZE[p.size] || 0) : basePct;
-      const label = ph ? (ph+' ('+Math.round(pct*100)+'%)') : '— Chưa xác định (0%) —';
+      const bonusTag = '';
+      const label = ph ? (bonusTag+ph+' ('+Math.round((PHASE_COMPLETION_PCT[ph]||1)*100)+'%)') : '— Chưa xác định (0%) —';
       const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
       return `<option value="${ph}"${sel}>${label}</option>`;
     }).join('');
     return `
     <tr>
-      <td style="color:var(--color-text-tertiary);text-align:center">${__rowIdx+1}</td>
       <td>
-        <div class="pm-proj-name" style="cursor:pointer" onclick="openProjectDetailModal('${p.id}')" title="Xem chi tiết dự án & điểm từng người">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
+        <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
@@ -2299,7 +2218,6 @@ function quickSetPhase(id, value){
   const p = projects.find(x=>x.id===id);
   if(!p) return;
   p.lastKnownPhase = value || '';
-  markCaStartDateIfNeeded(p, p.lastKnownPhase);
   persistProjects();
   renderProjects();
   if(currentPersonName && typeof autoFillProjectCount==='function') autoFillProjectCount(true);
@@ -2381,47 +2299,28 @@ function closeCsvModal(){
 let _pendingSyncSp = []; // [{ projectId, projectName, namesToAdd: [] }]
 
 function computeSyncSpPreview(){
-  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return { toAdd: [], orphanProjects: [], belowThreshold: [] };
+  if(typeof activityLog==='undefined' || !activityLog.length || !projects || !projects.length) return { toAdd: [], orphanProjects: [] };
   const result = [];
-  const belowThresholdResult = [];
   projects.forEach(function(p){
     const mainLower = (p.membersMain||[]).map(normStr);
     const backupLower = (p.membersBackup||[]).map(normStr);
-    // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này, kèm Score đóng góp (để lọc ngưỡng)
-    const contributorsLower = {}; // key -> tên gốc
-    const scoreByKey = {};
+    // Toàn bộ tên từng xuất hiện trong ActivityLog của dự án này
+    const contributorsLower = {};
     activityLog.forEach(function(t){
       if(!sameProjectName(t.projectName, p.name)) return;
-      const numAssignees = (t.assignedTo||[]).length || 1;
-      const w = (AL_IMPACT_WEIGHT[t.impact] || 1) / numAssignees;
       (t.assignedTo||[]).forEach(function(a){
         const clean = (a||'').trim();
-        if(!clean) return;
-        const key = normStr(clean);
-        contributorsLower[key] = clean;
-        scoreByKey[key] = (scoreByKey[key]||0) + w;
+        if(clean) contributorsLower[normStr(clean)] = clean;
       });
     });
     const namesToAdd = [];
-    const namesBelow = [];
     Object.keys(contributorsLower).forEach(function(key){
       if(mainLower.indexOf(key) === -1 && backupLower.indexOf(key) === -1){
-        // CHỈ đề xuất người đã đủ ngưỡng Score (đã tự động được tính đủ 100% qua fullnessFactor rồi) —
-        // thêm họ vào Backup lúc này chỉ đổi HIỂN THỊ, không đổi điểm. Người chưa đủ ngưỡng thì để Admin
-        // tự quyết định thêm tay qua "Sửa dự án" nếu muốn (không tự động đề xuất, tránh vô tình tính đủ
-        // 100% cho 1 task nhỏ lẻ chưa đủ ngưỡng xác nhận).
-        if(scoreByKey[key] >= MIN_SCORE_FOR_FULL_SHARE){
-          namesToAdd.push(contributorsLower[key]);
-        } else {
-          namesBelow.push({ name: contributorsLower[key], score: scoreByKey[key] });
-        }
+        namesToAdd.push(contributorsLower[key]);
       }
     });
     if(namesToAdd.length){
       result.push({ projectId: p.id, projectName: p.name, namesToAdd });
-    }
-    if(namesBelow.length){
-      belowThresholdResult.push({ projectName: p.name, people: namesBelow });
     }
   });
   // Phát hiện tên dự án XUẤT HIỆN trong ActivityLog nhưng KHÔNG khớp với bất kỳ dự án nào trong Quản lý
@@ -2442,7 +2341,7 @@ function computeSyncSpPreview(){
   const orphanProjects = Object.keys(orphanMap).map(function(k){
     return { projectName: orphanMap[k].projectName, people: Object.values(orphanMap[k].people) };
   });
-  return { toAdd: result, orphanProjects, belowThreshold: belowThresholdResult };
+  return { toAdd: result, orphanProjects };
 }
 
 function openSyncSpModal(){
@@ -2452,7 +2351,6 @@ function openSyncSpModal(){
   const preview = computeSyncSpPreview();
   _pendingSyncSp = preview.toAdd;
   const orphans = preview.orphanProjects || [];
-  const below = preview.belowThreshold || [];
 
   let orphanHtml = '';
   if(orphans.length){
@@ -2464,27 +2362,16 @@ function openSyncSpModal(){
       + `</div>`;
   }
 
-  let belowHtml = '';
-  if(below.length){
-    const totalBelow = below.reduce(function(s,r){ return s+r.people.length; }, 0);
-    belowHtml = `<div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary)">
-      <div style="font-size:12px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px">ℹ️ ${totalBelow} người có task thật nhưng ĐÓNG GÓP CÒN NHỎ (Score &lt; ${MIN_SCORE_FOR_FULL_SHARE}) — không tự đề xuất thêm vào Backup, vì thêm lúc này sẽ vô tình tính đủ 100% dù chưa đủ ngưỡng. Vẫn muốn thêm thì vào "Sửa dự án" thêm tay:</div>`
-      + below.map(function(o){
-        return `<div style="font-size:11.5px;color:var(--color-text-tertiary);margin:3px 0"><b>${escapeHtml(o.projectName)}</b> — ${o.people.map(function(pe){ return escapeHtml(pe.name)+' (Score '+pe.score.toFixed(1)+')'; }).join(', ')}</div>`;
-      }).join('')
-      + `</div>`;
-  }
-
   if(!_pendingSyncSp.length){
-    box.innerHTML = orphanHtml + belowHtml + '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">'
-      + (orphans.length || below.length ? 'Không có ai đủ ngưỡng để tự động đồng bộ — xem ghi chú phía trên.' : '✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.')
+    box.innerHTML = orphanHtml + '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">'
+      + (orphans.length ? 'Không có ai cần đồng bộ vào dự án đã tồn tại — nhưng xem cảnh báo phía trên.' : '✓ Không có ai cần đồng bộ — mọi người có ActivityLog thật đều đã có tên trong Main/Backup rồi.')
       + '</div>';
     btn.disabled = true;
     return;
   }
   const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
-  box.innerHTML = orphanHtml + belowHtml
-    + `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người ĐỦ NGƯỠNG (Score ≥ ${MIN_SCORE_FOR_FULL_SHARE}) cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
+  box.innerHTML = orphanHtml
+    + `<div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:10px">Tìm thấy ${totalNames} người cần thêm vào ${_pendingSyncSp.length} dự án:</div>`
     + _pendingSyncSp.map(function(r){
       return `<div style="padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
         <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.projectName)}</div>
@@ -2503,7 +2390,7 @@ function closeSyncSpModal(){
 function confirmSyncSp(){
   if(!_pendingSyncSp.length) return;
   const totalNames = _pendingSyncSp.reduce(function(s,r){ return s+r.namesToAdd.length; }, 0);
-  if(!confirm(`Thêm ${totalNames} người vào danh sách Backup của ${_pendingSyncSp.length} dự án? Tất cả đều đã đủ ngưỡng Score ≥ ${MIN_SCORE_FOR_FULL_SHARE} nên việc này chỉ ảnh hưởng hiển thị, không đổi điểm (đã được tính đủ 100% từ trước qua ActivityLog thật rồi).`)) return;
+  if(!confirm(`Thêm ${totalNames} người vào danh sách Backup của ${_pendingSyncSp.length} dự án? Việc này chỉ ảnh hưởng hiển thị, không đổi cách tính điểm (SP vốn đã tự tính từ ActivityLog thật).`)) return;
   _pendingSyncSp.forEach(function(r){
     const p = projects.find(function(x){ return x.id === r.projectId; });
     if(!p) return;
@@ -2515,89 +2402,6 @@ function confirmSyncSp(){
   renderProjects();
   const toast = document.getElementById('pm-save-toast');
   if(toast){ toast.textContent = `✓ Đã thêm ${totalNames} người vào Backup!`; toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000); }
-}
-
-// ═══ Rà soát Chu kỳ chưa tick — quét TOÀN BỘ dự án, tìm mọi Main chưa có task thật riêng và CHƯA được
-// tick vào doneCycleMembers, gom về 1 màn hình duy nhất để Admin không phải mở từng dự án 1 để dò ═══
-// ═══ Rà soát Chu kỳ tick tay — quét TOÀN BỘ dự án, hiện MỌI Main chưa có task thật riêng, kèm trạng thái
-// tick hiện tại (đã tick hay chưa) — cho phép Admin xem lại VÀ bỏ tick hàng loạt trong 1 màn hình duy
-// nhất, không cần mở từng dự án 1 (hữu ích khi lỡ tick nhầm hàng loạt cần dọn lại). ═══
-function computeCycleReviewList(){
-  if(!projects || !projects.length) return [];
-  const result = [];
-  projects.forEach(function(p){
-    const qualifies = p.status === 'Complete' || phaseQualifiesForCycle(getProjectPhaseLabel(p.name));
-    (p.membersMain||[]).forEach(function(m){
-      const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
-        return sameProjectName(t.projectName,p.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===normStr(m); });
-      });
-      if(myOwnLog) return; // đã có task riêng -> đi theo tự động, không thuộc diện rà soát này
-      const isTicked = (p.doneCycleMembers||[]).some(function(c){ return normStr(c)===normStr(m); });
-      // Hiện trong danh sách nếu: (a) ĐÃ tick (dù đủ điều kiện hay chưa — để bạn xem lại/bỏ tick nếu sai),
-      // hoặc (b) CHƯA tick nhưng đã đủ điều kiện Giai đoạn (gợi ý nên tick).
-      if(!isTicked && !qualifies) return;
-      result.push({ projectId: p.id, projectName: p.name, name: m, status: p.status, isTicked: isTicked, qualifies: qualifies });
-    });
-  });
-  return result;
-}
-
-function openCycleReviewModal(){
-  document.getElementById('pm-cyclereview-overlay').classList.add('open');
-  const list = computeCycleReviewList();
-  const box = document.getElementById('pm-cyclereview-list');
-  if(!list.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:20px">✓ Không có ai cần rà soát — mọi Main chưa có task riêng đều đã được tick tay hoặc chưa phát sinh trường hợp nào.</div>';
-    return;
-  }
-  box.innerHTML = list.map(function(r, i){
-    const id = 'cr-'+i;
-    const warnBadge = (r.isTicked && !r.qualifies)
-      ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#FEF3DC;color:#BA7517;font-weight:600;margin-left:6px">⚠ Đã tick nhưng CHƯA đủ Giai đoạn</span>'
-      : (r.isTicked ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600;margin-left:6px">✓ Đã tick, đủ điều kiện</span>' : '');
-    const rowBg = (r.isTicked && !r.qualifies) ? 'background:#FFFBEF' : '';
-    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;${rowBg}">
-      <input type="checkbox" id="${id}" data-proj="${r.projectId}" data-name="${escapeHtml(r.name)}" ${r.isTicked?'checked':''}>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${escapeHtml(r.name)}${warnBadge}</div>
-        <div style="font-size:11px;color:var(--color-text-tertiary)">${escapeHtml(r.projectName)} · Trạng thái: ${escapeHtml(r.status||'—')}</div>
-      </div>
-    </label>`;
-  }).join('');
-}
-
-function closeCycleReviewModal(){
-  document.getElementById('pm-cyclereview-overlay').classList.remove('open');
-}
-
-// Lưu theo đúng trạng thái tick hiện tại trên màn hình — TICK thì thêm vào doneCycleMembers, BỎ TICK thì
-// gỡ ra khỏi doneCycleMembers (khác bản trước chỉ biết thêm, không biết gỡ — cần để dọn dữ liệu tick nhầm
-// hàng loạt trước đó).
-function confirmCycleReview(){
-  const allBoxes = Array.from(document.querySelectorAll('#pm-cyclereview-list input[type="checkbox"]'));
-  if(!allBoxes.length){ closeCycleReviewModal(); return; }
-  let addedCount = 0, removedCount = 0;
-  allBoxes.forEach(function(cb){
-    const p = projects.find(function(x){ return x.id === cb.dataset.proj; });
-    if(!p) return;
-    p.doneCycleMembers = p.doneCycleMembers || [];
-    const idx = p.doneCycleMembers.findIndex(function(c){ return normStr(c)===normStr(cb.dataset.name); });
-    if(cb.checked && idx === -1){
-      p.doneCycleMembers.push(cb.dataset.name);
-      addedCount++;
-    } else if(!cb.checked && idx !== -1){
-      p.doneCycleMembers.splice(idx, 1);
-      removedCount++;
-    }
-  });
-  persistProjects();
-  closeCycleReviewModal();
-  renderProjects();
-  const toast = document.getElementById('pm-save-toast');
-  if(toast){
-    toast.textContent = `✓ Đã cập nhật: +${addedCount} tick mới, -${removedCount} bỏ tick`;
-    toast.style.display='inline-block'; setTimeout(function(){ toast.style.display='none'; }, 3000);
-  }
 }
 
 function handleCsvFile(evt){
@@ -2758,25 +2562,12 @@ function buildProjectAliasMap(mapping){
   });
 }
 
-// Bỏ mã số dự án dạng "26-17 " / "24-20 " ở đầu tên (kiểu SharePoint) để so khớp với tên rút gọn app
-// đang dùng (VD "Sweetzer"). Chỉ áp dụng làm FALLBACK cuối cùng — không đổi tên hiển thị thật ở đâu cả.
-function stripProjectCode(s){
-  return (s||'').replace(/^\s*\d{2}-\d{2}\s+/, '');
-}
-
 function sameProjectName(a, b){
   const na = normStr(a), nb = normStr(b);
   if(na === nb) return true;
   // Không khớp trực tiếp -> thử tra qua ProjectMapping (tên SharePoint đầy đủ <-> tên Tracker rút gọn)
   if(projectAliasMap[na] && projectAliasMap[na] === nb) return true;
   if(projectAliasMap[nb] && projectAliasMap[nb] === na) return true;
-  // Vẫn không khớp -> thử bỏ mã số đầu kiểu "26-17 " ở 1 trong 2 bên rồi so lại (không cần khai báo
-  // ProjectMapping thủ công cho từng dự án — chỉ cần app đặt tên trùng phần TÊN, khác phần MÃ SỐ)
-  const naStripped = normStr(stripProjectCode(a));
-  const nbStripped = normStr(stripProjectCode(b));
-  if(naStripped === nb) return true;
-  if(na === nbStripped) return true;
-  if(naStripped === nbStripped && naStripped) return true;
   return false;
 }
 
@@ -2790,11 +2581,6 @@ function getCxBonus(cxCount, cxTotal){
 }
 
 // Level fit multiplier — how well project size matches person's level
-// Mốc chính sách: hệ thống LevelMult (hệ số Level×Size) chỉ chính thức áp dụng từ tháng này trở đi.
-// Dự án fallback (chưa có ActivityLog) có "Ngày nhập dự án" TRƯỚC mốc này -> hệ số Level = 1 (trung lập),
-// vì lúc đó chính sách LevelMult chưa tồn tại, không công bằng nếu áp ngược lại cho việc đã làm từ trước.
-const LEVEL_MULT_POLICY_START = '2025-09';
-
 const LEVEL_SIZE_MULTIPLIER = {
   // Staff×Large: quá tầm 2 bậc (Small=vừa tầm 1.0 → Medium=thưởng 1.3 → Large=quá xa) — trả về mức
   // TRUNG TÍNH 1.0 thay vì 0 (không zero hoá công sức thật, chỉ là không được thưởng thêm như mốc 1 bậc)
@@ -2903,16 +2689,6 @@ const PHASE_LEGACY_ALIASES = {
   'Plan Check':           '25% CD',
   'Bid':                  '100% CD/Bid',
 };
-// Tự ghi nhận ngày dự án CHUYỂN SANG giai đoạn CA (chỉ ghi 1 LẦN DUY NHẤT, lần đầu tiên phase trở thành
-// 'CA' — không ghi đè lại nếu đã có, kể cả khi phase bị đổi qua đổi lại). Dùng làm mốc để tách đúng ai
-// THẬT SỰ làm việc trong giai đoạn CA (task log SAU mốc này) khỏi việc làm hồi thiết kế trước đó, phục
-// vụ chia bonus CA riêng (xem getCaBonusShareOverride trong calcProjectScore).
-function markCaStartDateIfNeeded(p, newPhase){
-  if(newPhase === 'CA' && !p.caStartDate){
-    p.caStartDate = new Date().toISOString().slice(0,10); // YYYY-MM-DD, khớp định dạng ActivityLog.date
-  }
-}
-
 function resolvePhaseAlias(phase){
   return PHASE_LEGACY_ALIASES[phase] || phase;
 }
@@ -2933,42 +2709,27 @@ function phaseQualifiesForCycle(phase){
 }
 
 // ═══ Xác định "Chu kỳ dự án" theo TỪNG NHÂN SỰ ═══
-// QUAN TRỌNG: xét theo bằng chứng CỦA RIÊNG TỪNG NGƯỜI, không phải cấp cả dự án — vì 1 dự án có thể vừa
-// có ActivityLog (do người khác log task CA nhỏ về sau) VỪA có 1 Main cũ đã hoàn thành việc chính TỪ
-// TRƯỚC KHI hệ thống dùng ActivityLog (nên người đó không bao giờ có task nào để tự log). Nếu xét theo
-// cấp dự án như trước, người này sẽ vĩnh viễn kẹt "không tự động được, cũng không tick tay được" dù rõ
-// ràng đã hoàn thành thật.
-// (1) Phải là Main. (2) Nếu CHÍNH NGƯỜI NÀY có ≥1 task thật trên dự án → theo tự động, cần đạt Giai đoạn
-// tối thiểu CYCLE_COMPLETE_MIN_PHASE (trừ khi dự án đã Complete). (3) Nếu CHÍNH NGƯỜI NÀY không có task
-// nào (dù người khác trên dự án có) → luôn cho phép fallback tick tay p.doneCycleMembers.
+// Dự án ĐÃ có ActivityLog thật → TỰ ĐỘNG hoàn toàn, không tick tay: (1) là Main, (2) dự án đạt tối thiểu
+// giai đoạn CYCLE_COMPLETE_MIN_PHASE, (3) người này có ít nhất 1 task thật trên dự án trong ActivityLog.
+// Dự án CHƯA có ActivityLog nào (dữ liệu lịch sử cũ trước khi hệ thống log hoạt động) → dùng danh sách
+// TICK TAY p.doneCycleMembers do Admin set thủ công (vì không có bằng chứng tự động để đối chiếu).
+// Ngay khi dự án bắt đầu có ActivityLog thật, hệ thống tự chuyển hẳn sang chế độ tự động, tick tay cũ
+// không còn được dùng nữa (nhưng vẫn giữ trong data, không xoá, để tham khảo lịch sử nếu cần).
 function personHasAutoDoneCycle(personName, proj){
   if(!personName || !proj) return false;
   const lower = normStr(personName);
   const isMain = (proj.membersMain||[]).some(function(m){ return normStr(m)===lower; });
   if(!isMain) return false;
-  const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
-    return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
-  });
-  if(myOwnLog){
-    // Dự án đã Complete LUÔN đủ điều kiện chu kỳ (rõ ràng đã xong, không cần bàn cãi) — kiểm tra riêng
-    // trước, KHÔNG dựa vào getProjectPhaseLabel() vì hàm đó có thể trả về 'CA (Complete)' (nhãn hiển thị
-    // fallback khi thiếu lastKnownPhase), một chuỗi KHÔNG khớp key nào trong PHASE_ORDER -> nếu chỉ dựa
-    // vào phaseQualifiesForCycle() thì dự án Complete dạng này sẽ bị tính SAI thành "chưa đủ chu kỳ".
-    if(proj.status !== 'Complete'){
-      const phase = getProjectPhaseLabel(proj.name);
-      if(!phaseQualifiesForCycle(phase)) return false;
-    }
-    return true;
+  const hasLog = typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
+  if(hasLog){
+    const phase = getProjectPhaseLabel(proj.name);
+    if(!phaseQualifiesForCycle(phase)) return false;
+    return activityLog.some(function(t){
+      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; });
+    });
   }
-  // CHÍNH NGƯỜI NÀY không có task riêng nào (dù dự án có thể đã có log của người khác) — cho phép
-  // fallback tick tay, NHƯNG vẫn phải đạt tối thiểu Giai đoạn/Trạng thái như nhánh tự động — KHÔNG được
-  // miễn điều kiện Giai đoạn chỉ vì đã tick, tránh tick nhầm cho dự án còn ở giai đoạn rất sớm (VD mới
-  // Entitlement) mà không ai để ý kiểm tra lại.
-  const isTicked = (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
-  if(!isTicked) return false;
-  if(proj.status === 'Complete') return true;
-  const phase = getProjectPhaseLabel(proj.name);
-  return phaseQualifiesForCycle(phase);
+  // Chưa có ActivityLog — dùng giá trị tick tay của Admin cho data lịch sử
+  return (proj.doneCycleMembers||[]).some(function(m){ return normStr(m)===lower; });
 }
 
 // Danh sách dự án mà 1 người ĐÃ TỰ ĐỘNG đủ điều kiện tính 1 chu kỳ hoàn thành (thay hoàn toàn cho doneCycleMembers thủ công cũ)
@@ -3122,9 +2883,7 @@ function getProjectTypeMultiplier(projectType){
 }
 
 // Calculate single project score for a person
-// Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia theo tỷ lệ SỐ DÒNG task thô
-// (nhiều SP cùng dự án: ai log nhiều dòng task hơn nhận tỷ lệ cao hơn tương ứng trong 30% đó — không
-// chia đều nữa, xem getTaskCountFor() bên dưới)
+// Mô hình: Main solo = 100% giá trị · Main + SP = Main 70% / SP chia đều 30%
 // SP KHÔNG cần gán tay — bất kỳ ai KHÔNG phải Main nhưng có task thật trong ActivityLog trên dự án này
 // đều tự động được coi là SP.
 //
@@ -3145,42 +2904,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const levelMult = LEVEL_SIZE_MULTIPLIER[personLevel]?.[proj.size] ?? 0;
   const phasePct = getProjectPhaseCompletionPct(proj.name);
   const typeMult = getProjectTypeMultiplier(proj.projectType);
-  // Tách riêng: giá trị GỐC dự án luôn cap ở 100% (không bao giờ vượt), phần bonus CA (nếu có, 5-10% tuỳ
-  // Size) tách thành 1 POOL RIÊNG — không cộng thẳng vào giá trị gốc để chia theo tỷ lệ Main/SP như cũ,
-  // mà chia theo AI THẬT SỰ LÀM VIỆC CA (xem getCaBonusShare bên dưới). "Dự án chỉ max 100%" đúng theo
-  // yêu cầu — bonus là khoản CỘNG THÊM RIÊNG, không phải phần của cùng 1 pool.
-  const cappedPhasePct = Math.min(1.0, phasePct);
-  const caBonusFraction = phasePct - cappedPhasePct; // > 0 chỉ khi đang ở giai đoạn CA
-  const projValue = (base + cxBonus) * cappedPhasePct * typeMult;
-  const caBonusPoolValue = (base + cxBonus) * caBonusFraction * typeMult;
-
-  // Dự án được xem là "CŨ" (trước mốc chính sách LevelMult 09/2025) dựa vào Ngày nhập dự án
-  // (proj.startMonth) — tiêu chí là NGÀY DỰ ÁN, không phải ngày task. Dù dự án cũ có task MỚI log gần
-  // đây (VD 2026), hệ số Level vẫn giữ nguyên =1 vĩnh viễn, không đổi theo ngày task — vì bản chất đây là
-  // 1 dự án đã tồn tại từ trước khi có chính sách LevelMult, không công bằng nếu áp ngược lại. Áp dụng
-  // THỐNG NHẤT cho CẢ 2 nhánh (fallback lẫn activitylog) bên dưới. Nếu proj.startMonth CHƯA được điền,
-  // coi như chưa xác định được tuổi dự án -> giữ hành vi tính theo ngày/level như trước (không đổi).
-  const isOldProject = !!(proj.startMonth && proj.startMonth < LEVEL_MULT_POLICY_START);
-
-  // Chia bonus CA cho ĐÚNG người thật sự làm CA — dựa vào task log SAU ngày dự án chuyển sang CA
-  // (proj.caStartDate, tự ghi nhận khi Admin đổi Giai đoạn sang CA). Trả về null nếu chưa xác định được
-  // (chưa có caStartDate, hoặc chưa ai log task CA nào) -> khi đó dùng TẠM tỷ lệ vai trò như phần gốc,
-  // tới khi có người thật sự log CA thì tự động chuyển sang chia đúng theo người đó.
-  const getCaBonusShareOverride = function(personLower){
-    if(caBonusPoolValue <= 0 || !proj.caStartDate) return null;
-    const caTaskCount = {};
-    activityLog.forEach(function(t){
-      if(!sameProjectName(t.projectName, proj.name)) return;
-      if((t.date||'') < proj.caStartDate) return;
-      (t.assignedTo||[]).forEach(function(a){
-        const k = normStr(a);
-        if(k) caTaskCount[k] = (caTaskCount[k]||0) + 1;
-      });
-    });
-    const totalCaTasks = Object.keys(caTaskCount).reduce(function(s,k){ return s+caTaskCount[k]; }, 0);
-    if(totalCaTasks === 0) return null; // chưa ai log CA thật -> chưa tách được, dùng fallback tỷ lệ cũ
-    return (caTaskCount[personLower] || 0) / totalCaTasks;
-  };
+  const projValue = (base + cxBonus) * phasePct * typeMult;
 
   if(explainOut){
     explainOut.mode_top = 'standard';
@@ -3188,7 +2912,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.cxCount = proj.complexityCount||0;
     explainOut.cxTotal = cxTotal;
     explainOut.cxBonus = cxBonus;
-    explainOut.phasePct = cappedPhasePct;
+    explainOut.phasePct = phasePct;
     explainOut.phaseSource = getProjectPhaseSource(proj.name);
     explainOut.projectType = proj.projectType || 'ARCH_FULL';
     explainOut.typeMult = typeMult;
@@ -3196,9 +2920,6 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.levelMult = levelMult;
     explainOut.size = proj.size;
     explainOut.personLevel = personLevel;
-    explainOut.caBonusFraction = caBonusFraction;
-    explainOut.caBonusPoolValue = caBonusPoolValue;
-    explainOut.caStartDate = proj.caStartDate || null;
   }
 
   if(!personName || typeof activityLog==='undefined') return 0;
@@ -3211,11 +2932,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     const matchKey = Object.keys(proj.customAllocation).find(function(k){ return normStr(k) === lowerForAlloc; });
     if(explainOut){ explainOut.mode = 'custom_allocation'; explainOut.customAllocationPct = matchKey ? proj.customAllocation[matchKey] : 0; }
     if(!matchKey) return 0; // dự án đã bật tỷ lệ tuỳ chỉnh nhưng không có tên người này -> 0 điểm
-    const myPct = proj.customAllocation[matchKey] / 100;
-    const caShare = getCaBonusShareOverride(lowerForAlloc);
-    const myCaShare = caShare !== null ? caShare : myPct; // chưa tách được CA thật -> tạm dùng tỷ lệ tuỳ chỉnh sẵn có
-    if(explainOut) explainOut.caBonusShare = myCaShare;
-    return projValue * myPct * levelMult + caBonusPoolValue * myCaShare * levelMult;
+    return projValue * (proj.customAllocation[matchKey] / 100) * levelMult;
   }
   const lower = normStr(personName);
   const mainList = proj.membersMain || [];
@@ -3296,39 +3013,17 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   if(myScore === 0){
     // Người này KHÔNG có bằng chứng cá nhân, nhưng có tên trong Main/Backup set tay → dùng phần CÒN LẠI
     // sau khi đã ưu tiên đủ cho nhóm có bằng chứng thật (BƯỚC 3 ở trên). Có thể ra 0 nếu hết phần dư.
+    const statusMult = getStatusMultiplier(proj.status);
     let fallbackShare = 0;
     if(isMainRole && mainFallbackList.length > 0){
       fallbackShare = fallbackMainPool / mainFallbackList.length;
     } else if(isBackupRole && backupFallbackList.length > 0){
       fallbackShare = fallbackSpPool / backupFallbackList.length;
     }
-    // Hệ số Level cho dự án fallback (chưa có ActivityLog) — nếu dự án CŨ (isOldProject) thì =1 vĩnh viễn.
-    // Nếu là dự án mới (từ 09/2025) thì tra theo "Ngày nhập dự án" (proj.startMonth) để lấy đúng Level
-    // tại thời điểm đó. Nếu chưa điền startMonth thì vẫn dùng Level hiện tại như cũ.
-    let fallbackLevelMult = levelMult;
-    if(isOldProject){
-      fallbackLevelMult = 1;
-      if(explainOut){
-        explainOut.beforePolicyStart = true;
-        explainOut.projectStartMonth = proj.startMonth;
-        explainOut.levelMultAtStart = 1;
-      }
-    } else if(proj.startMonth && typeof members !== 'undefined' && members){
-      const memberRecFb = members.find(function(m){ return normStr(m.name) === lower; });
-      if(memberRecFb){
-        const startDateApprox = proj.startMonth + '-15'; // lấy giữa tháng làm mốc đại diện, đủ chính xác cho mục đích tra level theo tháng
-        const levelAtStart = getLevelAtDate(memberRecFb, startDateApprox);
-        fallbackLevelMult = LEVEL_SIZE_MULTIPLIER[levelAtStart]?.[proj.size] ?? 0;
-        if(explainOut){
-          explainOut.levelAtProjectStart = levelAtStart;
-          explainOut.projectStartMonth = proj.startMonth;
-          explainOut.levelMultAtStart = fallbackLevelMult;
-        }
-      }
-    }
     if(explainOut){
       explainOut.mode = 'fallback';
       explainOut.status = proj.status;
+      explainOut.statusMult = statusMult;
       explainOut.mainCount = mainFallbackList.length;
       explainOut.backupCount = backupFallbackList.length;
       explainOut.isMainRole = isMainRole;
@@ -3337,39 +3032,17 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
       explainOut.usedPctByEvidence = usedPct;
       explainOut.remainingPool = remainingPool;
     }
-    const caShareFb = getCaBonusShareOverride(lower);
-    const myCaShareFb = caShareFb !== null ? caShareFb : fallbackShare; // chưa tách được CA thật -> tạm dùng tỷ lệ set tay sẵn có
-    if(explainOut) explainOut.caBonusShare = myCaShareFb;
-    return projValue * fallbackShare * fallbackLevelMult + caBonusPoolValue * myCaShareFb * fallbackLevelMult;
+    return projValue * fallbackShare * levelMult * statusMult;
   }
 
   // Người này CÓ bằng chứng ActivityLog thật cho chính họ → tính theo % đóng góp thật (BƯỚC 1/2 ở trên)
   if(explainOut){ explainOut.mode = 'activitylog'; explainOut.myScore = myScore; }
 
-  // Đếm SỐ DÒNG task thô (không quan tâm Impact) — dùng để chia tỷ lệ % giữa nhiều SP cùng dự án
-  const getTaskCountFor = function(name){
-    return activityLog.filter(function(t){
-      return sameProjectName(t.projectName, proj.name) &&
-        (t.assignedTo||[]).some(function(a){ return normStr(a) === normStr(name); });
-    }).length;
-  };
-
   let baseShare = 0;
   if(isMainRole){
     baseShare = mainsWithEvidence.length > 0 ? realMainPool / mainsWithEvidence.length : 0;
-  } else if(supportsWithEvidence.length > 0){
-    // Chia realSpPool theo tỷ lệ SỐ DÒNG task của từng SP trên tổng số dòng của cả nhóm SP dự án này
-    // (thay vì chia đều) — SP log nhiều task hơn thì nhận tỷ lệ cao hơn tương ứng.
-    const totalSpTaskCount = supportsWithEvidence.reduce(function(sum, name){ return sum + getTaskCountFor(name); }, 0);
-    const myTaskCount = getTaskCountFor(personName);
-    baseShare = totalSpTaskCount > 0
-      ? realSpPool * (myTaskCount / totalSpTaskCount)
-      : realSpPool / supportsWithEvidence.length; // fallback an toàn, lý thuyết không xảy ra
-    if(explainOut){
-      explainOut.spSplitMode = 'by_task_count';
-      explainOut.myTaskCount = myTaskCount;
-      explainOut.totalSpTaskCount = totalSpTaskCount;
-    }
+  } else {
+    baseShare = supportsWithEvidence.length > 0 ? realSpPool / supportsWithEvidence.length : 0;
   }
 
   // Scale theo Contribution Score thật — CHỈ áp dụng cho SP tự dò hoàn toàn (không có tên trong Main/Backup
@@ -3382,20 +3055,14 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
   const fullnessFactor = isOfficiallyAssigned ? 1.0 : Math.min(1, myScore / MIN_SCORE_FOR_FULL_SHARE);
   const myRatio = baseShare * fullnessFactor;
 
-  // Hệ số Level tính theo Level TẠI THỜI ĐIỂM làm dự án (không phải Level hiện tại) — CHỈ áp dụng cho dự
-  // án MỚI (từ 09/2025, theo proj.startMonth). Dự án CŨ (isOldProject) luôn dùng hệ số =1, bất kể task
-  // log lúc nào (kể cả log rất gần đây) — vì bản chất dự án đã tồn tại từ trước khi có chính sách
-  // LevelMult, task mới log thêm vào không làm dự án "trẻ lại". Nếu proj.startMonth CHƯA điền (không xác
-  // định được tuổi dự án), vẫn tra theo ngày task GẦN NHẤT như logic gốc ban đầu (không đổi hành vi).
+  // Hệ số Level tính theo Level TẠI THỜI ĐIỂM làm dự án (không phải Level hiện tại) — tra levelHistory
+  // theo ngày task GẦN NHẤT của chính người này trên dự án này. Lý do: 1 người hiện đang Senior nhưng dự
+  // án Large đó họ làm lúc còn Staff (Staff×Large=0, ngoài tầm) thì phải tính đúng theo lúc đó, không phải
+  // tính theo Level bây giờ (sẽ sai lệch lịch sử, có thể tính hệ số cao hơn/thấp hơn thực tế đáng ra có).
+  // CHỈ áp dụng ở nhánh có ActivityLog thật (có ngày cụ thể để tra) — nhánh fallback (chưa có ActivityLog)
+  // không có ngày task nào để tra, nên vẫn giữ dùng Level hiện tại như cũ (levelMult tính sẵn ở đầu hàm).
   let historicalLevelMult = levelMult;
-  if(isOldProject){
-    historicalLevelMult = 1;
-    if(explainOut){
-      explainOut.beforePolicyStartAl = true;
-      explainOut.projectStartMonth = proj.startMonth;
-      explainOut.levelMultHistorical = 1;
-    }
-  } else if(typeof members !== 'undefined' && members){
+  if(typeof members !== 'undefined' && members){
     const myTaskDates = activityLog
       .filter(function(t){ return sameProjectName(t.projectName, proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===lower; }); })
       .map(function(t){ return t.date || ''; })
@@ -3429,10 +3096,7 @@ function calcProjectScore(proj, personLevel, role, personName, explainOut){
     explainOut.myRatio = myRatio;
   }
 
-  const caShareAl = getCaBonusShareOverride(lower);
-  const myCaShareAl = caShareAl !== null ? caShareAl : myRatio; // chưa tách được CA thật -> tạm dùng tỷ lệ Main/SP sẵn có
-  if(explainOut) explainOut.caBonusShare = myCaShareAl;
-  return projValue * myRatio * historicalLevelMult + caBonusPoolValue * myCaShareAl * historicalLevelMult;
+  return projValue * myRatio * historicalLevelMult;
 }
 
 // Benchmark: accumulated score that = 10/10 for each level
@@ -3591,7 +3255,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
         <input id="user-search-name" type="text" placeholder="Nhập tên của bạn (VD: Liam, Stuart...)"
           style="flex:1;padding:10px 14px;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px"
           oninput="userPortalSearch()" />
-        <button onclick="userPortalSearchAndGoLeaderboard()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
+        <button onclick="userPortalSearch()" style="padding:10px 18px;border-radius:8px;border:none;background:#1A1A18;color:#fff;cursor:pointer;font-weight:500;font-size:13px">Tìm →</button>
       </div>
 
       <!-- Loading indicator -->
@@ -3631,6 +3295,55 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
       </div>
     </div>
   </div>
+  <!-- ═══════════ PANEL: VĂN PHÒNG KTA ═══════════ -->
+  <div class="main-panel" id="mainpanel-office">
+    <style>
+.ofc-wrap{background:#F6F1E7;border-radius:16px;padding:24px 24px 28px;font-family:'DM Sans',system-ui,sans-serif;color:#14202b}
+.ofc-ch{position:absolute;width:44px;height:62px;cursor:pointer;transition:left 1s ease-in-out,top 1s ease-in-out,opacity .4s}
+.ofc-in{position:relative;width:44px;height:62px}
+.ofc-work{animation:ofcwork .9s ease-in-out infinite}
+.ofc-walk{animation:ofcwalk .5s ease-in-out 3}
+@keyframes ofcwork{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes ofcwalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.ofc-badge{position:absolute;left:30px;top:-2px;min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:9px;background:#14202b;color:#F6F1E7;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.ofc-tag{position:absolute;left:-12px;top:-15px;width:68px;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b}
+.ofc-say{position:absolute;left:-38px;top:-40px;width:120px;box-sizing:border-box;padding:3px 6px;border-radius:10px;background:#fff;border:2px solid #14202b;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b;pointer-events:none}
+.ofc-hud{min-width:92px;box-sizing:border-box;padding:4px 12px;border-radius:12px;background:#14202b;color:#F6F1E7;display:flex;flex-direction:column}
+.ofc-hud span{font-size:18px;font-weight:700;line-height:1.1}.ofc-hud i{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#c9d3e1}
+.ofc-pill{position:absolute;white-space:nowrap;background:#14202b;color:#F6F1E7;font-weight:700;font-size:12px;line-height:20px;padding:0 10px;border-radius:12px;z-index:5}
+.ofc-btn{min-height:44px;padding:0 20px;border-radius:24px;border:2px solid #14202b;background:#14202b;color:#F6F1E7;font:700 14px 'DM Sans',system-ui,sans-serif;cursor:pointer}
+.ofc-card{flex:1 1 280px;box-sizing:border-box;background:#FFFBF2;border:1px solid #d9cdb6;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:6px;color:#14202b}
+.ofc-cl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5b4a2e}
+</style>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+<defs>
+<symbol id="an0" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="10" r="6" fill="#14202b"/><circle cx="35" cy="10" r="6" fill="#14202b"/><circle cx="22" cy="24" r="16" fill="#fff"/><ellipse cx="15" cy="23" rx="4.5" ry="5.5" fill="#14202b" transform="rotate(20 15 23)"/><ellipse cx="29" cy="23" rx="4.5" ry="5.5" fill="#14202b" transform="rotate(-20 29 23)"/><ellipse cx="22" cy="30" rx="3" ry="2" fill="#14202b"/></g><circle cx="15.5" cy="22.5" r="1.5" fill="#fff"/><circle cx="28.5" cy="22.5" r="1.5" fill="#fff"/></symbol>
+<symbol id="an1" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="6,20 9,2 20,12" fill="#e8742f"/><polygon points="38,20 35,2 24,12" fill="#e8742f"/><ellipse cx="22" cy="26" rx="16" ry="14" fill="#f08a3c"/><path d="M22 40 L9 28 Q22 22 35 28 Z" fill="#fff"/><circle cx="22" cy="33" r="2.4" fill="#14202b"/></g><circle cx="14" cy="24" r="2" fill="#14202b"/><circle cx="30" cy="24" r="2" fill="#14202b"/></symbol>
+<symbol id="an2" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="6" cy="13" r="8" fill="#b9bec6"/><circle cx="38" cy="13" r="8" fill="#b9bec6"/><circle cx="6" cy="13" r="4" fill="#f1d2d9" stroke="none"/><circle cx="38" cy="13" r="4" fill="#f1d2d9" stroke="none"/><circle cx="22" cy="24" r="15" fill="#b9bec6"/><ellipse cx="22" cy="26" rx="5" ry="6.5" fill="#14202b"/></g><circle cx="14" cy="21" r="2" fill="#14202b"/><circle cx="30" cy="21" r="2" fill="#14202b"/></symbol>
+<symbol id="an3" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="22" cy="23" r="20" fill="#c9722a"/><circle cx="22" cy="24" r="13" fill="#f2c27a"/><ellipse cx="22" cy="30" rx="6.5" ry="4.5" fill="#fbe3b8"/><polygon points="19.5,27 24.5,27 22,30.5" fill="#14202b"/></g><circle cx="16" cy="22" r="1.8" fill="#14202b"/><circle cx="28" cy="22" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an4" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="10" r="5.5" fill="#f2994a"/><circle cx="35" cy="10" r="5.5" fill="#f2994a"/><circle cx="22" cy="24" r="16" fill="#f2994a"/><ellipse cx="22" cy="31" rx="7.5" ry="5" fill="#fdf1dc"/><circle cx="22" cy="29" r="2" fill="#14202b"/><path d="M22 9V15M14 11L16 16M30 11L28 16" fill="none"/></g><circle cx="15" cy="23" r="1.8" fill="#14202b"/><circle cx="29" cy="23" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an5" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><ellipse cx="9" cy="17" rx="9" ry="11" fill="#7a6fe0" transform="rotate(-20 9 17)"/><ellipse cx="35" cy="17" rx="9" ry="11" fill="#7a6fe0" transform="rotate(20 35 17)"/><ellipse cx="11" cy="33" rx="7" ry="6" fill="#f09ad6"/><ellipse cx="33" cy="33" rx="7" ry="6" fill="#f09ad6"/><circle cx="22" cy="25" r="9" fill="#f6e3c4"/><path d="M19 17L15 6M25 17L29 6" fill="none"/></g><circle cx="15" cy="5" r="2" fill="#14202b"/><circle cx="29" cy="5" r="2" fill="#14202b"/><circle cx="18.5" cy="24" r="1.7" fill="#14202b"/><circle cx="25.5" cy="24" r="1.7" fill="#14202b"/></symbol>
+<symbol id="an6" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="15,12 17,0 22,11" fill="#e5484d"/><polygon points="22,11 27,0 29,12" fill="#f5b942"/><circle cx="22" cy="24" r="15" fill="#4cbf6b"/><path d="M22 26L15 30Q22 41 29 30Z" fill="#f5b942"/></g><circle cx="15" cy="21" r="4" fill="#fff"/><circle cx="29" cy="21" r="4" fill="#fff"/><circle cx="15.5" cy="21" r="1.8" fill="#14202b"/><circle cx="28.5" cy="21" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an7" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="11" cy="11" r="7" fill="#6bbf59"/><circle cx="33" cy="11" r="7" fill="#6bbf59"/><ellipse cx="22" cy="27" rx="17" ry="13" fill="#6bbf59"/><path d="M11 31Q22 39 33 31" fill="none"/></g><circle cx="11" cy="11" r="3.8" fill="#fff"/><circle cx="33" cy="11" r="3.8" fill="#fff"/><circle cx="11.5" cy="11.5" r="1.8" fill="#14202b"/><circle cx="32.5" cy="11.5" r="1.8" fill="#14202b"/><circle cx="9" cy="28" r="2.5" fill="#f58fb0"/><circle cx="35" cy="28" r="2.5" fill="#f58fb0"/></symbol>
+<symbol id="an8" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><path d="M5 24L8 6L14 14L18 2L22 12L26 2L30 14L36 6L39 24Z" fill="#6b4a35"/><ellipse cx="22" cy="29" rx="14" ry="12" fill="#f0cfa6"/><circle cx="22" cy="32" r="2.6" fill="#14202b"/></g><circle cx="15" cy="26" r="1.8" fill="#14202b"/><circle cx="29" cy="26" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an9" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="22" cy="24" r="16" fill="#27384a"/><ellipse cx="22" cy="28" rx="11" ry="10" fill="#fff"/><polygon points="18,29 26,29 22,35" fill="#f2994a"/></g><circle cx="17" cy="25" r="1.8" fill="#14202b"/><circle cx="27" cy="25" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an10" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="12" r="4.5" fill="#8a5a3c"/><circle cx="35" cy="12" r="4.5" fill="#8a5a3c"/><circle cx="22" cy="24" r="16" fill="#8a5a3c"/><ellipse cx="22" cy="31" rx="9.5" ry="7" fill="#e8d2b4"/><ellipse cx="22" cy="28" rx="3.2" ry="2.2" fill="#14202b"/><path d="M5 30L12 31M5 35L12 33M39 30L32 31M39 35L32 33" fill="none" stroke-width="1.2"/></g><circle cx="15" cy="22" r="1.9" fill="#14202b"/><circle cx="29" cy="22" r="1.9" fill="#14202b"/></symbol>
+<symbol id="an11" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><path d="M5 27Q5 5 22 5Q39 5 39 27Z" fill="#9b6bd6"/><circle cx="9" cy="31" r="4" fill="#9b6bd6"/><circle cx="17" cy="33" r="4" fill="#9b6bd6"/><circle cx="27" cy="33" r="4" fill="#9b6bd6"/><circle cx="35" cy="31" r="4" fill="#9b6bd6"/></g><circle cx="15" cy="21" r="4.5" fill="#fff"/><circle cx="29" cy="21" r="4.5" fill="#fff"/><circle cx="15.5" cy="21.5" r="2" fill="#14202b"/><circle cx="28.5" cy="21.5" r="2" fill="#14202b"/></symbol>
+<symbol id="an12" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><ellipse cx="11" cy="9" rx="4" ry="9" fill="#c68b4e" transform="rotate(-15 11 9)"/><ellipse cx="33" cy="9" rx="4" ry="9" fill="#c68b4e" transform="rotate(15 33 9)"/><ellipse cx="22" cy="26" rx="13" ry="14" fill="#c68b4e"/><ellipse cx="22" cy="33" rx="7" ry="5.5" fill="#f0dcc0"/><circle cx="22" cy="30" r="2" fill="#14202b"/></g><circle cx="16" cy="23" r="1.8" fill="#14202b"/><circle cx="28" cy="23" r="1.8" fill="#14202b"/></symbol>
+<symbol id="an13" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="22,1 16,11 28,11" fill="#5b92c2"/><circle cx="22" cy="22" r="15" fill="#6fa8d6"/><ellipse cx="22" cy="34" rx="8.5" ry="5" fill="#a8cfee"/><path d="M17 33Q22 37 27 33" fill="none" stroke-width="1.4"/></g><circle cx="15" cy="21" r="1.9" fill="#14202b"/><circle cx="29" cy="21" r="1.9" fill="#14202b"/></symbol>
+<symbol id="an14" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><path d="M14 12L14 3M30 12L30 3" fill="none"/><circle cx="14" cy="3" r="2.6" fill="#8a5a3c"/><circle cx="30" cy="3" r="2.6" fill="#8a5a3c"/><ellipse cx="6" cy="16" rx="5" ry="3" fill="#f4c95d" transform="rotate(-20 6 16)"/><ellipse cx="38" cy="16" rx="5" ry="3" fill="#f4c95d" transform="rotate(20 38 16)"/><ellipse cx="22" cy="25" rx="14" ry="15" fill="#f4c95d"/><ellipse cx="22" cy="34" rx="8" ry="5.5" fill="#fbe6b0"/></g><circle cx="14" cy="17" r="2.4" fill="#a8693a"/><circle cx="30" cy="18" r="2.8" fill="#a8693a"/><circle cx="25" cy="12" r="2" fill="#a8693a"/><circle cx="15" cy="24" r="1.8" fill="#14202b"/><circle cx="29" cy="24" r="1.8" fill="#14202b"/><circle cx="19.5" cy="34" r="1.2" fill="#14202b"/><circle cx="24.5" cy="34" r="1.2" fill="#14202b"/></symbol>
+<symbol id="an15" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="6,21 8,2 20,12" fill="#8d96a3"/><polygon points="38,21 36,2 24,12" fill="#8d96a3"/><ellipse cx="22" cy="26" rx="16" ry="14" fill="#8d96a3"/><ellipse cx="22" cy="33" rx="9" ry="6" fill="#e5e8ec"/><circle cx="22" cy="30" r="2.5" fill="#14202b"/></g><path d="M12 21L17 23M32 21L27 23" stroke="#14202b" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="an16" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="22" cy="24" r="15" fill="#fff"/><path d="M7 21Q22 0 37 21Q22 13 7 21Z" fill="#7a4a2b"/><path d="M14 26Q22 24 30 26Q28 37 22 39Q22 32 14 26Z" fill="#f5b942"/></g><circle cx="16" cy="22" r="1.9" fill="#14202b"/><circle cx="28" cy="22" r="1.9" fill="#14202b"/><path d="M12 18L18 20M32 18L26 20" stroke="#14202b" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="an17" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="10" r="6" fill="#8b5a3c"/><circle cx="35" cy="10" r="6" fill="#8b5a3c"/><circle cx="9" cy="10" r="2.5" fill="#c99a77" stroke="none"/><circle cx="35" cy="10" r="2.5" fill="#c99a77" stroke="none"/><circle cx="22" cy="24" r="16" fill="#8b5a3c"/><ellipse cx="22" cy="30" rx="8" ry="6.5" fill="#e0bf9b"/><ellipse cx="22" cy="28" rx="3.2" ry="2.2" fill="#14202b"/></g><circle cx="15" cy="22" r="1.9" fill="#14202b"/><circle cx="29" cy="22" r="1.9" fill="#14202b"/></symbol>
+<symbol id="an18" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="20,11 25,1 29,12" fill="#f58fb0"/><circle cx="22" cy="22" r="14" fill="#f58fb0"/><polygon points="15,26 29,26 26,33 18,33" fill="#fff"/><polygon points="18,33 26,33 22,40" fill="#14202b"/></g><circle cx="15.5" cy="20" r="1.9" fill="#14202b"/><circle cx="28.5" cy="20" r="1.9" fill="#14202b"/></symbol>
+<symbol id="an19" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><polygon points="10,13 5,0 17,10" fill="#f5d76e"/><polygon points="34,13 39,0 27,10" fill="#f5d76e"/><polygon points="22,5 18,12 26,12" fill="#f5d76e"/><ellipse cx="22" cy="26" rx="16" ry="14" fill="#5ec27a"/><ellipse cx="22" cy="33" rx="8.5" ry="6" fill="#9be0b0"/></g><circle cx="19.5" cy="33" r="1.2" fill="#14202b"/><circle cx="24.5" cy="33" r="1.2" fill="#14202b"/><circle cx="14.5" cy="23" r="3" fill="#f5d76e"/><circle cx="29.5" cy="23" r="3" fill="#f5d76e"/><circle cx="14.8" cy="23" r="1.4" fill="#14202b"/><circle cx="29.2" cy="23" r="1.4" fill="#14202b"/></symbol>
+<symbol id="an20" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="9" cy="9" r="5" fill="#8f98a3"/><circle cx="35" cy="9" r="5" fill="#8f98a3"/><ellipse cx="22" cy="25" rx="17" ry="14" fill="#a7afb9"/><ellipse cx="14" cy="22" rx="7" ry="5" fill="#3a4450" transform="rotate(-15 14 22)"/><ellipse cx="30" cy="22" rx="7" ry="5" fill="#3a4450" transform="rotate(15 30 22)"/><ellipse cx="22" cy="32" rx="7" ry="5" fill="#fff"/><circle cx="22" cy="30" r="2.4" fill="#14202b"/></g><circle cx="14.5" cy="22" r="1.7" fill="#fff"/><circle cx="29.5" cy="22" r="1.7" fill="#fff"/></symbol>
+<symbol id="an21" viewBox="0 0 44 44"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><ellipse cx="9" cy="9" rx="3" ry="5.5" fill="#f3e7cf" transform="rotate(-30 9 9)"/><ellipse cx="35" cy="9" rx="3" ry="5.5" fill="#f3e7cf" transform="rotate(30 35 9)"/><ellipse cx="5" cy="19" rx="6" ry="3.5" fill="#fff"/><ellipse cx="39" cy="19" rx="6" ry="3.5" fill="#fff"/><ellipse cx="22" cy="24" rx="15" ry="15" fill="#fff"/><ellipse cx="31" cy="16" rx="7" ry="6" fill="#2b2b2b" stroke="none"/><ellipse cx="22" cy="33" rx="10" ry="6.5" fill="#f6b7c0"/></g><circle cx="19" cy="33" r="1.4" fill="#14202b"/><circle cx="25" cy="33" r="1.4" fill="#14202b"/><circle cx="14" cy="22" r="1.9" fill="#14202b"/><circle cx="29" cy="22" r="1.9" fill="#f6f6f6"/></symbol>
+</defs>
+</svg>
+    <div id="ofc-root" style="max-width:1170px;margin:0 auto"></div>
+  </div>
+
   <!-- ═══════════ PANEL 4: LEADERBOARD ═══════════ -->
   <div class="main-panel" id="mainpanel-lb">
     <div style="max-width:800px;margin:0 auto">
@@ -3646,10 +3359,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 
       <!-- Project ranking - visible to all -->
       <div class="app-card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary)">📁 Xếp hạng Dự án & Chu kỳ <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(tất cả thành viên)</span></div>
-          <button onclick="toggleNicknameMode()" id="nick-mode-btn" style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);cursor:pointer;color:var(--color-text-secondary)"></button>
-        </div>
+        <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">📁 Xếp hạng Dự án & Chu kỳ <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(tất cả thành viên)</span></div>
         <div id="lb-projects"></div>
       </div>
 
@@ -3882,7 +3592,6 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:52px">Size</th>
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:90px">Vai trò</th>
             <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:80px">Phức tạp</th>
-            <th style="padding:5px 6px;text-align:center;font-weight:500;color:var(--color-text-secondary);width:56px">Chu kỳ</th>
             <th style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-secondary);width:52px">Điểm</th>
           </tr>
         </thead>
@@ -4115,7 +3824,6 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 .al-cmp-row.al-cmp-me .al-cmp-bar{background:linear-gradient(90deg,#D85AA0,#A02A6B)}
 .al-cat-grid{display:flex;flex-wrap:wrap;gap:6px}
 .al-cat-tag{font-size:11px;padding:4px 10px;border-radius:20px;background:#EEEDFE;color:#534AB7;font-weight:500}
-.al-cat-count{font-weight:800;opacity:0.85}
 .al-cat-count{font-size:10px;opacity:.7;margin-left:2px}
 /* Knowledge */
 .al-know-section{margin-bottom:16px}
@@ -4465,22 +4173,17 @@ function buildScoreTooltip(p){
     if(e.usedPctByEvidence > 0){
       lines.push(`(Người có bằng chứng thật trên dự án đã dùng ${Math.round(e.usedPctByEvidence*100)}% → còn lại ${Math.round((e.remainingPool||0)*100)}% chia cho Main/Backup set tay)`);
     }
-    if((e.fallbackShare||0) === 0){
+    lines.push(`× Trạng thái "${e.status}" (hệ số ×${e.statusMult})`);
+    if(e.statusMult === 0){
+      lines.push('→ Chưa bắt đầu ⇒ 0 điểm');
+    } else if((e.fallbackShare||0) === 0){
       lines.push('→ Phần dư = 0% (người có bằng chứng thật đã dùng hết 100%) ⇒ 0 điểm cho phần set tay');
     } else if(e.isMainRole){
       lines.push(`× Tỷ trọng Main (trong phần dư) ÷ ${e.mainCount} Main chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
-      lines.push(e.beforePolicyStart
-        ? `× Hệ số Level = ×1 (dự án nhập ${e.projectStartMonth} — TRƯỚC mốc chính sách LevelMult 09/2025, không áp hệ số Level/Size)`
-        : e.levelAtProjectStart && e.levelAtProjectStart !== e.personLevel
-        ? `× Hệ số Level ${e.levelAtProjectStart} (tại thời điểm nhập dự án ${e.projectStartMonth}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultAtStart}`
-        : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}${e.projectStartMonth?'':' (chưa điền Ngày nhập dự án, dùng Level hiện tại)'}`);
+      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     } else if(e.isBackupRole){
       lines.push(`× Tỷ trọng Backup (trong phần dư) ÷ ${e.backupCount} Backup chưa có bằng chứng = ${((e.fallbackShare||0)*100).toFixed(1)}%`);
-      lines.push(e.beforePolicyStart
-        ? `× Hệ số Level = ×1 (dự án nhập ${e.projectStartMonth} — TRƯỚC mốc chính sách LevelMult 09/2025, không áp hệ số Level/Size)`
-        : e.levelAtProjectStart && e.levelAtProjectStart !== e.personLevel
-        ? `× Hệ số Level ${e.levelAtProjectStart} (tại thời điểm nhập dự án ${e.projectStartMonth}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultAtStart}`
-        : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}${e.projectStartMonth?'':' (chưa điền Ngày nhập dự án, dùng Level hiện tại)'}`);
+      lines.push(`× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   } else if(e.mode === 'activitylog'){
     lines.push('');
@@ -4493,127 +4196,19 @@ function buildScoreTooltip(p){
         const spReason = e.mainsCount>0 ? '(có Main)'
           : e.spIsSustained ? '(SP lâu dài ≥'+SP_SUSTAINED_THRESHOLD+')'
           : '(SP ít, <'+SP_SUSTAINED_THRESHOLD+')';
-        if(e.spSplitMode === 'by_task_count'){
-          lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} — chia theo số dòng task (bạn ${e.myTaskCount}/${e.totalSpTaskCount} dòng của cả nhóm SP) = ${(e.baseShare*100).toFixed(1)}%`);
-        } else {
-          lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
-        }
+        lines.push(`× Tỷ trọng SP: pool ${Math.round((e.spPool||0)*100)}% ${spReason} ÷ ${e.spCount} SP = ${(e.baseShare*100).toFixed(1)}%`);
       }
       lines.push(e.isOfficiallyAssigned
         ? `× Hệ số hoàn thành = ×1.00 (bỏ qua ngưỡng Score/${MIN_SCORE_FOR_FULL_SHARE} — đã set tay chính thức, ActivityLog chỉ bổ sung thêm)`
         : `× Hệ số hoàn thành (Score/${MIN_SCORE_FOR_FULL_SHARE}, tối đa 1) = ×${(e.fullnessFactor??0).toFixed(2)}`);
-      lines.push(e.beforePolicyStartAl
-        ? `× Hệ số Level = ×1 (dự án nhập ${e.projectStartMonth} — TRƯỚC mốc chính sách LevelMult 09/2025, dù có task mới log gần đây thì hệ số vẫn giữ =1)`
-        : e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
+      lines.push(e.levelAtTaskTime && e.levelAtTaskTime !== e.personLevel
         ? `× Hệ số Level ${e.levelAtTaskTime} (tại thời điểm ${e.lastTaskDate}, hiện tại là ${e.personLevel}) / Size ${e.size} = ×${e.levelMultHistorical}`
         : `× Hệ số Level ${e.personLevel} / Size ${e.size} = ×${e.levelMult}`);
     }
   }
-  // Bonus CA — hiển thị RIÊNG, không gộp vào phần trên, vì đây là 1 pool cộng thêm độc lập (dự án gốc
-  // luôn cap 100%, bonus không tự động chia theo tỷ lệ Main/SP cũ mà theo AI THẬT SỰ LÀM CA)
-  if((e.caBonusPoolValue||0) > 0){
-    lines.push('');
-    lines.push(`🎁 Bonus CA (+${Math.round((e.caBonusFraction||0)*100)}% tuỳ Size) = ${e.caBonusPoolValue.toFixed(2)} — CỘNG THÊM RIÊNG, không phải phần của pool Main/SP phía trên:`);
-    if(e.caStartDate){
-      lines.push(`× Tỷ trọng bonus = ${((e.caBonusShare||0)*100).toFixed(1)}% ${e.caBonusShare!==undefined ? '(chia theo số dòng task log TỪ '+e.caStartDate+' — ai thật sự làm CA)' : ''}`);
-    } else {
-      lines.push(`× Tỷ trọng bonus = ${((e.caBonusShare||0)*100).toFixed(1)}% (chưa xác định được ngày bắt đầu CA — tạm dùng tỷ trọng Main/SP hiện có)`);
-    }
-    lines.push(`+ Bonus của bạn = ${(e.caBonusPoolValue*(e.caBonusShare||0)*(e.levelMultHistorical ?? e.levelMultAtStart ?? e.levelMult ?? 1)).toFixed(2)}`);
-  }
   lines.push('');
   lines.push(`= ${p.score} điểm`);
   return lines.join('\n');
-}
-
-// ═══════════ MODAL CHI TIẾT DỰ ÁN — click tên dự án trong Danh sách dự án ═══════════
-// Gom toàn bộ người tham gia dự án (Main set tay + Backup set tay + SP tự động dò từ ActivityLog),
-// tính điểm đóng góp thực tế từng người bằng đúng calcProjectScore (khớp 100% với mọi nơi khác trong
-// app), hiển thị TÊN THẬT (không ẩn danh) vì đây là màn hình quản trị nội bộ về chính dự án đó.
-function getProjectParticipantsWithScore(proj){
-  const mainList = proj.membersMain || [];
-  const backupList = proj.membersBackup || [];
-  const lowerMain = mainList.map(normStr);
-
-  // Tất cả người từng xuất hiện trong ActivityLog của dự án này (kể cả SP không có tên trong Backup)
-  const autoNames = [];
-  if(typeof activityLog !== 'undefined' && activityLog){
-    activityLog.forEach(function(t){
-      if(!sameProjectName(t.projectName, proj.name)) return;
-      (t.assignedTo||[]).forEach(function(a){
-        const clean = (a||'').trim();
-        if(clean && !autoNames.some(function(n){ return normStr(n)===normStr(clean); })) autoNames.push(clean);
-      });
-    });
-  }
-
-  // Hợp nhất: Main + Backup (set tay) + bất kỳ ai có ActivityLog thật nhưng chưa có tên ở 2 danh sách trên
-  const allNames = [];
-  mainList.concat(backupList).concat(autoNames).forEach(function(n){
-    if(n && !allNames.some(function(x){ return normStr(x)===normStr(n); })) allNames.push(n);
-  });
-
-  return allNames.map(function(name){
-    const isMain = lowerMain.includes(normStr(name));
-    const memberRec = (typeof members!=='undefined' && members) ? members.find(function(m){ return normStr(m.name)===normStr(name); }) : null;
-    const personLevel = memberRec ? getCurrentLevelOfMember(memberRec) : 'Staff';
-    const roleForCalc = isMain ? 'main' : 'support_auto'; // role truyền vào calcProjectScore không ảnh hưởng điểm số (hàm tự dò nội bộ), chỉ cần hợp lệ
-    const explain = {};
-    const score = calcProjectScore(proj, personLevel, roleForCalc, name, explain);
-    const hasEvidence = explain.mode === 'activitylog';
-    // Nhãn hiển thị (bảng + tooltip) phải khớp nhau — dùng đúng 1 giá trị role duy nhất theo bằng chứng thật
-    const roleDisplay = isMain ? 'main' : (hasEvidence ? 'support_auto' : 'support_manual');
-    const roleLabel = ROLE_LABEL[roleDisplay];
-    return {
-      name: name, role: roleDisplay, roleLabel: roleLabel, level: personLevel,
-      score: score, scoreStr: score.toFixed(2), hasEvidence: hasEvidence,
-      tooltipObj: { name: name, size: proj.size, role: roleDisplay, score: score.toFixed(2), phase: getProjectPhaseLabel(proj.name), explain: explain }
-    };
-  }).sort(function(a,b){ return b.score - a.score; });
-}
-
-function openProjectDetailModal(id){
-  const p = projects.find(function(x){ return x.id===id; });
-  if(!p) return;
-  document.getElementById('pm-detail-title').textContent = p.name;
-
-  const participants = getProjectParticipantsWithScore(p);
-  const totalScore = participants.reduce(function(s,x){ return s+x.score; }, 0);
-  const phaseLabel = getProjectPhaseLabel(p.name) || p.lastKnownPhase || '—';
-  const typeLabel = PROJECT_TYPE_LABEL[p.projectType||'ARCH_FULL'] || 'All Architect';
-
-  const infoHtml = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:16px;font-size:12px">
-      <div><div style="color:var(--color-text-tertiary)">Quy mô</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.size)}</div></div>
-      <div><div style="color:var(--color-text-tertiary)">Loại dự án</div><div style="font-weight:600;margin-top:2px">${escapeHtml(typeLabel)}</div></div>
-      <div><div style="color:var(--color-text-tertiary)">Giai đoạn</div><div style="font-weight:600;margin-top:2px">${escapeHtml(phaseLabel)}</div></div>
-      <div><div style="color:var(--color-text-tertiary)">Trạng thái</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.status||'—')}</div></div>
-      <div><div style="color:var(--color-text-tertiary)">Độ phức tạp</div><div style="font-weight:600;margin-top:2px">${p.complexityCount||0}/${p.cxTotal||CX_KEYS.length}</div></div>
-      <div><div style="color:var(--color-text-tertiary)">Nhóm phụ trách</div><div style="font-weight:600;margin-top:2px">${escapeHtml(p.team||'—')}</div></div>
-    </div>`;
-
-  const rowsHtml = participants.length ? participants.map(function(x){
-    const roleColor = x.role==='main' ? {bg:'#E6F1FB',fg:'#185FA5'} : (x.hasEvidence ? {bg:'#EAF3DE',fg:'#3B6D11'} : {bg:'#FEF3DC',fg:'#BA7517'});
-    return `
-    <tr>
-      <td style="padding:9px 10px;font-weight:500">${escapeHtml(x.name)} <span style="font-size:10px;color:var(--color-text-tertiary)">(${escapeHtml(x.level)})</span></td>
-      <td style="padding:9px 10px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${roleColor.bg};color:${roleColor.fg};font-weight:600">${escapeHtml(x.roleLabel)}</span></td>
-      <td style="padding:9px 10px;text-align:right;font-weight:600;cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(x.tooltipObj).replace(/"/g,'&quot;')}">${x.scoreStr}</td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--color-text-tertiary);font-size:12px">Chưa có ai tham gia dự án này (chưa set Main/Backup, chưa có ActivityLog)</td></tr>`;
-
-  document.getElementById('pm-detail-body').innerHTML = infoHtml + `
-    <table class="pm-table" style="font-size:12px">
-      <thead><tr><th>Nhân sự</th><th>Vai trò</th><th style="text-align:right">Điểm dự án (hover xem chi tiết)</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-      ${participants.length ? `<tfoot><tr><td style="padding:9px 10px;font-weight:600" colspan="2">Tổng điểm đã phân bổ</td><td style="padding:9px 10px;text-align:right;font-weight:700">${totalScore.toFixed(2)}</td></tr></tfoot>` : ''}
-    </table>`;
-
-  document.getElementById('pm-detail-overlay').classList.add('open');
-}
-
-function closeProjectDetailModal(){
-  document.getElementById('pm-detail-overlay').classList.remove('open');
 }
 
 function renderProjListTable(breakdown, totalRaw){
@@ -4621,13 +4216,10 @@ function renderProjListTable(breakdown, totalRaw){
   const tfoot = document.getElementById('proj-list-foot');
   if(!tbody || !tfoot) return;
 
-  // Get complexity from projects list for each project name — đọc localStorage riêng CHỈ để lấy độ phức
-  // tạp hiển thị cột "Phức tạp" (không quan trọng phải tuyệt đối mới nhất). Đặt tên khác "projects" để
-  // KHÔNG che khuất biến global "projects" (dữ liệu sống, mới nhất) — phần Chu kỳ bên dưới bắt buộc phải
-  // dùng đúng biến global để khớp 100% với Bảng xếp hạng, tránh lệch số như đã từng xảy ra.
-  const localProjectsCache = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
+  // Get complexity from projects list for each project name
+  const projects = JSON.parse(localStorage.getItem('teamhub_projects')||'[]');
   const cxMap = {};
-  localProjectsCache.forEach(p => { cxMap[p.name] = p.complexityLevel || 'Simple'; });
+  projects.forEach(p => { cxMap[p.name] = p.complexityLevel || 'Simple'; });
 
   tbody.innerHTML = breakdown.map((p,i) => {
     const rc = ROLE_COLOR[p.role] || ROLE_COLOR.support;
@@ -4639,17 +4231,6 @@ function renderProjListTable(breakdown, totalRaw){
     const phaseBadge = (p.phasePct !== undefined && p.phasePct < 1)
       ? `<span title="Giai đoạn ${p.phase||'?'} — tính ${Math.round(p.phasePct*100)}% tổng điểm" style="font-size:9px;padding:1px 5px;border-radius:6px;background:#E6F1FB;color:#185FA5;margin-left:6px;font-weight:600;white-space:nowrap">${p.phase||'?'} · ${Math.round(p.phasePct*100)}%</span>`
       : '';
-    // Chu kỳ — chỉ có ý nghĩa với vai trò Main (đúng điều kiện #1 của khái niệm Chu kỳ), dùng chung đúng
-    // 1 hàm personHasAutoDoneCycle() với mọi nơi khác trong app (Bảng xếp hạng, Danh sách dự án...).
-    let cycleCell = '<span style="color:var(--color-text-tertiary)">—</span>';
-    if(p.role === 'main'){
-      const projObj = projects.find(function(pr){ return normStr(pr.name) === normStr(p.name); });
-      const done = projObj && typeof currentPersonName !== 'undefined'
-        ? personHasAutoDoneCycle(currentPersonName, projObj) : false;
-      cycleCell = done
-        ? '<span title="Đủ 1 chu kỳ để lên level" style="color:#3B6D11;font-weight:600">✅</span>'
-        : '<span title="Chưa đủ chu kỳ — cần đạt tối thiểu 75% CD (hoặc Complete) và có ActivityLog thật" style="color:var(--color-text-tertiary)">—</span>';
-    }
     return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);${rowBg}">
       <td style="padding:5px 10px;color:var(--color-text-primary)">${srcDot}${p.name}${phaseBadge}</td>
       <td style="padding:5px 6px;text-align:center">
@@ -4659,14 +4240,13 @@ function renderProjListTable(breakdown, totalRaw){
         <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${rc.bg};color:${rc.color};font-weight:500;white-space:nowrap">${ROLE_LABEL[p.role]||p.role}</span>
       </td>
       <td style="padding:5px 6px;text-align:center;font-size:11px;color:${CX_COLOR[cx]||'inherit'};font-weight:500">${cx}</td>
-      <td style="padding:5px 6px;text-align:center">${cycleCell}</td>
       <td style="padding:5px 10px;text-align:right;font-weight:500;color:var(--color-text-primary);cursor:help;border-bottom:1px dotted var(--color-text-tertiary)" title="${buildScoreTooltip(p).replace(/"/g,'&quot;')}">${p.score}</td>
     </tr>`;
   }).join('');
 
   const totalTooltip = `Tổng điểm thô = tổng điểm từng dự án bên trên\n(rê chuột vào từng dòng để xem công thức chi tiết)`;
   tfoot.innerHTML = `<tr style="border-top:1px solid var(--color-border-secondary);background:var(--color-background-secondary)">
-    <td colspan="5" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
+    <td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500">Tổng điểm thô</td>
     <td style="padding:5px 10px;text-align:right;font-weight:600;color:var(--color-text-primary);cursor:help" title="${totalTooltip}">${parseFloat(totalRaw).toFixed(2)}</td>
   </tr>`;
 }
@@ -4825,30 +4405,6 @@ function onPersonNameSelect(name){
   if(matchedMember && typeof getCurrentLevelOfMember==='function'){
     const officialLevel = getCurrentLevelOfMember(matchedMember);
     if(officialLevel && typeof setLevel==='function') setLevel(officialLevel);
-  }
-
-  // ─ Đồng bộ "Ngày vào team" từ tab Nhân sự (nguồn duy nhất đáng tin) ─
-  // Ghi đè bản ghi đánh giá cũ (nếu có joinDate khác/thiếu) để không còn hiện dữ liệu cũ/sai,
-  // và lưu lại ngay để nhóm Level (chip Leader/KM/Senior/Staff) cũng cập nhật mà không cần bấm "Lưu".
-  if(matchedMember && matchedMember.joinDate){
-    const jdInp = document.getElementById('person-joindate-input');
-    const needFix = jdInp && jdInp.value !== matchedMember.joinDate;
-    if(needFix){
-      jdInp.value = matchedMember.joinDate;
-      const senEl = document.getElementById('person-seniority');
-      if(senEl){ const s=calcSeniority(matchedMember.joinDate); senEl.style.display='block'; senEl.textContent='📅 Thâm niên: '+s; }
-      try{
-        const key = getStorageKey(name);
-        const existing = JSON.parse(localStorage.getItem(key)||'null') || { name, scores3:{}, scores2:{}, notes3:{} };
-        existing.joinDate = matchedMember.joinDate;
-        if(currentLevel) existing.currentLevel = currentLevel;
-        existing.ts = Date.now();
-        localStorage.setItem(key, JSON.stringify(existing));
-        const list = getPersonList();
-        if(!list.includes(name)){ list.push(name); savePersonList(list); }
-      }catch(e){}
-      if(typeof renderPersonList==='function') renderPersonList();
-    }
   }
 }
 
@@ -5767,9 +5323,7 @@ function renderPrereqCheck(){
 
   // Chỉ dùng điểm tích lũy dự án (raw) để check nợ — tránh bất hợp lý do tỷ trọng khác nhau giữa các level
   // VD: Key Member raw=13.1 → Staff OK (>=10) ✓ nhưng Senior chưa (13.1<15) → cần bù 1.9đ
-  // Dùng chung LEVEL_BENCHMARK (nguồn thật duy nhất) thay vì khai báo bảng riêng — tránh lệch về sau
-  // giống trường hợp đã xảy ra ở renderLeaderboard().
-  const PROJ_BENCH = LEVEL_BENCHMARK;
+  const PROJ_BENCH = { 'Staff':10, 'Senior':15, 'Key Member':25, 'Leader':35 };
 
   // Tính raw 1 lần ở level HIỆN TẠI
   const psNow  = (typeof calcPersonProjectScore==='function')
@@ -6981,20 +6535,6 @@ const USER_LEVEL_COLOR = {
   'Leader':     {bg:'#FAECE7', color:'#993C1D'},
 };
 
-// Dùng riêng cho nút "Tìm →" — tìm xong MỚI nhảy sang tab Xếp hạng (khác với oninput ở ô nhập, chỉ chạy
-// search thuần theo từng ký tự gõ, không nhảy tab, tránh nhảy dở dang khi gõ chưa xong tên).
-function userPortalSearchAndGoLeaderboard(){
-  userPortalSearch();
-  const name = (document.getElementById('user-search-name').value || '').trim();
-  const resultEl = document.getElementById('user-portal-result');
-  const foundResult = resultEl && resultEl.style.display !== 'none';
-  const lbTab = document.getElementById('maintab-lb');
-  if(name && foundResult && lbTab){
-    switchMainTab('lb');
-    renderLeaderboard();
-  }
-}
-
 function userPortalSearch(){
   const name = (document.getElementById('user-search-name').value || '').trim();
   if(!name) return;
@@ -7038,14 +6578,9 @@ function userPortalSearch(){
         ? 'background:#1A1A18;color:#fff'
         : 'background:var(--color-background-secondary);color:var(--color-text-secondary)';
       const st = USER_STATUS_COLOR[p.status] || {bg:'#F1EFE8',color:'#5F5E5A'};
-      // Chu kỳ — chỉ có ý nghĩa với Main, dùng chung đúng 1 hàm personHasAutoDoneCycle() với mọi nơi khác
-      const cycleBadge = isMain && personHasAutoDoneCycle(name, p)
-        ? '<span title="Đủ 1 chu kỳ để lên level" style="font-size:10px;padding:2px 7px;border-radius:8px;background:#EAF3DE;color:#3B6D11;font-weight:600">✅ Chu kỳ</span>'
-        : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);margin-bottom:6px;background:var(--color-background-primary)">
         <div style="flex:1;font-size:13px;font-weight:500;color:var(--color-text-primary)">${p.name}</div>
         <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${roleStyle.split(';')[0].split(':')[1]};color:${roleStyle.split(';')[1].split(':')[1]};font-weight:500;${roleStyle}">${role}</span>
-        ${cycleBadge}
         <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${st.bg};color:${st.color};font-weight:500">${p.status||'–'}</span>
         <span style="font-size:11px;color:var(--color-text-tertiary)">${p.size||''}</span>
       </div>`;
@@ -7131,6 +6666,7 @@ function applyRoleUI(){
   const evalTab    = document.getElementById('maintab-eval');
   const membersTab = document.getElementById('maintab-members');
   if(!userTab) return;
+  const officeTab = document.getElementById('maintab-office'); if(officeTab) officeTab.style.display = 'flex';
   const lbTab = document.getElementById('maintab-lb');
   if(sheetsRole === 'user'){
     // User: thấy Tra cứu + Leaderboard
@@ -7300,44 +6836,31 @@ function renderDoneCyclesCheckboxes(members, projId){
   if(!members.length){ field.style.display='none'; box.innerHTML=''; return; }
   field.style.display='block';
   const proj = projId ? (projects||[]).find(x=>x.id===projId) : null;
+  const hasLog = proj && typeof activityLog!=='undefined' && activityLog.some(function(t){ return sameProjectName(t.projectName,proj.name); });
 
-  if(!proj){
-    // Dự án mới chưa lưu — chưa có gì để đối chiếu, hiện badge trống cho tất cả
+  if(!proj || hasLog){
+    // Chế độ TỰ ĐỘNG (dự án mới chưa lưu, hoặc đã có ActivityLog thật)
     box.innerHTML = members.map(function(m){
-      return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary)">— ${escapeHtml(m)}</span>`;
-    }).join('');
-    return;
-  }
-
-  // Xét TỪNG NGƯỜI riêng: ai CHÍNH HỌ có task thật trên dự án này → hiện badge tự động (✅/—).
-  // Ai KHÔNG có task thật của riêng mình (dù dự án có thể đã có log của người khác) → hiện checkbox tick
-  // tay — vì rất có thể họ đã hoàn thành việc chính TRƯỚC KHI hệ thống dùng ActivityLog (không còn gì để
-  // tự log), không nên bị kẹt vĩnh viễn "không tự động được, cũng không tick tay được".
-  const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return normStr(c); });
-  let anyManual = false;
-  box.innerHTML = members.map(function(m){
-    const myOwnLog = typeof activityLog!=='undefined' && activityLog.some(function(t){
-      return sameProjectName(t.projectName,proj.name) && (t.assignedTo||[]).some(function(a){ return normStr(a)===normStr(m); });
-    });
-    if(myOwnLog){
-      const done = personHasAutoDoneCycle(m, proj);
+      const done = proj ? personHasAutoDoneCycle(m, proj) : false;
       const bg = done ? '#EAF3DE' : 'var(--color-background-secondary)';
       const fg = done ? '#3B6D11' : 'var(--color-text-secondary)';
       const icon = done ? '✅' : '—';
       const title = done
-        ? 'Đạt 75% CD (hoặc Complete) + có task thật của chính người này — đủ 1 chu kỳ'
-        : 'Chưa đủ — cần đạt 75% CD (hoặc Complete)';
+        ? 'Đạt 75% CD + có task thật — đủ 1 chu kỳ'
+        : 'Chưa đủ — cần đạt 75% CD + có task thật';
       return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:${bg};color:${fg}" title="${title}">${icon} ${escapeHtml(m)}</span>`;
-    }
-    anyManual = true;
-    const id = 'dcm-'+normStr(m).replace(/\s+/g,'_');
-    const isChecked = checkedLower.indexOf(normStr(m)) >= 0;
-    return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)" title="Người này chưa có task thật riêng trên dự án — tick tay nếu đã thực tế hoàn thành (VD từ trước khi có ActivityLog)">
-      <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
-    </label>`;
-  }).join('');
-  if(anyManual){
-    box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Người có checkbox chưa có task thật RIÊNG trên dự án này — tick tay nếu đã thực tế hoàn thành (VD xong việc từ trước khi có ActivityLog)</div>' + box.innerHTML;
+    }).join('');
+  } else {
+    // Chế độ TICK TAY (dự án cũ, chưa có ActivityLog nào — không có bằng chứng tự động)
+    const checkedLower = (proj.doneCycleMembers||[]).map(function(c){ return normStr(c); });
+    box.innerHTML = '<div style="font-size:11px;color:#BA7517;margin-bottom:6px;width:100%">⚠ Dự án chưa có ActivityLog — tick tay cho data lịch sử (sẽ tự chuyển sang tự động khi có task thật)</div>'
+      + members.map(function(m){
+        const id = 'dcm-'+normStr(m).replace(/\s+/g,'_');
+        const isChecked = checkedLower.indexOf(normStr(m)) >= 0;
+        return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-secondary)">
+          <input type="checkbox" id="${id}" ${isChecked?'checked':''}> ${escapeHtml(m)}
+        </label>`;
+      }).join('');
   }
 }
 
@@ -7658,11 +7181,6 @@ async function doFreezeMonthlyPerformance(){
   }
 }
 
-function toggleNicknameMode(){
-  var cur = localStorage.getItem('kta_nickname_mode') || 'lol';
-  localStorage.setItem('kta_nickname_mode', cur === 'animal' ? 'lol' : 'animal');
-  renderLeaderboard();
-}
 function renderLeaderboard(){
   const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
   const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
@@ -7671,10 +7189,7 @@ function renderLeaderboard(){
   const LEADERS_EXCLUDE = ['liam','stuart','nina'];
   const LEVEL_COLOR_BG = {'Staff':'#E6F1FB','Senior':'#EAF3DE','Key Member':'#FDE8F1','Leader':'#FAECE7'};
   const LEVEL_COLOR_TEXT = {'Staff':'#185FA5','Senior':'#3B6D11','Key Member':'#A02A6B','Leader':'#993C1D'};
-  // Dùng chung LEVEL_BENCHMARK (nguồn thật duy nhất, khớp với calcPersonProjectScore) — tránh có 2 bảng
-  // benchmark khác nhau gây lệch số hiển thị so với số tính điểm thật (đã từng xảy ra: bảng cũ ở đây
-  // ghi {Staff:8, Senior:12, Key Member:20} trong khi công thức thật dùng {10,15,25,35}).
-  const BENCH = LEVEL_BENCHMARK;
+  const BENCH = {'Staff':8,'Senior':12,'Key Member':20,'Leader':35};
 
   // Collect all unique members from projects (excluding leaders)
   const allMembers = new Set();
@@ -7695,29 +7210,13 @@ function renderLeaderboard(){
     '🐠 Cá Nhiệt Đới','🦑 Mực','🐝 Ong','🦀 Cua','🦞 Tôm Hùm','🐓 Gà Trống',
     '🦃 Gà Tây','🦢 Thiên Nga','🕊 Chim Câu','🦉 Cú','🐦 Chim Sẻ','🦔 Nhím Biển',
     '🐡 Cá Nóc','🦋 Bướm Vàng','🐬 Cá Heo Hồng','🦁 Sư Tử Biển'];
-  // Bộ biệt danh theo tên tướng Liên Minh Huyền Thoại — chỉ dùng TÊN + emoji Unicode gợi liên tưởng,
-  // KHÔNG dùng ảnh/artwork thật của Riot Games (tránh vấn đề bản quyền). Cùng độ dài với ANIMALS.
-  var LOL_CHAMPIONS = ['🦊 Ahri','⚔️ Yasuo','💥 Jinx','✨ Lux','🪓 Darius','🛡️ Garen','🍄 Teemo','🏹 Vayne',
-    '🥷 Zed','🗡️ Katarina','❄️ Ashe','🧔 Braum','🐉 Shyvana','🌀 Rammus','🐕 Nasus','🐊 Renekton',
-    '🌊 Nami','🎵 Sona','🧭 Ezreal','🔫 Miss Fortune','🍺 Gragas','💣 Tristana','🔨 Poppy','🦁 Rengar',
-    '🦗 Khazix','👁 Velkoz','🦖 Chogath','👾 Kogmaw','🐦 Anivia','🐻 Volibear','🐺 Warwick','🦂 Reksai',
-    '🐑 Kindred','⛓️ Thresh','🪝 Pyke','🐱 Yuumi','🌙 Zoe','🦎 Neeko','👼 Kayle','🖤 Morgana',
-    '🙏 Karma','👊 Sett','🔫 Aphelios','🔥 Samira','🎤 Seraphine','🌙 Akali','💃 Irelia','🗡️ Riven'];
-  // Chế độ biệt danh — lưu theo trình duyệt (localStorage), mặc định LMHT.
-  // Đổi lại 'animal' bất cứ lúc nào qua nút switch trên UI nếu có vấn đề, không cần sửa code.
-  var NICK_MODE = localStorage.getItem('kta_nickname_mode') || 'lol';
-  var NICK_LIST = NICK_MODE === 'animal' ? ANIMALS : LOL_CHAMPIONS;
   function getAnimalName(name){
     var key = normStr(name);
     if(!_animalMap[key]){
-      _animalMap[key] = NICK_LIST[_animalIdx % NICK_LIST.length];
+      _animalMap[key] = ANIMALS[_animalIdx % ANIMALS.length];
       _animalIdx++;
     }
     return _animalMap[key];
-  }
-  var nickModeBtn = document.getElementById('nick-mode-btn');
-  if(nickModeBtn){
-    nickModeBtn.textContent = NICK_MODE === 'animal' ? '🎮 Đổi sang LMHT' : '🐼 Đổi sang Thú';
   }
 
   // Build project data
@@ -7764,17 +7263,12 @@ function renderLeaderboard(){
       +'</table>'
       +'<div style="margin-top:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px;font-size:11px;color:var(--color-text-tertiary);line-height:1.8">'
       +'<b style="color:var(--color-text-secondary)">📐 Công thức điểm tích lũy:</b><br>'
-      +'Điểm 1 dự án = <b>(Base + CxBonus) × %Giai đoạn × Loại dự án × Tỷ trọng vai trò × LevelMult</b><br>'
+      +'Điểm 1 dự án = <b>(Base + CxBonus) × LevelMult × RoleMult</b><br>'
       +'• Base: Small=2 · Medium=3 · Large=5<br>'
       +'• CxBonus = (số tick phức tạp / tổng mục) × 5 — tối đa 5đ<br>'
-      +'• %Giai đoạn: Planning/Entitlement/SD 10% → 50% DD/PZA 30% → 100% DD 45% → 25% CD 65% → 50% CD 78% → 75% CD 88% → 95% CD 96% → 100% CD/Bid 100% → CA 100% (+bonus 5-10% tuỳ Size)<br>'
-      +'• Loại dự án: All Architect ×1.0 · Interior ×0.8 · CA Support ×0.6<br>'
-      +'• Tỷ trọng vai trò: Main solo=100% · Main+SP=Main 70% / SP chia theo SỐ DÒNG task thật (không chia đều) · SP tự dò đóng góp &lt;6đ bị co lại theo hệ số hoàn thành Score/6<br>'
-      +'• LevelMult (tính theo Level TẠI THỜI ĐIỂM làm task, không phải Level hiện tại): Staff(S:1.0 M:1.3 L:1.0) · Senior(S:0.5 M:1.0 L:1.3) · Key Member(S:0.3 M:0.7 L:1.0)<br>'
-      +'<b>Ví dụ 1</b> — Liam: dự án Large, 3/6 tick, Key Member, Main solo, Giai đoạn 100% CD/Bid: (5+2.5)×1.0×1.0×1.0×1.0 = <b>7.5đ</b><br>'
-      +'<b>Ví dụ 2</b> — Rhys: dự án Medium, 2/6 tick, Senior, SP (Main+SP, Main 70%/SP 30%), Giai đoạn 50% CD (78%): (3+1.67)×0.78×1.0×0.30×1.0 = <b>1.09đ</b><br>'
-      +'<b>Ví dụ 3</b> — William: dự án Small, 0/6 tick, Staff, Backup solo (không có Main), Giai đoạn CA (100%+5% bonus Size Small=105%), CA Support (×0.6): (2+0)×1.05×0.6×1.0×1.0 = <b>1.26đ</b><br>'
-      +'<b>Ví dụ 4</b> — Wilder: dự án Medium, 2/6 tick, Staff, SP tự dò (Main+SP, pool SP 30% × 1/10 dòng task của cả nhóm SP = 3%), mới đóng góp 2đ (&lt;6đ ngưỡng) nên bị co hệ số hoàn thành ×0.33, Giai đoạn 100% DD (45%): (3+1.67)×0.45×1.0×(3%×0.33≈1%)×1.0 = <b>0.02đ</b> — minh hoạ vì sao đóng góp quá nhỏ gần như không đáng kể'
+      +'• LevelMult: Staff(S:1.0 M:1.3 L:0) · Senior(S:0.5 M:1.0 L:1.3) · Key(S:0.3 M:0.7 L:1.0)<br>'
+      +'• RoleMult: Main solo=1.0 · Main+backup=0.7 · Backup=0.3<br>'
+      +'<b>Ví dụ</b> — Liam: dự án Large, 3/6 tick, Key Member, Main solo: (5+2.5)×1.0×1.0 = <b>7.5đ</b>'
       +'</div>';
   }
 
@@ -7843,10 +7337,10 @@ function renderLeaderboard(){
         +'</table>'
         +'<div style="margin-bottom:'+(isAdmin?'20px':'0')+';padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;font-size:10px;color:var(--color-text-tertiary);line-height:1.8">'
         +'<b style="color:var(--color-text-secondary)">📐 Công thức:</b> Điểm /10 = min(10, Tích lũy / '+bench+' × 10)<br>'
-        +'Ví dụ — tích lũy '+(bench*0.45).toFixed(1)+'đ ở '+lv+': '+(bench*0.45).toFixed(1)+'/'+bench+'×10 = <b>4.5/10</b><br>'
+        +'Ví dụ — Liam tích lũy 11.3đ ở Key Member: 11.3/20×10 = <b>5.65/10</b><br>'
         +'<b style="color:var(--color-text-secondary)">📌 Benchmark '+bench+'</b> = mức tích lũy cần đạt để được 10/10 ở '+lv+'.<br>'
         +'Benchmark tăng dần theo level vì kỳ vọng khối lượng công việc cao hơn — không liên quan đến size dự án (size đã được tính riêng ở điểm từng dự án).<br>'
-        +'Staff=10 · Senior=15 · Key Member=25 · Leader=35'
+        +'Staff=8 · Senior=12 · Key Member=20 · Leader=35'
         +'</div>';
     }).join('');
   }
@@ -7863,6 +7357,201 @@ function getProjectCountForCurrentPerson(){
 }
 
 
+
+</script>
+<script>
+// ═══════════ VĂN PHÒNG KTA (tab xem cho mọi thành viên, chạy theo ActivityLog) ═══════════
+const OFC = (function(){
+  const NAMES = ['Alice','Andrew','Bonnie','Dale','Daniel','Henry','Jayce','Jayson','Kane','Liam','Mei','Nick','Nina','Nora','Rhys','Sam','Sayid','Stuart','Vanessa','Wilder','William','Zolius'];
+  const GONE = [8]; // Kane đã nghỉ
+  const TEAMCOL = { L:'#6190d1', S:'#e37f54', N:'#84cdae' };
+  const ZONES = [
+    { label:'Nhóm Liam', t:'L', x0:4, cols:3, who:[1,4,9,10,19,20] },
+    { label:'Nhóm Stuart', t:'S', x0:308, cols:4, who:[0,2,3,5,7,17,18] },
+    { label:'Nhóm Nina', t:'N', x0:704, cols:4, who:[6,11,12,13,14,15,16,21] },
+  ];
+  const LIAM=9, STU=17, NINA=12, TICK=1800;
+  const seat={}, tcol={}, team={};
+  ZONES.forEach(z=>z.who.forEach((p,k)=>{ const c=k%z.cols, r=Math.floor(k/z.cols); seat[p]=[z.x0+54+c*92, 472+r*98]; tcol[p]=TEAMCOL[z.t]; team[p]=z.t; }));
+  let days=[], st={idx:0, tk:0, trips:{}, journey:false, sel:-1}, timer=null, built=false, R={};
+  function nk(p){ return (p||'').toString().replace(/^\s*\d{2}-\d{2}\s*/,'').toLowerCase().replace('manning','maning').replace(/[^a-z0-9]/g,''); }
+  function shortName(p){ return (p||'').toString().replace(/^\s*\d{2}-\d{2}\s*/,'').trim(); }
+  function idxOf(a){ const f=(a||'').toString().trim().split(/\s+/)[0].toLowerCase(); return NAMES.findIndex(n=>n.toLowerCase()===f); }
+  function buildData(){
+    const log=(typeof activityLog!=='undefined' && activityLog) || [];
+    const byDate={};
+    log.forEach(t=>{ const d=(t.date||'').toString().slice(0,10); if(/^\d{4}-\d\d-\d\d$/.test(d)) (byDate[d]=byDate[d]||[]).push(t); });
+    days = Object.keys(byDate).sort().map(d=>{
+      const rows=byDate[d], pc={}, label={}, ev={};
+      rows.forEach(t=>{
+        const k=nk(t.projectName); pc[k]=(pc[k]||0)+1; label[k]=shortName(t.projectName);
+        (t.assignedTo||[]).forEach(a=>{ const i=idxOf(a); if(i<0||GONE.indexOf(i)>=0) return; (ev[i]=ev[i]||[]).push(k); });
+      });
+      const acts={};
+      Object.keys(ev).forEach(i=>{
+        const cc={}; ev[i].forEach(k=>cc[k]=(cc[k]||0)+1);
+        const ks=Object.keys(cc).sort((a,b)=>cc[b]-cc[a]);
+        acts[i]={ proj:label[ks[0]], n:ev[i].length, others:ks.length-1, key:ks[0] };
+      });
+      const projs=Object.keys(pc).map(k=>({k:k,t:label[k],c:pc[k]})).sort((a,b)=>b.c-a.c);
+      const g=new Date(d+'T00:00:00').getDay();
+      return { date:d.slice(8,10)+'/'+d.slice(5,7), wd:(g+6)%7, acts:acts, projs:projs, tasks:rows.length };
+    });
+  }
+  function cfg(){ return st.journey ? {cyc:12, meet:3} : {cyc:32, meet:6}; }
+  function meetPos(k){ return [250+Math.floor(k/2)*58, 312-(k%2)*28]; }
+  function activeList(day){ return Object.keys(day.acts).map(Number); }
+  function tick(){
+    const panel=document.getElementById('mainpanel-office');
+    if(!panel || !panel.classList.contains('active') || !days.length) return;
+    const last=days.length-1, cf=cfg();
+    let tk=st.tk+1;
+    if(tk>=cf.cyc){
+      if(st.journey){ if(st.idx>=last) st.journey=false; else st.idx++; }
+      st.tk=0; st.trips={}; paint(); return;
+    }
+    const day=days[st.idx], act=day.acts, trips={}; let n=0;
+    Object.keys(st.trips).forEach(k=>{ const t=st.trips[k]; if(t.left-1>0){ trips[k]=Object.assign({},t,{left:t.left-1}); n++; } });
+    if(tk>cf.meet){
+      const busy={}; Object.keys(trips).forEach(k=>{ busy[k]=1; if(trips[k].to!==undefined) busy[trips[k].to]=1; });
+      const active=activeList(day), rnd=p=>Math.random()<p;
+      const water=i=>{ trips[i]={kind:'water',tx:118+Math.random()*56,ty:282+Math.random()*26,left:4,walk:true,say:'Đi lấy nước'}; busy[i]=1; n++; };
+      const wc=i=>{ trips[i]={kind:'wc',tx:1012+Math.random()*56,ty:282+Math.random()*26,left:4,walk:true,say:'Đi vệ sinh'}; busy[i]=1; n++; };
+      const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
+      active.forEach(i=>{
+        if(busy[i]||n>=7) return;
+        if(i===LIAM && rnd(0.22)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)]; trips[i]={kind:'bc',to:j,tx:seat[j][0]+48,ty:seat[j][1],left:4,walk:true,say:'Back check cho '+NAMES[j],hostSay:'Liam đang back check cho mình'}; busy[i]=1; busy[j]=1; n++; return; } }
+        if(i===STU && rnd(0.22)){ const m=members(i); if(m.length){ const j=m[Math.floor(Math.random()*m.length)];
+          if(rnd(0.5)) trips[i]={kind:'bc',to:j,tx:seat[j][0]+48,ty:seat[j][1],left:4,walk:true,say:'Back check cho '+NAMES[j],hostSay:'Stuart đang back check cho mình'};
+          else trips[i]={kind:'bcsit',to:j,tx:seat[i][0],ty:seat[i][1],left:3,walk:false,say:'Back check cho '+NAMES[j]+' từ chỗ ngồi'};
+          busy[i]=1; busy[j]=1; n++; return; } }
+        if(i!==LIAM && i!==STU && i!==NINA && team[i]==='N' && act[NINA] && !busy[NINA] && rnd(0.05)){ trips[i]={kind:'bcnina',to:NINA,tx:seat[NINA][0]+48,ty:seat[NINA][1],left:4,walk:true,say:'Nhờ Nina back check',hostSay:'Đang back check cho '+NAMES[i]}; busy[i]=1; busy[NINA]=1; n++; return; }
+        if(rnd(0.035)) water(i); else if(rnd(0.025)) wc(i);
+      });
+    }
+    st.tk=tk; st.trips=trips; paint();
+  }
+  const $=id=>document.getElementById(id);
+  const WD=['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'];
+  function build(){
+    const root=$('ofc-root'); if(!root) return;
+    let rooms='', desks='', chairs='', chs='';
+    ZONES.forEach(z=>{ rooms+=`<div style="position:absolute;left:${z.x0}px;top:360px;width:${z.cols*92+16}px;height:244px;box-sizing:border-box;border:2px solid #14202b;border-radius:22px;background:#e3e9f2;box-shadow:0 6px 0 #9ea9bc;overflow:hidden"><div style="height:28px;box-sizing:border-box;border-bottom:2px solid #14202b;background:${TEAMCOL[z.t]};font-size:13px;font-weight:700;line-height:26px;text-align:center;color:#14202b">${z.label}</div></div>`; });
+    NAMES.forEach((nm,i)=>{
+      if(GONE.indexOf(i)>=0) return;
+      const s=seat[i];
+      chairs+=`<div style="position:absolute;left:${s[0]-17}px;top:${s[1]-30}px;width:34px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:#8e9bb0;z-index:2"></div>`;
+      desks+=`<div style="position:absolute;left:${s[0]-36}px;top:${s[1]}px;width:72px;height:22px;box-sizing:border-box;border:2px solid #14202b;border-radius:6px;background:#fff;box-shadow:0 4px 0 #b9c3d4;z-index:30"><div id="ofc-scr${i}" style="position:absolute;left:4px;top:-16px;width:24px;height:16px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f"></div><div style="position:absolute;left:36px;top:4px;width:26px;height:6px;border-radius:2px;background:#c9d3e1"></div></div>`;
+      chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}"><div class="ofc-in"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:${tcol[i]}"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an${i}"></use></svg><div class="ofc-badge" id="ofc-b${i}"></div></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
+    });
+    const hud=(id,lb)=>`<div class="ofc-hud"><span id="${id}">0</span><i>${lb}</i></div>`;
+    root.innerHTML=`
+<div class="ofc-wrap">
+  <div style="font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#5b4a2e" id="ofc-range"></div>
+  <h2 style="margin:6px 0 8px;font-family:Georgia,serif;font-size:34px;line-height:1.1;color:#14202b">Văn phòng KTA</h2>
+  <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#3a4754;max-width:760px">Mỗi sáng cả team vào phòng họp nhận việc theo ActivityLog, rồi về chỗ ngồi để làm. Trong ngày, Liam, Stuart và Nina back check cho nhóm, các bạn tự đi lấy nước, đi vệ sinh. Văn phòng tự chạy lặp lại ngày gần nhất. Bấm vào một bạn để xem công việc.</p>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px">
+    <button id="ofc-btn" class="ofc-btn"></button>
+    <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
+    <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
+  </div>
+  <div style="overflow-x:auto;border-radius:18px;border:2px solid #14202b;background:#f3cfa5">
+   <div style="position:relative;width:1120px;height:620px;background:#f3cfa5">
+    <div style="position:absolute;left:4px;top:6px;display:flex;gap:8px;z-index:80">${hud('ofc-h0','Thành viên')}${hud('ofc-h1','Đang làm')}${hud('ofc-h2','Task trong ngày')}${hud('ofc-h3','Đang đi lại')}</div>
+    <div style="position:absolute;left:4px;top:50px;width:1112px;height:296px;box-sizing:border-box;border:2px solid #14202b;border-radius:22px;background:#e9efe3;box-shadow:0 6px 0 #a8b59c"></div>
+    <div style="position:absolute;left:196px;top:58px;width:712px;height:282px;box-sizing:border-box;border:2px dashed #14202b;border-radius:18px;background:#f3ecdc"></div>
+    <div class="ofc-pill" style="left:212px;top:66px">Phòng họp</div>
+    <div style="position:absolute;left:372px;top:64px;width:360px;height:152px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 5px 0 #c9d3e1;padding:8px 12px;display:flex;flex-direction:column;gap:1px;color:#14202b">
+      <span id="ofc-wbh" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5b4a2e"></span>
+      ${[0,1,2,3,4].map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;line-height:19px;height:19px"><span id="ofc-w${k}t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span id="ofc-w${k}n" style="font-weight:700"></span></div>`).join('')}
+      <span id="ofc-wbp" style="font-size:11px;color:#3a4754"></span>
+    </div>
+    <div style="position:absolute;left:262px;top:298px;width:560px;height:20px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 4px 0 #c9d3e1;z-index:3"></div>
+    <div style="position:absolute;left:868px;top:250px;width:30px;height:30px;box-sizing:border-box;border:2px solid #14202b;border-radius:50%;background:#6bbf59;z-index:3"></div>
+    <div class="ofc-pill" style="left:70px;top:262px">Máy nước</div>
+    <div style="position:absolute;left:88px;top:120px;width:46px;height:130px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px;background:#fff;box-shadow:0 5px 0 #c9d3e1"><div style="position:absolute;left:5px;top:5px;width:32px;height:46px;box-sizing:border-box;border:2px solid #14202b;border-radius:14px 14px 6px 6px;background:#7fd1ff"></div><div style="position:absolute;left:14px;top:66px;width:14px;height:8px;border-radius:3px;background:#14202b"></div></div>
+    <div class="ofc-pill" style="left:990px;top:262px">Vệ sinh</div>
+    <div style="position:absolute;left:990px;top:104px;width:88px;height:150px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 0 0;background:#c9d3e1;box-shadow:0 5px 0 #a8b59c"><div style="position:absolute;left:10px;top:10px;width:64px;height:130px;box-sizing:border-box;border:2px solid #14202b;border-radius:6px 6px 0 0;background:#8e9bb0"></div></div>
+    ${rooms}${chairs}${desks}${chs}
+    <div id="ofc-pop" style="position:absolute;width:220px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
+   </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:18px">
+    <div class="ofc-card"><span class="ofc-cl">Ngày này trong văn phòng</span><span id="ofc-st" style="font-family:Georgia,serif;font-weight:700;font-size:22px;line-height:1.2"></span><span id="ofc-bz" style="font-size:14px;line-height:1.5;color:#3a4754"></span></div>
+    <div class="ofc-card"><span class="ofc-cl">Thành viên off</span><span id="ofc-off" style="font-size:15px;line-height:1.45"></span></div>
+  </div>
+  <p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:#3a4754;max-width:820px">Chỗ ngồi, bàn máy sáng đèn, dự án và số task lấy từ ActivityLog. Các chuyến back check, lấy nước, đi vệ sinh được dàn dựng thêm cho sinh động, không phải dữ liệu thật. Bạn mờ là hôm đó chưa ghi việc, chưa chắc là nghỉ. Không hiện nội dung chi tiết và không xếp hạng ai.</p>
+</div>`;
+    root.querySelectorAll('.ofc-ch').forEach(el=>{ el.addEventListener('click',()=>{ const i=+el.dataset.i; st.sel=(st.sel===i)?-1:i; paint(); }); });
+    $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } st.tk=0; st.trips={}; paint(); });
+    $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); st.tk=0; st.trips={}; st.journey=false; paint(); });
+    built=true;
+  }
+  function paint(){
+    if(!built||!days.length) return;
+    const day=days[st.idx], act=day.acts, cf=cfg(), inMeet=st.tk<cf.meet, trips=st.trips;
+    const order=activeList(day).sort((a,b)=>a-b), mpos={}; order.forEach((p,k)=>mpos[p]=meetPos(k));
+    const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.left>=2) hosting[t.to]=t.hostSay; });
+    const info={};
+    NAMES.forEach((nm,i)=>{
+      if(GONE.indexOf(i)>=0) return;
+      const a=act[i], t=trips[i], home=seat[i], el=$('ofc-c'+i);
+      let fx=home[0], fy=home[1], walking=false, say='';
+      if(a && inMeet){ fx=mpos[i][0]; fy=mpos[i][1]; if(st.tk===0){ say='Vào phòng họp'; walking=true; } }
+      else if(a && st.tk===cf.meet){ walking=true; say='Về chỗ làm việc'; }
+      else if(t){ if(t.left>=2){ fx=t.tx; fy=t.ty; say=t.say; if(t.left===4 && t.walk) walking=true; } else if(t.walk) walking=true; }
+      else if(hosting[i]) say=hosting[i];
+      el.style.left=(fx-22)+'px'; el.style.top=(fy-62)+'px'; el.style.opacity=a?1:0.45; el.style.zIndex=10+Math.round(fy/10);
+      el.title=a? nm+': '+a.n+' việc, '+a.proj : nm+': hôm nay chưa ghi việc';
+      const inn=el.firstChild; inn.className='ofc-in'+(walking?' ofc-walk':(a&&!inMeet?' ofc-work':''));
+      const b=$('ofc-b'+i); b.textContent=a?a.n:''; b.style.opacity=a?1:0;
+      $('ofc-t'+i).style.opacity=a?1:0.7;
+      const s=$('ofc-s'+i); s.textContent=say; s.style.opacity=say?1:0;
+      $('ofc-scr'+i).style.background=(a&&!inMeet)?'#7fd1ff':'#55616f';
+      info[i]={fx:fx,fy:fy,say:say,a:a};
+    });
+    const pop=$('ofc-pop');
+    if(st.sel>=0 && info[st.sel]){
+      const c=info[st.sel], px=Math.min(Math.max(c.fx-110,4),1112-220), py=(c.fy-62-118>54)?c.fy-62-118:c.fy+34;
+      pop.style.display='flex'; pop.style.left=px+'px'; pop.style.top=py+'px';
+      $('ofc-p0').textContent=NAMES[st.sel];
+      $('ofc-p1').textContent=c.a?'Dự án chính: '+c.a.proj:'Hôm nay chưa ghi việc';
+      $('ofc-p2').textContent=c.a?c.a.n+' việc trong ngày'+(c.a.others?', cùng '+c.a.others+' dự án khác':''):'Chưa chắc là nghỉ';
+      $('ofc-p3').textContent=c.say||(c.a?'Đang ngồi làm tại bàn':'Đang ở chỗ ngồi');
+    } else pop.style.display='none';
+    const PS=5, pages=Math.max(1,Math.ceil(day.projs.length/PS)), page=Math.floor(st.tk/2)%pages;
+    for(let k=0;k<PS;k++){ const o=day.projs[page*PS+k]; $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?o.c+' task':''; }
+    $('ofc-wbh').textContent='Việc hôm nay: '+day.tasks+' task · '+day.projs.length+' dự án';
+    $('ofc-wbp').textContent=pages>1?'Trang '+(page+1)+'/'+pages:'';
+    const nAct=order.length, total=NAMES.length-GONE.length;
+    $('ofc-h0').textContent=total; $('ofc-h1').textContent=inMeet?0:nAct; $('ofc-h2').textContent=day.tasks;
+    $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].walk).length;
+    $('ofc-range').textContent='KTA TeamVN · '+days[0].date+' đến '+days[days.length-1].date;
+    $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
+    const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx;
+    $('ofc-day').textContent=WD[day.wd]+', '+day.date;
+    $('ofc-phase').textContent=inMeet?'Họp sáng, nhận việc':'Giờ làm việc';
+    $('ofc-btn').textContent=st.journey?'Dừng, về ngày gần nhất':'Xem lại cả hành trình';
+    $('ofc-st').textContent=nAct+' bạn có việc, '+day.projs.length+' dự án, '+day.tasks+' task';
+    const byp={}; order.forEach(i=>{ const k=act[i].key; byp[k]=(byp[k]||0)+1; });
+    let bk=null,bn=0; Object.keys(byp).forEach(k=>{ if(byp[k]>bn){ bn=byp[k]; bk=k; } });
+    const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
+    $('ofc-bz').textContent=bn>=2?'Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.':'Hôm nay mỗi bạn làm một việc riêng.';
+    const off=NAMES.filter((nm,i)=>GONE.indexOf(i)<0 && !act[i]);
+    $('ofc-off').textContent=off.length?off.length+' bạn chưa ghi việc: '+off.join(', ')+'.':'Hôm nay cả team đều có việc.';
+  }
+  function show(){
+    const root=$('ofc-root'); if(!root) return;
+    buildData();
+    if(!days.length){ root.innerHTML='<div style="padding:40px;text-align:center;color:#888;font-size:14px">Chưa có dữ liệu ActivityLog để dựng văn phòng.</div>'; built=false; return; }
+    if(!built || !$('ofc-btn')) build();
+    st.idx=Math.min(st.idx,days.length-1);
+    if(!st.started){ st.started=true; st.idx=days.length-1; st.tk=0; st.trips={}; }
+    paint();
+    if(!timer) timer=setInterval(tick,TICK);
+  }
+  return { show:show };
+})();
 
 </script>
 </body>
