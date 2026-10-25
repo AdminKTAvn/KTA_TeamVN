@@ -7644,8 +7644,8 @@ const OFC = (function(){
   </div>
   <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">${hud('ofc-h0','Thành viên')}${hud('ofc-h1','Đang làm')}${hud('ofc-h2','Task trong ngày')}${hud('ofc-h3','Đang đi lại')}
     <span style="display:inline-flex;gap:14px;margin-left:8px;font-size:13px">${[['L','Nhóm Liam'],['S','Nhóm Stuart'],['N','Nhóm Nina']].map(a=>`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:14px;border-radius:4px;border:2px solid #14202b;background:${TEAMCOL[a[0]]};display:inline-block"></span>${a[1]}</span>`).join('')}</span></div>
-  <div style="overflow-x:auto;border-radius:18px;border:2px solid #14202b;background:#d9d3c4">
-   <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden">
+  <div id="ofc-fit" style="overflow:hidden;border-radius:18px;border:2px solid #14202b;background:#d9d3c4;width:100%;box-sizing:border-box">
+   <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden;transform-origin:0 0">
     ${BG}${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}
     <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
    </div>
@@ -7691,6 +7691,15 @@ const OFC = (function(){
       st.trips={}; st.tk=v?Math.max(cfg().work,EV.s-3):0; st.snap=true; paint();
     });
     built=true;
+    fitScene();
+    if(!window._ofcFit){ window._ofcFit=true; window.addEventListener('resize',()=>{ try{ fitScene(); }catch(e){} }); }
+    try{ if(window.ResizeObserver) new ResizeObserver(()=>fitScene()).observe($('ofc-fit')); }catch(e){}
+  }
+  function fitScene(){
+    const f=$('ofc-fit'), sc=$('ofc-scene'); if(!f||!sc) return;
+    const w=f.clientWidth; if(w<50) return;
+    const k=Math.min(1.3,w/1120);
+    sc.style.transform='scale('+k+')'; f.style.height=Math.round(776*k+0)+'px';
   }
   // ── di chuyển theo đường đi ──
   function place(i,x,y){ const el=$('ofc-c'+i); el.style.left=(x-22)+'px'; el.style.top=(y-31)+'px'; }
@@ -7847,6 +7856,7 @@ const OFC = (function(){
     if(!st.started){ st.started=true; st.idx=days.length-1; st.tk=0; st.trips={}; st.snap=true; }
     applyOffice();
     paint();
+    fitScene();
     if(!timer) timer=setInterval(tick,TICK);
   }
   return { show:show };
