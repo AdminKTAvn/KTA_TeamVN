@@ -7632,6 +7632,8 @@ const OFC = (function(){
   const parseHM=v=>{ const m=/(\d{1,2})\s*(?:[:hHgG])\s*(\d{2})?/.exec(String(v||'')); if(!m) return null; const h=+m[1], mi=m[2]?+m[2]:0; return (h>23||mi>59)?null:h*60+mi; };
   const arrMin = i => (SHIFTS[i]&&SHIFTS[i].a!=null) ? SHIFTS[i].a : (G1.indexOf(NAMES[i])>=0 ? 450 : 480);
   const leaveMin = i => (SHIFTS[i]&&SHIFTS[i].l!=null) ? SHIFTS[i].l : arrMin(i)+570;
+  // đi làm: mỗi người ra khỏi thang máy lần lượt, cách nhau ~1 giây (không ra cùng lúc theo nhóm giờ)
+  function arrLag(i,act){ const g=[]; for(let j=0;j<NAMES.length;j++){ if(act[j]&&arrTick(j)===arrTick(i)) g.push(j); } g.sort((a,b)=>arrMin(a)-arrMin(b)||a-b); return Math.max(0,g.indexOf(i))*Math.min(1000,Math.round(3400/Math.max(1,g.length))); }
   const arrTick = i => { const a=arrMin(i); return a<=465?1:(a<=495?3:5); };
   // vị trí đứng họp: vòng quanh bàn + đứng ngoài cửa phòng họp
   const MP=[]; [[898,[298,326,354,382,410,436]],[927,[298,326,354,382,410]],[1055,[298,326,354,382,410]],[1084,[298,326,354,382,410]]].forEach(c=>c[1].forEach(y=>MP.push([c[0],y])));   // 21 chỗ đứng: 2 cột mỗi bên bàn dọc
@@ -8379,7 +8381,7 @@ const OFC = (function(){
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
       c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && loc.seat===true;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
-      go(i,loc,snap,(t&&t.lag)?t.lag:((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
+      go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
       if(a&&loc.meet) MEETON=true;
       const b=$('ofc-b'+i); b.textContent=(a&&!a.idle)?a.n:''; b.style.opacity=(a&&!a.idle&&!loc.meet)?1:0;
@@ -8588,6 +8590,18 @@ const OFC = (function(){
     for(var q=1;q<=NS;q++){ s.push("<rect x='"+(cx0+ov[0]*q/NS)+"' y='"+(cy0+ov[1]*q/NS)+"' width='"+(cx1-cx0)+"' height='"+(H-cy0+80)+"' fill='rgba(0,0,0,"+(night?.045:.06)+")'/>"); }
     s.push("</g>");
     s.push("<rect width='"+W+"' height='"+H+"' fill='rgba(14,22,14,"+(night?.10:.16)+")'/>");
+    // đèn đường dọc 2 bên các dãy đường: ban đêm sáng ấm + quầng sáng, ban ngày chỉ là cột đèn nhỏ
+    (function(){
+      var L=[], STEP=190, g;
+      for(var yv=60;yv<H;yv+=STEP){ if(yv>150&&yv<225) continue; L.push([186,yv],[256,yv+STEP/2],[1632,yv],[1702,yv+STEP/2]); }
+      for(var xh=330;xh<1620;xh+=STEP){ L.push([xh,162],[xh+STEP/2,212]); }
+      if(night) s.push("<defs><radialGradient id='lg'><stop offset='0' stop-color='#ffe3a0' stop-opacity='.85'/><stop offset='.35' stop-color='#ffd27a' stop-opacity='.35'/><stop offset='1' stop-color='#ffc861' stop-opacity='0'/></radialGradient></defs>");
+      L.forEach(function(l){
+        if(night) s.push("<circle cx='"+l[0]+"' cy='"+l[1]+"' r='40' fill='url(#lg)'/>");
+        s.push("<circle cx='"+l[0]+"' cy='"+l[1]+"' r='4.2' fill='"+(night?'#fff3c4':'#8a8f96')+"' stroke='"+(night?'#e6b44f':'#5e646b')+"' stroke-width='1.6'/>");
+        s.push("<circle cx='"+l[0]+"' cy='"+l[1]+"' r='1.5' fill='"+(night?'#ffffff':'#c9ced4')+"'/>");
+      });
+    })();
     if(RAIN) s.push("<rect width='"+W+"' height='"+H+"' fill='rgba(40,58,82,.30)'/>");
     s.push('</svg>'); return s.join('');
   }
