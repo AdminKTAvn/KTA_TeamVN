@@ -7557,6 +7557,7 @@ const OFC = (function(){
   'Trang trí: ':'Decor: ',
   '🎵 Nhạc: Tắt':'🎵 Music: Off',
   'Chưa có dữ liệu ActivityLog để dựng văn phòng.':'No ActivityLog data to build the office yet.',
+  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓',
   'Tốc độ: Vừa':'Speed: Medium',
   'Tốc độ: Chậm':'Speed: Slow',
   'Sự kiện: theo lịch':'Event: by schedule',
@@ -7675,7 +7676,7 @@ const OFC = (function(){
   const TRAITS=[['quiet',/ít giao tiếp|it giao tiep|quiet|im lặng/i],['talk',/hay nói|hay noi|talk|nói nhiều/i],['coffee',/cà phê|ca phe|coffee/i],['snack',/ăn vặt|an vat|snack|ăn uống/i],['ask',/hỏi việc|hoi viec|ask/i],['support',/support|hỗ trợ|ho tro/i],['late',/ở lại|o lai|muộn|late/i]];
   function applyOffice(){
     let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
-    EVENTS.length=EV0; MEET=null; DECORROWS=[]; OFFROWS=[];
+    EVENTS.length=EV0; MEET=null; DECORROWS=[]; OFFROWS=[]; GUESTS=[];
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
     if(st.demoMeet) MEET={title:'Team meeting',sub:'Chào cả team, bắt đầu giao ban!',items:[{t:'Tổng kết tuần qua',w:NAMES.indexOf('Liam'),r:'Tuần qua mình chốt xong 5 dự án'},{t:'Kế hoạch tuần mới',w:NAMES.indexOf('Stuart'),r:'Tuần mới ưu tiên các dự án gấp'},{t:'Nhắc deadline',w:NAMES.indexOf('Nina'),r:'Nhớ chốt bản vẽ đúng hạn nhé'}]};
@@ -7684,6 +7685,7 @@ const OFC = (function(){
       if(!r) return; const ty=String(r[0]||'').trim().toLowerCase(), who=nameIdx(r[1]), wi=nameIdx(r[2]), tx=String(r[3]||'').trim(), rp=String(r[4]||'').trim(), ch=parseFloat(String(r[5]||'').replace(',','.'));
       { const txe=String(r[7]||'').trim(), rpe=String(r[8]||'').trim(); if(tx&&txe) EN[tx]=txe; if(rp&&rpe) EN[rp]=rpe; }
       if(ty==='music'){ if(tx) window.KTA_MUSIC=tx; return; }
+      if(ty==='guest'||ty==='khách'||ty==='khach'){ const gn=String(r[1]||'').trim(); if(gn&&dayMatch(r[6],viewIso)!==false&&GUESTS.length<6) GUESTS.push({n:gn,t:tx}); return; }
       if(ty==='off'||ty==='nghỉ'||ty==='nghi'){ if(who>=0) OFFROWS.push({who:who,range:String(r[6]||'').trim()}); return; }
       if(ty==='decor'||ty==='trangtri'||ty==='trang trí'){ const t=DECOR.find(t=>t.k===tx.toLowerCase().trim()||t.re.test(tx)); if(t) DECORROWS.push({t:t.k,range:String(r[6]||'').trim(),off:/^(off|tắt|tat|không|khong|no)$/i.test(rp),ban:/^(off|tắt|tat|không|khong|no)$/i.test(rp)?'':rp}); return; }
       if(ty==='birthday'||ty==='meal'){
@@ -7816,6 +7818,14 @@ const OFC = (function(){
       if(tk>=AW.s-2 && tk<AW.s+40){ busy[LIAM]=1; awd.who2.forEach(w=>busy[w]=1); }
     }
     if(tk>=cf.work && tk<cf.leave-2 && !evBlock){
+      if(DECT==='welcome'){
+        const pl=guestPlan(0), td=Math.round(pl.tDoor), tm_=Math.round(pl.tMeet), te=Math.round(pl.tExit);
+        const HST=[LIAM,STU,NINA], DOOR=[[748,572],[812,572],[779,548]];
+        HST.forEach((h,hi)=>{ if(!act[h]) return;
+          if(tk===td-3 && !trips[h]){ trips[h]=newTrip(h,'greet',{key:'wd'+hi,x:DOOR[hi][0],y:DOOR[hi][1],br:[{x:779,y:DOOR[hi][1]},{x:779,y:AY}]},8,hi===0?'Chào mừng đoàn KTA!':(hi===1?'Rất vui được đón mọi người!':'')); busy[h]=1; n++; }
+          if(tk===tm_-4 && !trips[h]){ trips[h]=newTrip(h,'wmeet',meetLoc(6+hi),GMEET+2,hi===0?'Mời mọi người vào phòng họp!':''); busy[h]=1; n++; }
+          if(tk>=td-5 && tk<=te) busy[h]=1; });
+      }
       const active=activeList(day), rnd=p=>R()<p;
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
       active.forEach(i=>{
@@ -7905,7 +7915,7 @@ const OFC = (function(){
     <span style="display:inline-flex;gap:14px;margin-left:8px;font-size:13px">${[['L','Nhóm Liam'],['S','Nhóm Stuart'],['N','Nhóm Nina']].map(a=>`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:14px;border-radius:4px;border:2px solid #14202b;background:${TEAMCOL[a[0]]};display:inline-block"></span>${T(a[1])}</span>`).join('')}</span></div>
   <div id="ofc-fit" style="overflow:hidden;border-radius:18px;border:2px solid #14202b;background:#d9d3c4;width:100%;box-sizing:border-box">
    <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden;transform-origin:0 0">
-    ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}
+    ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}${guestHtml()}
     <div id="ofc-decor2" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:7;overflow:hidden"></div>${DEC_CSS}
     <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
    </div>
@@ -7961,7 +7971,7 @@ const OFC = (function(){
   }
 
   // ═══ Trang trí theo dịp / sự kiện trong năm ═══
-  let DECORROWS=[], OFFROWS=[];
+  let DECORROWS=[], OFFROWS=[], GUESTS=[];
   const THL={
     xmas:{s:[['Merry Christmas nha!','Giáng sinh vui vẻ nha!'],['Quà Giáng sinh của bạn nè!','Ôi, bất ngờ quá, cảm ơn!'],['Rủ bạn chụp hình bên cây thông nhé?','Ok, đi thôi!']],solo:['Chụp hình với cây thông!','Ngắm cây thông xíu','Đi xem hộp quà']},
     newyear:{s:[['Chúc mừng năm mới!','Năm mới vui vẻ nha!'],['Năm mới cùng cố gắng nhé!','Cùng cố gắng nha!']],solo:['Ngắm pháo hoa','Đi chụp hình với bóng bay']},
@@ -7980,6 +7990,39 @@ const OFC = (function(){
       sheetsRequest(null,{action:'translate',texts:[t]}).then(r=>{ if(r&&r.ok&&r.out&&r.out[0]){ TRC[t]=r.out[0]; try{ const ks=Object.keys(TRC); if(ks.length>400) delete TRC[ks[0]]; localStorage.setItem('kta_tr',JSON.stringify(TRC)); }catch(e){} try{ paint(); }catch(e){} } }).catch(()=>{}); }
     return null;
   }
+  // ═══ Đoàn khách KTA ghé thăm: đi 1 vòng rồi họp xong về ═══
+  const GEN={
+    'Chào mừng đoàn KTA!':'Welcome, KTA team!','Rất vui được đón mọi người!':'So glad to have you here!','Mời mọi người vào phòng họp!':'Please join us in the meeting room!',
+    'Xin chào! Rất vui được gặp mọi người!':'Hello! Great to meet you all!','Văn phòng đẹp quá!':'Lovely office!','Mọi người làm việc chăm chỉ ghê!':'Everyone works so hard!','Không khí vui quá!':'Such a great vibe!','Bắt đầu họp thôi!':'Let’s get started!','Cảm ơn mọi người nhiều!':'Thank you all so much!'};
+  Object.keys(GEN).forEach(k=>{ EN[k]=GEN[k]; });
+  const GSAY={door:'Xin chào! Rất vui được gặp mọi người!',tour:['Văn phòng đẹp quá!','Mọi người làm việc chăm chỉ ghê!','Không khí vui quá!'],meet:'Bắt đầu họp thôi!',exit:'Cảm ơn mọi người nhiều!'};
+  const GT0=30, GMEET=26;
+  function guestList(){ const g=GUESTS.length?GUESTS:[{n:'KTA Guest 1',t:''},{n:'KTA Guest 2',t:''},{n:'KTA Guest 3',t:''}]; return g.slice(0,6); }
+  const GSLOT=[0,2,4,11,13,15];
+  function guestPlan(k){
+    const v=SPEED*TICK/1000, sl=MP[GSLOT[k]]||MP[0];
+    const way=[[772,716,0,''],[779,612,3,'door'],[779,AY,0,''],[540,AY,2,'tour'],[316,AY,2,'tour'],[316,540,2,'tour'],[316,AY,0,''],[30,AY,2,'tour'],[700,AY,0,''],[840,AY,0,''],[sl[0],sl[1],GMEET,'meet'],[840,AY,0,''],[779,AY,0,''],[779,612,1,'exit'],[772,716,0,'end']];
+    let t=GT0+k*1.1, kf=[{t:t,x:way[0][0],y:way[0][1],say:'',p:-1}], tourN=0, mk=0, tDoor=0, tMeet=0, tExit=0;
+    for(let i=1;i<way.length;i++){ const w=way[i], pr=way[i-1], d=Math.hypot(w[0]-pr[0],w[1]-pr[1]); t+=d/v; kf.push({t:t,x:w[0],y:w[1],say:'',p:-1});
+      if(w[2]>0){ let say=''; if(w[3]==='door'){ say=GSAY.door; if(!tDoor) tDoor=t; } else if(w[3]==='tour'){ say=((tourN+k)%3===k%3&&k===tourN%GSAY.tour.length?'':'')||''; say=(k===(tourN%Math.max(1,guestList().length)))?GSAY.tour[tourN%GSAY.tour.length]:''; tourN++; } else if(w[3]==='meet'){ say=(k===0)?GSAY.meet:''; tMeet=t; } else if(w[3]==='exit'){ say=(k===0)?GSAY.exit:''; tExit=t; }
+        kf.push({t:t+w[2],x:w[0],y:w[1],say:say,p:1,t0:t}); t+=w[2]; } }
+    return {kf:kf,tDoor:tDoor,tMeet:tMeet,tExit:tExit,end:t};
+  }
+  function guestPos(k,tk){
+    const pl=guestPlan(k), kf=pl.kf;
+    if(tk<kf[0].t||tk>=pl.end) return {vis:false,x:772,y:716,say:'',mv:false};
+    for(let i=1;i<kf.length;i++){ if(tk<=kf[i].t){ const a=kf[i-1], b=kf[i], f=(tk-a.t)/Math.max(.0001,b.t-a.t); const moving=!(a.x===b.x&&a.y===b.y);
+        return {vis:!(tk<kf[0].t+.3&&false),x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,say:(!moving&&b.say)?b.say:'',mv:moving}; } }
+    return {vis:false,x:772,y:716,say:'',mv:false};
+  }
+  function decKeyNow(){ try{ const day=days[st.idx]; const ii=st.idx===days.length-1&&localIso()>day.iso?localIso():day.iso; const l=decorActive(ii); return (l.length&&!st.journey)?l[0].t.k:''; }catch(e){ return ''; } }
+  function guestHtml(){
+    const SK=['#f6d2b0','#e8b88f','#c98d63','#f1c9a3','#a8693f','#f3d9c0'], HR=['#2b2118','#5a3a22','#1d1d1d','#8a5a2b','#3a2a1a','#6b6b6b'];
+    let h=''; for(let k=0;k<6;k++){ const long=(k%2===1);
+      const head=`<svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0"><g stroke="#14202b" stroke-width="2" stroke-linejoin="round"><circle cx="22" cy="23" r="14" fill="${SK[k]}"/><path d="M8 22 Q8 6 22 6 Q36 6 36 22 L36 ${long?34:20} L32 ${long?34:18} Q22 11 12 ${long?34:18} L8 ${long?34:20}Z" fill="${HR[k]}"/></g><circle cx="17" cy="25" r="1.7" fill="#14202b"/><circle cx="27" cy="25" r="1.7" fill="#14202b"/><path d="M19 31 Q22 34 25 31" fill="none" stroke="#14202b" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+      h+=`<div class="ofc-ch ofc-guest" id="ofc-g${k}" style="left:752px;top:685px;display:none;pointer-events:none;z-index:70"><div class="ofc-rot"><div class="ofc-in" id="ofc-gi${k}"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:#26364a"></div><div style="position:absolute;left:17px;top:38px;width:10px;height:14px;background:#fff;border:1.5px solid #14202b;box-sizing:border-box;clip-path:polygon(0 0,100% 0,50% 100%)"></div><div style="position:absolute;left:20px;top:44px;width:4px;height:10px;background:#d4453b"></div><div style="position:absolute;left:28px;top:44px;width:9px;height:6px;background:#f5c542;border:1px solid #14202b;box-sizing:border-box;border-radius:1px"></div>${head}</div></div><div class="ofc-tag" id="ofc-gt${k}" style="background:#f5c542"></div><div class="ofc-say" id="ofc-gs${k}"></div></div>`; }
+    return h;
+  }
   const IDLE_STUB={proj:'',n:0,others:0,key:'~idle',tasks:[],t:null,idle:true};
   function isOffDay(i,iso){ return OFFROWS.some(r=>r.who===i&&(rngIn(r.range,iso)||dayMatch(r.range,iso)===true)); }
   function presOf(day){ const o=Object.assign({},day.acts); NAMES.forEach((nm,i)=>{ if(!o[i]&&seat[i]&&GONE.indexOf(i)<0&&!isOffDay(i,day.iso)) o[i]=IDLE_STUB; }); return o; }
@@ -7991,6 +8034,7 @@ const OFC = (function(){
     {k:'halloween', sm:['🎃','🕷','💀','🍬','🦇'], hang:['🕷','🎃','🕸','🕷','🎃'], web:true, re:/halloween|ma quỷ|ma quy/i, vn:'Halloween', en:'Halloween', rng:['10-25..10-31'], ban:['🎃 Halloween vui vẻ · Happy Halloween','🎃 Happy Halloween'], col:'#6c3483', bulbs:['#f5821f','#8e44ad'], fall:['🦇',0], floor:[['🎃',900,490,64],['🎃',976,520,40],['🕸',852,462,40],['👻',1030,490,44]], bats:true},
     {k:'women83', sm:['🌷','🌹','💐','🌸','🎀'], hang:['🌸','🌷','🎀','🌸','🌷'], re:/8\/3|8-3|quốc tế phụ nữ|quoc te phu nu|women'?s? ?day|march 8/i, vn:'Quốc tế Phụ nữ 8/3', en:"Women's Day 8/3", rng:['03-06..03-08'], ban:['🌷 Chúc mừng 8/3 · Happy Women’s Day','🌷 Happy International Women’s Day'], col:'#d6336c', bulbs:['#f58fb0','#fff','#f5d76e'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
     {k:'women2010', sm:['🌹','💐','🌷','🎀','🌸'], hang:['🌸','🌹','🎀','🌸','🌹'], re:/20\/10|20-10|phụ nữ việt|phu nu viet/i, vn:'Phụ nữ Việt Nam 20/10', en:"Vietnamese Women's Day 20/10", rng:['10-18..10-20'], ban:['🌹 Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam','🌹 Happy Vietnamese Women’s Day 20/10'], col:'#d6336c', bulbs:['#f58fb0','#fff','#e5484d'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
+    {k:'welcome', re:/welcome|chào mừng|chao mung|khách|khach|kta ghé|kta ghe/i, vn:'Chào mừng KTA ghé thăm', en:'Welcome KTA visit', rng:[], ban:['👋 Chào mừng KTA ghé thăm · Welcome KTA','👋 Welcome KTA · Thank you for visiting'], col:'#1f6f8b', bulbs:['#f5c542','#fff','#6aa9e0','#f58fb0'], fall:['✨',12], floor:[['💐',900,490,60],['🎈',868,466,44],['🎈',1010,476,44],['🌟',950,552,30]], sm:['👋','💐','🌟','🎈'], hang:['🌟','🎈','💐','🌟','🎈']},
     {k:'national', sm:['🇻🇳','⭐','🇻🇳','🌟'], hang:['🇻🇳','🇻🇳','🇻🇳','🇻🇳','🇻🇳'], re:/quốc khánh|quoc khanh|2\/9|30\/4|1\/5|national|giải phóng|giai phong|lao động|lao dong/i, vn:'Lễ lớn 30/4 · 1/5 · 2/9', en:'Public holiday', rng:['04-28..05-01','08-30..09-02'], ban:['🇻🇳 Chào mừng ngày lễ · Việt Nam','🇻🇳 Happy National Day'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['⭐',12], floor:[['🇻🇳',900,480,60],['🇻🇳',990,500,44],['🌟',950,560,30]]},
     {k:'trungthu', sm:['🏮','🥮','🌕','🐇','⭐'], hang:['🏮','🏮','🌕','🏮','🏮'], re:/trung thu|mid.?autumn|rằm|ram thang tam/i, vn:'Tết Trung thu', en:'Mid-Autumn Festival', rng:['2027-09-12..2027-09-15','2028-09-30..2028-10-03'], ban:['🏮 Vui Tết Trung thu · Mid-Autumn','🏮 Happy Mid-Autumn Festival'], col:'#b9770e', bulbs:['#f5b942','#f5821f','#e5484d'], fall:['🌕',6], floor:[['🥮',900,520,40],['🏮',960,480,48],['🐇',880,470,40],['🌕',1030,500,44]], lantern:true}
   ];
@@ -8031,10 +8075,10 @@ const OFC = (function(){
         SL.forEach((q,k)=>{ const e=t.sm[(k+ti)%t.sm.length]; fl+=EM(e,q[0],q[1],17+(k%3)*2,'animation:ofcbob '+(2.2+(k%4)*.5)+'s ease-in-out '+(-(k%5)*.5)+'s infinite;'); });
         fl+=EM(t.floor[0][0],985,352,30,'animation:ofcglow 2.6s ease-in-out infinite;');   // giữa bàn họp
         const hg=t.hang||[]; [60,190,300,800,830].forEach((x,k)=>{ if(!hg.length) return; ov+=`<div class="ofc-dec-i" style="left:${x}px;top:40px;width:1.6px;height:${8+(k%3)*5}px;background:#14202b;opacity:.5;z-index:1"></div><div class="ofc-dec-i" style="left:${x-9}px;top:${46+(k%3)*5}px;font-size:19px;transform-origin:50% 0;animation:ofcsway ${2.4+(k%3)*.5}s ease-in-out ${-(k%4)*.5}s infinite">${hg[k%hg.length]}</div>`; });
-        [[729,596,104],[701,676,144]].forEach((d,di)=>{ const x=d[0],y=d[1],w=d[2];
-          ov+=`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;width:${w}px;height:14px;border-bottom:3px solid ${t.col};border-radius:0 0 50% 50%/0 0 100% 100%;box-sizing:border-box"></div>`;
-          const n=Math.round(w/20); for(let k=0;k<=n;k++){ const fx=x+k*(w/n), fy=y+Math.round(10*Math.sin(Math.PI*k/n))-4, bc=t.bulbs[k%t.bulbs.length];
-            ov+=(k%2)?`<div class="ofc-dec-i" style="left:${fx-6}px;top:${fy}px;font-size:13px;animation:ofcblink ${1.4+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite">${t.sm[(k+di)%t.sm.length]}</div>`:`<div class="ofc-dec-i" style="left:${fx-4}px;top:${fy+3}px;width:8px;height:10px;border-radius:50%;background:${bc};border:1.5px solid #14202b;box-sizing:border-box;animation:ofcblink ${1.2+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite"></div>`; } });
+        [[720,588,122],[692,668,162]].forEach((d,di)=>{ const x=d[0],y=d[1],w=d[2];
+          ov+=`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;width:${w}px;height:18px;border-bottom:4px solid ${t.col};border-radius:0 0 50% 50%/0 0 100% 100%;box-sizing:border-box"></div>`;
+          const n=Math.round(w/22); for(let k=0;k<=n;k++){ const fx=x+k*(w/n), fy=y+Math.round(14*Math.sin(Math.PI*k/n))-5, bc=t.bulbs[k%t.bulbs.length];
+            ov+=(k%2)?`<div class="ofc-dec-i" style="left:${fx-8}px;top:${fy}px;font-size:18px;animation:ofcblink ${1.4+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite">${t.sm[(k+di)%t.sm.length]}</div>`:`<div class="ofc-dec-i" style="left:${fx-5}px;top:${fy+4}px;width:10px;height:13px;border-radius:50%;background:${bc};border:1.5px solid #14202b;box-sizing:border-box;animation:ofcblink ${1.2+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite"></div>`; } });
         if(t.web){ fl+=EM('🕸',10,36,44)+EM('🕸',1066,214,40)+EM('🕸',8,590,40); }
         fl+=EM(t.sm[0],700,606,26,'animation:ofcbob 2.6s ease-in-out infinite;'); }
       // dây đèn
@@ -8234,8 +8278,17 @@ const OFC = (function(){
     const PL=(MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs;
     const PS=5, pages=Math.max(1,Math.ceil(PL.length/PS)), page=Math.floor(tk/3)%pages;
     for(let k=0;k<PS;k++){ const o=PL[page*PS+k]; $('ofc-w'+k+'t').textContent=o?(MEET&&MEET.items.length?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?String(o.c):''; }
-    $('ofc-wbh').textContent=(MEET?T(MEET.title):'Daily report')+(pages>1?' '+(page+1)+'/'+pages:'');
+    $('ofc-wbh').textContent=(decKeyNow()==='welcome'?'Welcome KTA':(MEET?T(MEET.title):'Daily report'))+(pages>1?' '+(page+1)+'/'+pages:'');
     $('ofc-wbn').textContent=(MEET&&MEET.items.length)?'':day.tasks+' tasks';
+    { const wl=decKeyNow()==='welcome', gl=guestList();
+      for(let k=0;k<6;k++){ const el=$('ofc-g'+k); if(!el) continue;
+        if(!wl||k>=gl.length){ el.style.display='none'; continue; }
+        const ps=guestPos(k,tk);
+        if(!ps.vis){ el.style.display='none'; continue; }
+        el.style.display='block'; el.style.transition=snap?'none':('left '+TICK/1000+'s linear, top '+TICK/1000+'s linear, opacity .4s');
+        el.style.left=(ps.x-22)+'px'; el.style.top=(ps.y-31)+'px';
+        const inn=$('ofc-gi'+k); inn.className='ofc-in'+(ps.mv?' ofc-walking':''); inn.parentElement.style.transform=(ps.x>860&&ps.y<470)?'scale(.62)':'';
+        $('ofc-gt'+k).textContent=gl[k].n; const sy=$('ofc-gs'+k); sy.textContent=T(ps.say); sy.style.opacity=ps.say?1:0; } }
     const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e;
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
@@ -8287,6 +8340,28 @@ const OFC = (function(){
     h+=`<div style="position:absolute;left:404px;top:324px;background:${D};color:#F6F1E7;font-weight:700;font-size:12px;line-height:20px;padding:0 12px;border-radius:12px;white-space:nowrap">${ev.title}</div>`;
     return h;
   }
+
+  function intro(){
+    if(window._ofcIntro) return; window._ofcIntro=true;
+    try{
+      const sc=$('ofc-scene'); if(!sc||window._ofcMusOff) return;
+      applyOffice(); const mu=(window.KTA_MUSIC||localStorage.getItem('kta_music')||'').trim(); if(!mu) return;
+      const css='<style>#ofc-intro{position:absolute;inset:0;z-index:200;display:flex}#ofc-intro .d{position:relative;width:50%;height:100%;background:linear-gradient(90deg,#9aa5b4,#d4dbe4 40%,#aeb8c6);transition:transform 1.3s cubic-bezier(.7,0,.2,1)}#ofc-intro .d.l{border-right:3px solid #14202b}#ofc-intro .d.r{border-left:3px solid #14202b;background:linear-gradient(90deg,#aeb8c6,#d4dbe4 60%,#9aa5b4)}#ofc-intro.open .d.l{transform:translateX(-101%)}#ofc-intro.open .d.r{transform:translateX(101%)}#ofc-ipn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;width:420px;text-align:center;background:#14202b;color:#f6f1e7;border-radius:18px;padding:18px 20px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:opacity .5s,transform .8s}#ofc-ipn.open{opacity:0;transform:translate(-50%,-60%) scale(.96);pointer-events:none}</style>';
+      const w=document.createElement('div'); w.id='ofc-iw'; w.style.cssText='position:absolute;inset:0;z-index:200';
+      w.innerHTML=css+'<div id="ofc-intro"><div class="d l"></div><div class="d r"></div></div><div id="ofc-ipn"><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#f0c98a;font-weight:700">KTA TeamVN</div><div id="ofc-ifl" style="font:700 54px/1.1 Courier New,monospace;color:#ff5a4d;text-shadow:0 0 14px rgba(255,90,77,.7);margin:6px 0 2px"><span id="ofc-ifn">1</span><small style="font-size:20px;color:#f0c98a;text-shadow:none"> F</small></div><div id="ofc-itt" style="font:700 19px Georgia,serif;margin:2px 0 10px">'+T('Thang máy đang lên văn phòng…')+'</div><div style="height:8px;border-radius:6px;background:#2c3b4b;overflow:hidden"><i id="ofc-ibr" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f0c98a,#ff9f6b);border-radius:6px"></i></div><div id="ofc-ist" style="font-size:12.5px;margin-top:9px;min-height:18px;color:#cfd6df">🎵 '+T('Đang tải nhạc…')+'</div><button id="ofc-igo" style="display:none;margin-top:10px;min-height:44px;padding:0 22px;border-radius:24px;border:0;background:#f0c98a;color:#14202b;font:700 14px system-ui,sans-serif;cursor:pointer">'+T('Vào văn phòng 🎵')+'</button></div>';
+      sc.appendChild(w);
+      const TT=4200, t0=Date.now(); let done=false;
+      const iv=setInterval(()=>{ const b=$('ofc-ibr'); if(!b){ clearInterval(iv); return; } const p=Math.min(1,(Date.now()-t0)/TT); b.style.width=(p*100)+'%'; $('ofc-ifn').textContent=Math.min(17,1+Math.floor(p*16)); if(p>=1) clearInterval(iv); },80);
+      const openDoor=()=>{ if(done) return; done=true; const a=$('ofc-intro'), b=$('ofc-ipn'); if(a) a.classList.add('open'); if(b) b.classList.add('open'); setTimeout(()=>{ const x=$('ofc-iw'); if(x) x.remove(); },2200); };
+      setTimeout(()=>{
+        if(!$('ofc-iw')) return; $('ofc-ifn').textContent=17; $('ofc-itt').textContent=T('Tới nơi rồi, ting!');
+        const mbx=$('ofc-musbox'), au=mbx&&mbx.querySelector('audio'); const blocked=!!((au&&au.paused)||!(mbx&&mbx.innerHTML));
+        if(blocked){ $('ofc-ist').textContent=T('Trình duyệt cần bạn bấm 1 lần để bật nhạc'); const g=$('ofc-igo'); g.style.display='inline-block'; g.onclick=()=>{ try{ const mb=$('ofc-mus'); if(mb&&/Tắt|Off/.test(mb.textContent)) mb.click(); else if(au){ const pr=au.play(); if(pr&&pr.catch) pr.catch(()=>{}); } }catch(e){} $('ofc-ist').textContent=T('Nhạc đã bật ✓'); g.style.display='none'; setTimeout(openDoor,350); }; }
+        else { $('ofc-ist').textContent=T('Nhạc đã sẵn sàng ✓'); setTimeout(openDoor,700); }
+      },TT);
+      setTimeout(openDoor,60000);
+    }catch(e){}
+  }
   function show(){
     const root=$('ofc-root'); if(!root) return;
     buildData();
@@ -8297,6 +8372,7 @@ const OFC = (function(){
     applyOffice();
     paint();
     fitScene();
+    intro();
     if(!timer) timer=setInterval(tick,TICK);
     try{ const mb=$('ofc-mus'); if(mb&&!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) setTimeout(()=>{ if(!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) mb.click(); },300); }catch(e){}
   }
