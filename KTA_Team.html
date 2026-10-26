@@ -6679,18 +6679,20 @@ function applyRoleUI(){
   const officeTab = document.getElementById('maintab-office'); if(officeTab) officeTab.style.display = 'flex';
   const lbTab = document.getElementById('maintab-lb');
   if(sheetsRole === 'user'){
-    // User: thấy Tra cứu + Leaderboard
+    // Member: tạm khoá Xếp hạng — chỉ thấy Văn phòng (mặc định) + Tra cứu
     userTab.style.display = 'flex';
-    if(lbTab) lbTab.style.display = 'flex';
+    if(lbTab) lbTab.style.display = 'none';
+    if(officeTab) officeTab.style.order = '-1';
     projTab.style.display = 'none';
     evalTab.style.display = 'none';
     if(membersTab) membersTab.style.display = 'none';
     const lbNote = document.getElementById('lb-user-note');
     if(lbNote) lbNote.style.display = 'block';
-    switchMainTab('user');
+    { const act=document.querySelector('.main-tab.active'); const aid=act?act.id:''; if(aid!=='maintab-user' && aid!=='maintab-office'){ switchMainTab('office'); try{ OFC.show(); }catch(e){} } }
   } else if(sheetsRole === 'leader'){
     // Leader: full view
     userTab.style.display = 'none';
+    if(officeTab) officeTab.style.order = '';
     if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
@@ -6700,6 +6702,7 @@ function applyRoleUI(){
   } else {
     // Admin: tất cả tab
     userTab.style.display = 'none';
+    if(officeTab) officeTab.style.order = '';
     if(lbTab) lbTab.style.display = 'flex';
     projTab.style.display = 'flex';
     evalTab.style.display = 'flex';
@@ -7395,6 +7398,55 @@ const OFC = (function(){
   'Chúc mừng sinh nhật!':'Happy birthday!',
   'Chúc mừng!':'Congrats!',
   'Chưa chắc là nghỉ':'Not necessarily off',
+  'Hôm nay không ai off.':'No one is off today.',
+  'Merry Christmas nha!':'Merry Christmas to you!',
+  'Giáng sinh vui vẻ nha!':'Merry Christmas!',
+  'Quà Giáng sinh của bạn nè!':'Here is your Christmas gift!',
+  'Ôi, bất ngờ quá, cảm ơn!':'Oh, what a surprise, thank you!',
+  'Rủ bạn chụp hình bên cây thông nhé?':'Photo by the tree together?',
+  'Ok, đi thôi!':'Sure, let’s go!',
+  'Chụp hình với cây thông!':'Selfie with the tree!',
+  'Ngắm cây thông xíu':'Admiring the tree',
+  'Đi xem hộp quà':'Checking out the gifts',
+  'Chúc mừng năm mới!':'Happy New Year!',
+  'Năm mới vui vẻ nha!':'Happy New Year to you!',
+  'Năm mới cùng cố gắng nhé!':'Let’s do great this year!',
+  'Cùng cố gắng nha!':'Let’s do it!',
+  'Ngắm pháo hoa':'Watching the fireworks',
+  'Đi chụp hình với bóng bay':'Photo with the balloons',
+  'Lì xì đầu năm nè!':'A lucky envelope for you!',
+  'Cảm ơn, chúc năm mới phát tài!':'Thanks, wishing you prosperity!',
+  'Vạn sự như ý nha!':'Wishing you all the best!',
+  'Xuân về vui quá!':'Spring is here, so fun!',
+  'Ừ, Tết đến rồi!':'Yes, Tet is coming!',
+  'Ngắm hoa đào':'Admiring the blossoms',
+  'Chụp hình với hoa mai':'Photo with the blossoms',
+  'Trick or treat!':'Trick or treat!',
+  'Đây, kẹo cho bạn nè!':'Here, have some candy!',
+  'Bùùù!':'Boo!',
+  'Á! Giật mình!':'Ah! You scared me!',
+  'Rủ chụp hình với bí ngô nhé?':'Photo with the pumpkin?',
+  'Ok, ghê ghê!':'Sure, spooky!',
+  'Chụp hình với bí ngô':'Photo with the pumpkin',
+  'Đi tìm kẹo':'Looking for candy',
+  'Tặng bạn hoa nhân ngày 8/3!':'Flowers for you on Women’s Day!',
+  'Cảm ơn nhiều nha!':'Thank you so much!',
+  'Chúc mừng ngày 8/3!':'Happy Women’s Day!',
+  'Cảm ơn bạn!':'Thank you!',
+  'Ngắm hoa':'Admiring the flowers',
+  'Tặng bạn hoa nhân ngày 20/10!':'Flowers for you on 20/10!',
+  'Chúc mừng ngày 20/10!':'Happy 20/10!',
+  'Chúc mừng ngày lễ nha!':'Happy holiday!',
+  'Nghỉ lễ vui vẻ nhé!':'Enjoy the holiday!',
+  'Tự hào Việt Nam!':'Proud of Vietnam!',
+  'Việt Nam ơi!':'Go Vietnam!',
+  'Chào cờ nè!':'Saluting the flag!',
+  'Mời bạn miếng bánh trung thu!':'Have a mooncake!',
+  'Cảm ơn, ngon quá!':'Thanks, delicious!',
+  'Rước đèn không?':'Lantern parade?',
+  'Đi thôi, vui quá!':'Let’s go, so fun!',
+  'Ngắm trăng rằm':'Admiring the full moon',
+  'Chụp hình với đèn lồng':'Photo with the lanterns',
   'Chưa về hả? Trễ rồi nha!':'Still here? It is late!',
   'Chỗ này bạn thấy sao?':'What do you think about this part?',
   'Chỗ này làm vậy nè!':'Here is how to do this part!',
@@ -7623,7 +7675,7 @@ const OFC = (function(){
   const TRAITS=[['quiet',/ít giao tiếp|it giao tiep|quiet|im lặng/i],['talk',/hay nói|hay noi|talk|nói nhiều/i],['coffee',/cà phê|ca phe|coffee/i],['snack',/ăn vặt|an vat|snack|ăn uống/i],['ask',/hỏi việc|hoi viec|ask/i],['support',/support|hỗ trợ|ho tro/i],['late',/ở lại|o lai|muộn|late/i]];
   function applyOffice(){
     let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
-    EVENTS.length=EV0; MEET=null; DECORROWS=[];
+    EVENTS.length=EV0; MEET=null; DECORROWS=[]; OFFROWS=[];
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
     if(st.demoMeet) MEET={title:'Team meeting',sub:'Chào cả team, bắt đầu giao ban!',items:[{t:'Tổng kết tuần qua',w:NAMES.indexOf('Liam'),r:'Tuần qua mình chốt xong 5 dự án'},{t:'Kế hoạch tuần mới',w:NAMES.indexOf('Stuart'),r:'Tuần mới ưu tiên các dự án gấp'},{t:'Nhắc deadline',w:NAMES.indexOf('Nina'),r:'Nhớ chốt bản vẽ đúng hạn nhé'}]};
@@ -7632,6 +7684,7 @@ const OFC = (function(){
       if(!r) return; const ty=String(r[0]||'').trim().toLowerCase(), who=nameIdx(r[1]), wi=nameIdx(r[2]), tx=String(r[3]||'').trim(), rp=String(r[4]||'').trim(), ch=parseFloat(String(r[5]||'').replace(',','.'));
       { const txe=String(r[7]||'').trim(), rpe=String(r[8]||'').trim(); if(tx&&txe) EN[tx]=txe; if(rp&&rpe) EN[rp]=rpe; }
       if(ty==='music'){ if(tx) window.KTA_MUSIC=tx; return; }
+      if(ty==='off'||ty==='nghỉ'||ty==='nghi'){ if(who>=0) OFFROWS.push({who:who,range:String(r[6]||'').trim()}); return; }
       if(ty==='decor'||ty==='trangtri'||ty==='trang trí'){ const t=DECOR.find(t=>t.k===tx.toLowerCase().trim()||t.re.test(tx)); if(t) DECORROWS.push({t:t.k,range:String(r[6]||'').trim(),off:/^(off|tắt|tat|không|khong|no)$/i.test(rp),ban:/^(off|tắt|tat|không|khong|no)$/i.test(rp)?'':rp}); return; }
       if(ty==='birthday'||ty==='meal'){
         const d=String(r[3]||r[2]||'').trim(); let md='', iso='';
@@ -7723,7 +7776,7 @@ const OFC = (function(){
   // mốc thời gian trong 1 chu kỳ (mỗi tick ~1,8 giây)
   function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:236, meetEnd:MEET?18:9, work:MEET?22:13, arrive:true, leave:224, span:9}; }
   const hhmm=m=>(m===null||m===undefined)?'':(('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2));
-  const activeList=day=>Object.keys(day.acts).map(Number).sort((a,b)=>a-b);
+  const activeList=day=>Object.keys(presOf(day)).map(Number).sort((a,b)=>a-b);
   // ── hoạt động ngẫu nhiên trong giờ làm việc ──
   function newTrip(i,kind,dest,stay,say,extra){
     const from=seatLoc(i), e=etaTicks(from,dest);
@@ -7742,7 +7795,7 @@ const OFC = (function(){
       if(st.journey){ if(st.idx>=last) st.journey=false; else st.idx++; }
       applyOffice(); st.tk=0; st.trips={}; st.snap=true; paint(); return;
     }
-    const idle={}; const day=days[st.idx]; seedRng(day.iso+'|'+tk); const _d=day, act=day.acts, trips={}, busy={}; let n=0; const ev=eventFor(day), evBlock=!!ev && tk>=EV.s-6 && tk<EV.e+5;
+    const idle={}; const day=days[st.idx]; seedRng(day.iso+'|'+tk); const _d=day, act=presOf(day), trips={}, busy={}; let n=0; const DECT=(()=>{ try{ const ii=st.idx===days.length-1&&localIso()>day.iso?localIso():day.iso; const l=decorActive(ii); return (l.length&&!st.journey)?l[0].t.k:''; }catch(e){ return ''; } })(); const ev=eventFor(day), evBlock=!!ev && tk>=EV.s-6 && tk<EV.e+5;
     // cập nhật các chuyến đang diễn ra
     if(ev && tk===EV.s) st.trips={};
     Object.keys(st.trips).forEach(k=>{
@@ -7770,11 +7823,15 @@ const OFC = (function(){
         if(i===WILDER && act[BONNIE]) { return; }   // Wilder chỉ đi theo Bonnie
         const nm=NAMES[i], P=PERS[nm]||{};
         const tr=P.tr||{}, tm=k=>tr[k]?[.3,.6,1,2.5,5][Math.min(5,Math.max(1,tr[k]))-1]:1;
-        const nT=act[i].n||0, bz=nT>=4?.6:(nT<=1?1.4:1), qf=tr.quiet?[1,.7,.5,.25,.1][Math.min(5,Math.max(1,tr.quiet))-1]:1, soc=tm('talk')*qf;
+        const nT=act[i].n||0, bz=nT>=4?.6:((nT<=1&&!act[i].idle)?1.4:1), qf=tr.quiet?[1,.7,.5,.25,.1][Math.min(5,Math.max(1,tr.quiet))-1]:1, soc=tm('talk')*qf;
         const rnd=p=>R()<p*bz;
         const social=(j,kind,say,reply)=>{ trips[i]=newTrip(i,kind,standLoc(j),3,say,{to:j,hostSay:reply}); busy[i]=1; busy[j]=1; n++; };
         const free=names=>names.map(x=>NAMES.indexOf(x)).filter(j=>j!==i&&j!==NINA&&act[j]&&!busy[j]&&!(((PERS[NAMES[j]]||{}).tr||{}).quiet>=4));
         const sit=(j,say,reply)=>{ trips[i]={kind:'sit',dest:seatLoc(i),say:P.silent?'':say,stage:'stay',n:3,stay:3,to:j,hostSay:reply}; busy[i]=1; busy[j]=1; };
+        if(DECT && THL[DECT] && rnd((.14*((DECT==='tet'&&(i===LIAM||i===STU||i===NINA))?2:1))*soc)){
+          const pk=a=>a[Math.floor(R()*a.length)], L0=THL[DECT];
+          if(R()<.3){ const f=pk(L0.solo); trips[i]=newTrip(i,'theme',nookLoc(jit(880,28),jit(546,5)),3,f); busy[i]=1; n++; return; }
+          const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const q=pk(L0.s); social(f[Math.floor(R()*f.length)],'chat',q[0],q[1]); return; } }
         if(BUYG.indexOf(nm)>=0 && rnd(0.012)){ const g=BUYG.map(x=>NAMES.indexOf(x)).filter(j=>act[j]&&!busy[j]); if(g.length>=2){ g.forEach((j,k)=>{ trips[j]=newTrip(j,'buy',ELEV,6,'Đi mua nước chung',{lag:k*600}); busy[j]=1; n++; }); return; } }
         if(P.hello && rnd(P.helloP*soc)){ const f=free(P.hello); if(f.length){ social(f[Math.floor(R()*f.length)],'chat','Hello mấy cục dàng!','Anh Guột qua kìa!'); return; } }
         for(const r of (P.sitx||[])){ if(rnd(r.p*soc)){ const f=free([r.w]); if(f.length){ sit(f[0],r.q,r.a); return; } } }
@@ -7840,7 +7897,6 @@ const OFC = (function(){
     <button id="ofc-btn" class="ofc-btn"></button>
     <div style="flex:1 1 260px;min-width:0"><input id="ofc-rng" type="range" min="0" max="0" value="0" style="width:100%;margin:0;accent-color:#14202b"><div id="ofc-stars" style="position:relative;height:0;margin:0 0 2px"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#3a4754"><span id="ofc-d0"></span><span id="ofc-d1"></span></div></div>
     <button id="ofc-mus" type="button" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 16px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b;cursor:pointer">${T('🎵 Nhạc: Tắt')}</button>
-    <span id="ofc-musbox" style="position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none"></span>
     <select id="ofc-spd" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="mid">${T('Tốc độ: Vừa')}</option><option value="slow">${T('Tốc độ: Chậm')}</option></select>
     <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">${T('Sự kiện: theo lịch')}</option><option value="birthday">${T('Xem thử sinh nhật')}</option><option value="meal">${T('Xem thử tiệc ăn uống')}</option><option value="award">${T('Xem thử vinh danh tháng')}</option><option value="meeting">${T('Xem thử họp giao ban')}</option>${DECOR.map(t=>'<option value="decor:'+t.k+'">'+T('Trang trí: ')+L_(t.vn,t.en)+'</option>').join('')}</select>
     <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
@@ -7864,7 +7920,8 @@ const OFC = (function(){
     const reset=()=>{ st.tk=0; st.trips={}; st.snap=true; setTimeout(applyOffice,0); };
     $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } reset(); paint(); });
     $('ofc-rng').addEventListener('input',e=>{ st.idx=parseInt(e.target.value,10); reset(); st.journey=false; paint(); });
-    let musOn=false;
+    let mbx=$('ofc-musbox'); if(!mbx){ mbx=document.createElement('div'); mbx.id='ofc-musbox'; mbx.style.cssText='position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none'; document.body.appendChild(mbx); }
+    let musOn=!!mbx.innerHTML; if(musOn){ const mb0=$('ofc-mus'); mb0.textContent=(mbx.style.position==='fixed')?T('🎵 Chạm ▶ trong khung video'):T('🎵 Nhạc: Bật'); }
     const musUrl=()=>{ try{ applyOffice(); return (window.KTA_MUSIC||localStorage.getItem('kta_music')||'').trim(); }catch(e){ return (window.KTA_MUSIC||'').trim(); } };
     const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1));
     const musHide='position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none', musShow='position:fixed;right:12px;bottom:12px;width:250px;height:170px;z-index:99999;border-radius:12px;overflow:hidden;border:2px solid #14202b;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.35)';
@@ -7892,7 +7949,7 @@ const OFC = (function(){
     });
     $('ofc-evsel').addEventListener('change',e=>{
       let v=e.target.value; st.decorPrev=''; if(/^decor:/.test(v)){ st.decorPrev=v.slice(6); v=''; } st.demoMeet=(v==='meeting'); st.preview=(v==='meeting')?'':(v||''); st.journey=false; applyOffice();
-      const act=days[st.idx].acts, ids=Object.keys(act).map(Number).filter(i=>seat[i]);
+      const act=presOf(days[st.idx]), ids=Object.keys(act).map(Number).filter(i=>seat[i]);
       st.pwho=ids.length?NAMES[ids[Math.floor(R()*ids.length)]]:'';
       st.trips={}; st.cup={}; st.tk=(v==='award')?AW.s-3:((v&&v!=='meeting')?Math.max(cfg().work,EV.s-3):0); st.snap=true; paint();
     });
@@ -7904,17 +7961,38 @@ const OFC = (function(){
   }
 
   // ═══ Trang trí theo dịp / sự kiện trong năm ═══
-  let DECORROWS=[];
-  const DEC_CSS='<style>@keyframes ofcfall{0%{transform:translate(0,-40px) rotate(0)}100%{transform:translate(30px,800px) rotate(300deg)}}@keyframes ofcrise{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-760px);opacity:0}}@keyframes ofcblink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes ofcfly{0%{transform:translateX(-60px)}100%{transform:translateX(1180px)}}@keyframes ofcsway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}@keyframes ofcbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes ofcglow{0%,100%{filter:drop-shadow(0 0 2px rgba(255,220,120,.2)) brightness(1)}50%{filter:drop-shadow(0 0 9px rgba(255,215,90,.95)) brightness(1.18)}}@keyframes ofcpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}@keyframes ofcwave{0%,100%{transform:skewY(-5deg) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}@keyframes ofcfloat{0%,100%{transform:translate(0,0)}50%{transform:translate(5px,-9px)}}@keyframes ofcpop{0%,100%{transform:scale(.4);opacity:0}30%,60%{transform:scale(1);opacity:1}}.ofc-dec-i{position:absolute;pointer-events:none;line-height:1}</style>';
+  let DECORROWS=[], OFFROWS=[];
+  const THL={
+    xmas:{s:[['Merry Christmas nha!','Giáng sinh vui vẻ nha!'],['Quà Giáng sinh của bạn nè!','Ôi, bất ngờ quá, cảm ơn!'],['Rủ bạn chụp hình bên cây thông nhé?','Ok, đi thôi!']],solo:['Chụp hình với cây thông!','Ngắm cây thông xíu','Đi xem hộp quà']},
+    newyear:{s:[['Chúc mừng năm mới!','Năm mới vui vẻ nha!'],['Năm mới cùng cố gắng nhé!','Cùng cố gắng nha!']],solo:['Ngắm pháo hoa','Đi chụp hình với bóng bay']},
+    tet:{s:[['Lì xì đầu năm nè!','Cảm ơn, chúc năm mới phát tài!'],['Chúc mừng năm mới!','Vạn sự như ý nha!'],['Xuân về vui quá!','Ừ, Tết đến rồi!']],solo:['Ngắm hoa đào','Chụp hình với hoa mai']},
+    halloween:{s:[['Trick or treat!','Đây, kẹo cho bạn nè!'],['Bùùù!','Á! Giật mình!'],['Rủ chụp hình với bí ngô nhé?','Ok, ghê ghê!']],solo:['Chụp hình với bí ngô','Đi tìm kẹo']},
+    women83:{s:[['Tặng bạn hoa nhân ngày 8/3!','Cảm ơn nhiều nha!'],['Chúc mừng ngày 8/3!','Cảm ơn bạn!']],solo:['Ngắm hoa']},
+    women2010:{s:[['Tặng bạn hoa nhân ngày 20/10!','Cảm ơn nhiều nha!'],['Chúc mừng ngày 20/10!','Cảm ơn bạn!']],solo:['Ngắm hoa']},
+    national:{s:[['Chúc mừng ngày lễ nha!','Nghỉ lễ vui vẻ nhé!'],['Tự hào Việt Nam!','Việt Nam ơi!']],solo:['Chào cờ nè!']},
+    trungthu:{s:[['Mời bạn miếng bánh trung thu!','Cảm ơn, ngon quá!'],['Rước đèn không?','Đi thôi, vui quá!']],solo:['Ngắm trăng rằm','Chụp hình với đèn lồng']},
+  };
+  // Dịch mô tả task sang tiếng Anh (qua Apps Script LanguageApp), lưu cache trong trình duyệt
+  const TRC=(()=>{ try{ return JSON.parse(localStorage.getItem('kta_tr')||'{}'); }catch(e){ return {}; } })(), TRQ={};
+  function trEn(t){
+    if(!t) return t; if(TRC[t]) return TRC[t];
+    if(!TRQ[t] && typeof sheetsRequest==='function'){ TRQ[t]=1;
+      sheetsRequest(null,{action:'translate',texts:[t]}).then(r=>{ if(r&&r.ok&&r.out&&r.out[0]){ TRC[t]=r.out[0]; try{ const ks=Object.keys(TRC); if(ks.length>400) delete TRC[ks[0]]; localStorage.setItem('kta_tr',JSON.stringify(TRC)); }catch(e){} try{ paint(); }catch(e){} } }).catch(()=>{}); }
+    return null;
+  }
+  const IDLE_STUB={proj:'',n:0,others:0,key:'~idle',tasks:[],t:null,idle:true};
+  function isOffDay(i,iso){ return OFFROWS.some(r=>r.who===i&&(rngIn(r.range,iso)||dayMatch(r.range,iso)===true)); }
+  function presOf(day){ const o=Object.assign({},day.acts); NAMES.forEach((nm,i)=>{ if(!o[i]&&seat[i]&&GONE.indexOf(i)<0&&!isOffDay(i,day.iso)) o[i]=IDLE_STUB; }); return o; }
+  const DEC_CSS='<style>@keyframes ofcfall{0%{transform:translate(0,-40px) rotate(0)}100%{transform:translate(30px,800px) rotate(300deg)}}@keyframes ofcrise{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-760px);opacity:0}}@keyframes ofcblink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes ofcfly{0%{transform:translateX(-60px)}100%{transform:translateX(1180px)}}@keyframes ofcsway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}@keyframes ofcbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes ofcglow{0%,100%{filter:drop-shadow(0 0 2px rgba(255,220,120,.2)) brightness(1)}50%{filter:drop-shadow(0 0 9px rgba(255,215,90,.95)) brightness(1.18)}}@keyframes ofcpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}@keyframes ofcwave{0%,100%{transform:skewY(-5deg) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}@keyframes ofcfloat{0%,100%{transform:translate(0,0)}50%{transform:translate(5px,-9px)}}@keyframes ofcswim{0%{transform:translateX(0) scaleX(1)}49%{transform:translateX(var(--sw)) scaleX(1)}50%{transform:translateX(var(--sw)) scaleX(-1)}99%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(0) scaleX(1)}}@keyframes ofcbub{0%{transform:translateY(0);opacity:0}20%{opacity:.9}100%{transform:translateY(-44px);opacity:0}}@keyframes ofccat{0%{transform:translateX(0) scaleX(-1)}49%{transform:translateX(540px) scaleX(-1)}50%{transform:translateX(540px) scaleX(1)}99%{transform:translateX(0) scaleX(1)}100%{transform:translateX(0) scaleX(-1)}}@keyframes ofctwk{0%,100%{opacity:.2;transform:scale(.6)}50%{opacity:1;transform:scale(1.1)}}@keyframes ofcpop{0%,100%{transform:scale(.4);opacity:0}30%,60%{transform:scale(1);opacity:1}}.ofc-dec-i{position:absolute;pointer-events:none;line-height:1}</style>';
   const DECOR=[
-    {k:'xmas', re:/xmas|giáng|giang|noel|christmas/i, vn:'Giáng sinh', en:'Christmas', rng:['12-15..12-26'], ban:['🎄 Giáng sinh an lành · Merry Christmas','🎄 Merry Christmas · Happy Holidays'], col:'#c0392b', bulbs:['#e5484d','#2f9e57','#f5b942','#fff'], fall:['❄',22], floor:[['🎄',900,478,78],['🎁',868,566,26],['🎁',966,572,22],['⛄',1010,500,40],['🎅',800,300,0]]},
-    {k:'newyear', re:/năm mới dương|dương lịch|nam moi duong|new ?year|tết tây|tet tay/i, vn:'Năm mới', en:'New Year', rng:['12-27..01-03'], ban:['🎆 Chúc mừng năm mới · Happy New Year','🎆 Happy New Year'], col:'#1f3a93', bulbs:['#f5c542','#fff','#6aa9e0','#f58fb0'], fall:['✨',16], floor:[['🍾',900,500,42],['🥂',960,520,38],['🎈',1040,480,44],['🎈',860,470,38]], fire:true},
-    {k:'tet', re:/tết|tet\b|âm lịch|am lich|lunar/i, vn:'Tết Nguyên Đán', en:'Lunar New Year', rng:['2027-01-30..2027-02-14','2028-01-20..2028-02-04'], ban:['🧧 Chúc mừng năm mới · Xuân an khang','🧧 Happy Lunar New Year'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['🌸',18], floor:[['🌸',900,470,76],['🌼',966,486,52],['🧧',870,574,26],['🧧',1000,580,24],['🍊',940,580,28]], lantern:true},
-    {k:'halloween', re:/halloween|ma quỷ|ma quy/i, vn:'Halloween', en:'Halloween', rng:['10-25..10-31'], ban:['🎃 Halloween vui vẻ · Happy Halloween','🎃 Happy Halloween'], col:'#6c3483', bulbs:['#f5821f','#8e44ad'], fall:['🦇',0], floor:[['🎃',900,490,64],['🎃',976,520,40],['🕸',852,462,40],['👻',1030,490,44]], bats:true},
-    {k:'women83', re:/8\/3|8-3|quốc tế phụ nữ|quoc te phu nu|women'?s? ?day|march 8/i, vn:'Quốc tế Phụ nữ 8/3', en:"Women's Day 8/3", rng:['03-06..03-08'], ban:['🌷 Chúc mừng 8/3 · Happy Women’s Day','🌷 Happy International Women’s Day'], col:'#d6336c', bulbs:['#f58fb0','#fff','#f5d76e'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
-    {k:'women2010', re:/20\/10|20-10|phụ nữ việt|phu nu viet/i, vn:'Phụ nữ Việt Nam 20/10', en:"Vietnamese Women's Day 20/10", rng:['10-18..10-20'], ban:['🌹 Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam','🌹 Happy Vietnamese Women’s Day 20/10'], col:'#d6336c', bulbs:['#f58fb0','#fff','#e5484d'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
-    {k:'national', re:/quốc khánh|quoc khanh|2\/9|30\/4|1\/5|national|giải phóng|giai phong|lao động|lao dong/i, vn:'Lễ lớn 30/4 · 1/5 · 2/9', en:'Public holiday', rng:['04-28..05-01','08-30..09-02'], ban:['🇻🇳 Chào mừng ngày lễ · Việt Nam','🇻🇳 Happy National Day'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['⭐',12], floor:[['🇻🇳',900,480,60],['🇻🇳',990,500,44],['🌟',950,560,30]]},
-    {k:'trungthu', re:/trung thu|mid.?autumn|rằm|ram thang tam/i, vn:'Tết Trung thu', en:'Mid-Autumn Festival', rng:['2027-09-12..2027-09-15','2028-09-30..2028-10-03'], ban:['🏮 Vui Tết Trung thu · Mid-Autumn','🏮 Happy Mid-Autumn Festival'], col:'#b9770e', bulbs:['#f5b942','#f5821f','#e5484d'], fall:['🌕',6], floor:[['🥮',900,520,40],['🏮',960,480,48],['🐇',880,470,40],['🌕',1030,500,44]], lantern:true}
+    {k:'xmas', sm:['🎅','🎁','🧦','🔔','⭐','🍪'], hang:['🔔','⭐','🎄','🔔','⭐','🎁'], re:/xmas|giáng|giang|noel|christmas/i, vn:'Giáng sinh', en:'Christmas', rng:['12-15..12-26'], ban:['🎄 Giáng sinh an lành · Merry Christmas','🎄 Merry Christmas · Happy Holidays'], col:'#c0392b', bulbs:['#e5484d','#2f9e57','#f5b942','#fff'], fall:['❄',22], floor:[['🎄',900,478,78],['🎁',868,566,26],['🎁',966,572,22],['⛄',1010,500,40],['🎅',800,300,0]]},
+    {k:'newyear', sm:['🎉','🥳','🎊','✨','🍾'], hang:['🎉','🎊','✨','🎉','🎊'], re:/năm mới dương|dương lịch|nam moi duong|new ?year|tết tây|tet tay/i, vn:'Năm mới', en:'New Year', rng:['12-27..01-03'], ban:['🎆 Chúc mừng năm mới · Happy New Year','🎆 Happy New Year'], col:'#1f3a93', bulbs:['#f5c542','#fff','#6aa9e0','#f58fb0'], fall:['✨',16], floor:[['🍾',900,500,42],['🥂',960,520,38],['🎈',1040,480,44],['🎈',860,470,38]], fire:true},
+    {k:'tet', sm:['🧧','🍊','🌼','🎋','🌸'], hang:['🏮','🧧','🏮','🧧','🏮'], re:/tết|tet\b|âm lịch|am lich|lunar/i, vn:'Tết Nguyên Đán', en:'Lunar New Year', rng:['2027-01-30..2027-02-14','2028-01-20..2028-02-04'], ban:['🧧 Chúc mừng năm mới · Xuân an khang','🧧 Happy Lunar New Year'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['🌸',18], floor:[['🌸',900,470,76],['🌼',966,486,52],['🧧',870,574,26],['🧧',1000,580,24],['🍊',940,580,28]], lantern:true},
+    {k:'halloween', sm:['🎃','🕷','💀','🍬','🦇'], hang:['🕷','🎃','🕸','🕷','🎃'], web:true, re:/halloween|ma quỷ|ma quy/i, vn:'Halloween', en:'Halloween', rng:['10-25..10-31'], ban:['🎃 Halloween vui vẻ · Happy Halloween','🎃 Happy Halloween'], col:'#6c3483', bulbs:['#f5821f','#8e44ad'], fall:['🦇',0], floor:[['🎃',900,490,64],['🎃',976,520,40],['🕸',852,462,40],['👻',1030,490,44]], bats:true},
+    {k:'women83', sm:['🌷','🌹','💐','🌸','🎀'], hang:['🌸','🌷','🎀','🌸','🌷'], re:/8\/3|8-3|quốc tế phụ nữ|quoc te phu nu|women'?s? ?day|march 8/i, vn:'Quốc tế Phụ nữ 8/3', en:"Women's Day 8/3", rng:['03-06..03-08'], ban:['🌷 Chúc mừng 8/3 · Happy Women’s Day','🌷 Happy International Women’s Day'], col:'#d6336c', bulbs:['#f58fb0','#fff','#f5d76e'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
+    {k:'women2010', sm:['🌹','💐','🌷','🎀','🌸'], hang:['🌸','🌹','🎀','🌸','🌹'], re:/20\/10|20-10|phụ nữ việt|phu nu viet/i, vn:'Phụ nữ Việt Nam 20/10', en:"Vietnamese Women's Day 20/10", rng:['10-18..10-20'], ban:['🌹 Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam','🌹 Happy Vietnamese Women’s Day 20/10'], col:'#d6336c', bulbs:['#f58fb0','#fff','#e5484d'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
+    {k:'national', sm:['🇻🇳','⭐','🇻🇳','🌟'], hang:['🇻🇳','🇻🇳','🇻🇳','🇻🇳','🇻🇳'], re:/quốc khánh|quoc khanh|2\/9|30\/4|1\/5|national|giải phóng|giai phong|lao động|lao dong/i, vn:'Lễ lớn 30/4 · 1/5 · 2/9', en:'Public holiday', rng:['04-28..05-01','08-30..09-02'], ban:['🇻🇳 Chào mừng ngày lễ · Việt Nam','🇻🇳 Happy National Day'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['⭐',12], floor:[['🇻🇳',900,480,60],['🇻🇳',990,500,44],['🌟',950,560,30]]},
+    {k:'trungthu', sm:['🏮','🥮','🌕','🐇','⭐'], hang:['🏮','🏮','🌕','🏮','🏮'], re:/trung thu|mid.?autumn|rằm|ram thang tam/i, vn:'Tết Trung thu', en:'Mid-Autumn Festival', rng:['2027-09-12..2027-09-15','2028-09-30..2028-10-03'], ban:['🏮 Vui Tết Trung thu · Mid-Autumn','🏮 Happy Mid-Autumn Festival'], col:'#b9770e', bulbs:['#f5b942','#f5821f','#e5484d'], fall:['🌕',6], floor:[['🥮',900,520,40],['🏮',960,480,48],['🐇',880,470,40],['🌕',1030,500,44]], lantern:true}
   ];
   function rngIn(g,iso){
     const md=iso.slice(5);
@@ -7944,10 +8022,21 @@ const OFC = (function(){
     return out;
   }
   function decorHtml(list){
-    let fl='', ov='';
+    let fl=furnHtml(list[0]&&list[0].t), ov='';
     const EM=(c,x,y,sz,ex)=>`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;font-size:${sz}px;${ex||''}">${c}</div>`;
     list.forEach((a,ti)=>{ const t=a.t;
-      t.floor.forEach(f=>{ if(f[3]>0){ const AN={'🎄':'glow','🎃':'glow','🌕':'glow','🌟':'pulse','🎁':'bob','🥂':'bob','🍊':'bob','🥮':'bob','🐇':'bob','👻':'float','🎈':'float','🇻🇳':'wave'}[f[0]]||'sway'; fl+=EM(f[0],f[1],f[2],f[3],'transform-origin:50% 90%;animation:ofc'+AN+' '+(2.4+((f[1]%5)*.3))+'s ease-in-out '+(-(f[1]%7)*.4)+'s infinite;'); } });
+      t.floor.forEach(f=>{ if(f[3]>0){ let fy=f[2]; if(fy+f[3]*1.2>548) fy=548-f[3]*1.2; const AN={'🎄':'glow','🎃':'glow','🌕':'glow','🌟':'pulse','🎁':'bob','🥂':'bob','🍊':'bob','🥮':'bob','🐇':'bob','👻':'float','🎈':'float','🇻🇳':'wave'}[f[0]]||'sway'; fl+=EM(f[0],f[1],fy,f[3],'transform-origin:50% 90%;animation:ofc'+AN+' '+(2.4+((f[1]%5)*.3))+'s ease-in-out '+(-(f[1]%7)*.4)+'s infinite;'); } });
+      // đồ nhỏ trên bàn / hành lang / góc / phòng họp
+      { const SL=[[158,88],[158,198],[158,300],[460,88],[460,198],[460,300],[698,170],[698,296],[158,556],[460,556],[700,92],[250,632],[420,636],[560,636],[640,632],[880,636],[1092,636],[30,596],[236,590],[286,262],[590,262]];
+        SL.forEach((q,k)=>{ const e=t.sm[(k+ti)%t.sm.length]; fl+=EM(e,q[0],q[1],17+(k%3)*2,'animation:ofcbob '+(2.2+(k%4)*.5)+'s ease-in-out '+(-(k%5)*.5)+'s infinite;'); });
+        fl+=EM(t.floor[0][0],985,352,30,'animation:ofcglow 2.6s ease-in-out infinite;');   // giữa bàn họp
+        const hg=t.hang||[]; [60,190,300,800,830].forEach((x,k)=>{ if(!hg.length) return; ov+=`<div class="ofc-dec-i" style="left:${x}px;top:40px;width:1.6px;height:${8+(k%3)*5}px;background:#14202b;opacity:.5;z-index:1"></div><div class="ofc-dec-i" style="left:${x-9}px;top:${46+(k%3)*5}px;font-size:19px;transform-origin:50% 0;animation:ofcsway ${2.4+(k%3)*.5}s ease-in-out ${-(k%4)*.5}s infinite">${hg[k%hg.length]}</div>`; });
+        [[729,596,104],[701,676,144]].forEach((d,di)=>{ const x=d[0],y=d[1],w=d[2];
+          ov+=`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;width:${w}px;height:14px;border-bottom:3px solid ${t.col};border-radius:0 0 50% 50%/0 0 100% 100%;box-sizing:border-box"></div>`;
+          const n=Math.round(w/20); for(let k=0;k<=n;k++){ const fx=x+k*(w/n), fy=y+Math.round(10*Math.sin(Math.PI*k/n))-4, bc=t.bulbs[k%t.bulbs.length];
+            ov+=(k%2)?`<div class="ofc-dec-i" style="left:${fx-6}px;top:${fy}px;font-size:13px;animation:ofcblink ${1.4+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite">${t.sm[(k+di)%t.sm.length]}</div>`:`<div class="ofc-dec-i" style="left:${fx-4}px;top:${fy+3}px;width:8px;height:10px;border-radius:50%;background:${bc};border:1.5px solid #14202b;box-sizing:border-box;animation:ofcblink ${1.2+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite"></div>`; } });
+        if(t.web){ fl+=EM('🕸',10,36,44)+EM('🕸',1066,214,40)+EM('🕸',8,590,40); }
+        fl+=EM(t.sm[0],700,606,26,'animation:ofcbob 2.6s ease-in-out infinite;'); }
       // dây đèn
       const bl=t.bulbs; for(let x=14;x<1106;x+=30){ const k=Math.round((x-14)/30), y=32+((k%2)?5:0); ov+=`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;width:9px;height:12px;border-radius:50% 50% 45% 45%;background:${bl[k%bl.length]};border:1.5px solid #14202b;box-sizing:border-box;animation:ofcblink ${1.2+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite"></div>`; }
       ov+=`<div class="ofc-dec-i" style="left:8px;top:33px;width:1104px;height:3px;background:#14202b;opacity:.35;border-radius:2px"></div>`;
@@ -7971,6 +8060,52 @@ const OFC = (function(){
     if(f.dataset.k===key) return; f.dataset.k=key;
     const h=list.length?decorHtml(list):['',''];
     f.innerHTML=h[0]; o.innerHTML=h[1];
+  }
+
+  // ═══ Nội thất / đồ trang trí cố định cho các góc văn phòng ═══
+  function furnHtml(th){
+    const O='#14202b'; const PLE={xmas:'🎄',newyear:'🎈',tet:'🌸',halloween:'🎃',women83:'🌷',women2010:'🌹',national:'🇻🇳',trungthu:'🏮'}[th&&th.k]||'';
+    const sv=(x,y,w,h,inner)=>`<svg style="position:absolute;left:${x}px;top:${y}px;pointer-events:none" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${inner}</svg>`;
+    const st_=`stroke="${O}" stroke-width="2" stroke-linejoin="round"`;
+    const plant=(x,y,k)=>{ k=k||1; const w=30*k,h=44*k; if(PLE) return sv(x,y+14*k,w,h-14*k,`<g transform="translate(0,-14) scale(${k})"><path d="M7 26 L23 26 L21 42 L9 42Z" fill="#c8794b" ${st_}/><rect x="6" y="24" width="18" height="5" rx="2" fill="#d98c5c" ${st_}/></g>`)+`<div class="ofc-dec-i" style="left:${x-2*k}px;top:${y-2*k}px;width:${34*k}px;text-align:center;font-size:${30*k}px;transform-origin:50% 90%;animation:ofcsway ${2.6+(x%3)*.4}s ease-in-out ${-(x%5)*.4}s infinite">${PLE}</div>`; return sv(x,y,w,h,`<g transform="scale(${k})"><ellipse cx="15" cy="14" rx="6" ry="12" fill="#5fae6b" ${st_} transform="rotate(-28 15 20)"/><ellipse cx="15" cy="13" rx="6" ry="13" fill="#7cc785" ${st_}/><ellipse cx="15" cy="14" rx="6" ry="12" fill="#4f9a5c" ${st_} transform="rotate(28 15 20)"/><path d="M7 26 L23 26 L21 42 L9 42Z" fill="#c8794b" ${st_}/><rect x="6" y="24" width="18" height="5" rx="2" fill="#d98c5c" ${st_}/></g>`); };
+    const shelf=(x,y)=>sv(x,y,84,60,`<rect x="2" y="2" width="80" height="56" rx="3" fill="#c9a26b" ${st_}/><rect x="6" y="6" width="72" height="22" fill="#a97f4d"/><rect x="6" y="32" width="72" height="22" fill="#a97f4d"/>`+[[9,10,7,16,'#e5484d'],[17,12,6,14,'#6aa9e0'],[24,9,8,17,'#f5c542'],[34,11,6,15,'#8fcf9f'],[42,10,8,16,'#b07fd1'],[52,12,6,14,'#e5484d'],[60,9,7,17,'#6aa9e0'],[9,36,8,16,'#8fcf9f'],[19,38,6,14,'#f5c542'],[27,35,8,17,'#e5484d'],[38,37,7,15,'#6aa9e0']].map(b=>`<rect x="${b[0]}" y="${b[1]+(b[1]>30?0:0)}" width="${b[2]}" height="${b[3]}" fill="${b[4]}" stroke="${O}" stroke-width="1.2"/>`).join('')+`<rect x="52" y="44" width="22" height="9" rx="2" fill="#fff" ${st_}/>`);
+    const printer=(x,y)=>sv(x,y,64,44,`<rect x="12" y="3" width="40" height="14" fill="#fff" ${st_}/><rect x="3" y="14" width="58" height="26" rx="5" fill="#d7dde6" ${st_}/><rect x="14" y="28" width="36" height="8" fill="#fff" ${st_}/><circle cx="51" cy="21" r="2.4" fill="#2fbf71" stroke="${O}" stroke-width="1"/>`);
+    const cooler=(x,y)=>sv(x,y,34,62,`<rect x="6" y="2" width="22" height="24" rx="9" fill="#9fd8f5" ${st_} opacity=".95"/><rect x="3" y="24" width="28" height="34" rx="4" fill="#e6ebf2" ${st_}/><rect x="9" y="32" width="6" height="6" rx="1" fill="#e5484d" stroke="${O}" stroke-width="1"/><rect x="19" y="32" width="6" height="6" rx="1" fill="#4aa3df" stroke="${O}" stroke-width="1"/><rect x="11" y="46" width="12" height="5" fill="#cfd6e0" stroke="${O}" stroke-width="1"/>`);
+    const poster=(x,y,w,h,c)=>sv(x,y,w,h,`<rect x="1" y="1" width="${w-2}" height="${h-2}" rx="2" fill="${c}" ${st_}/><rect x="${w*.18}" y="${h*.28}" width="${w*.64}" height="2" fill="${O}" opacity=".6"/><rect x="${w*.18}" y="${h*.5}" width="${w*.44}" height="2" fill="${O}" opacity=".6"/>`);
+    const clock=(x,y)=>sv(x,y,22,22,`<circle cx="11" cy="11" r="9" fill="#fff" ${st_}/><path d="M11 5 V11 L15 13" fill="none" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/>`);
+    const bench=(x,y)=>sv(x,y,96,30,`<rect x="3" y="4" width="90" height="12" rx="4" fill="#d9a066" ${st_}/><rect x="9" y="16" width="5" height="11" fill="${O}"/><rect x="82" y="16" width="5" height="11" fill="${O}"/>`);
+    const extg=(x,y)=>sv(x,y,18,34,`<rect x="3" y="8" width="12" height="24" rx="5" fill="#e5484d" ${st_}/><rect x="6" y="3" width="6" height="6" fill="#444" ${st_}/><path d="M12 5 Q17 4 16 10" fill="none" stroke="${O}" stroke-width="1.6"/>`);
+    const vend=(x,y)=>sv(x,y,44,64,`<rect x="2" y="2" width="40" height="60" rx="4" fill="#5b7fd1" ${st_}/><rect x="7" y="7" width="22" height="34" fill="#cfe7f7" stroke="${O}" stroke-width="1.5"/>`+[0,1,2].map(r=>[0,1,2].map(c=>`<rect x="${9+c*7}" y="${9+r*10}" width="5" height="7" rx="1" fill="${['#e5484d','#f5c542','#8fcf9f'][(r+c)%3]}"/>`).join('')).join('')+`<rect x="32" y="9" width="6" height="12" rx="2" fill="#2b3f6e"/><rect x="9" y="48" width="26" height="9" rx="2" fill="#223" />`);
+    const lamp=(x,y)=>sv(x,y,26,70,`<path d="M4 18 L22 18 L18 2 L8 2Z" fill="#f5d98a" ${st_}/><rect x="12" y="18" width="2.6" height="42" fill="${O}"/><ellipse cx="13" cy="64" rx="9" ry="4" fill="#556" ${st_}/>`);
+    const rug=(x,y,w,h,c)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:12px;background:${c};border:2px solid ${O};box-sizing:border-box;opacity:.55"></div><div style="position:absolute;left:${x+8}px;top:${y+8}px;width:${w-16}px;height:${h-16}px;border-radius:8px;border:2px dashed ${O};box-sizing:border-box;opacity:.35"></div>`;
+    const pinkpot=(x,y)=>sv(x,y,24,30,`<path d="M6 18 L18 18 L16 29 L8 29Z" fill="#c8794b" ${st_}/><rect x="5" y="16" width="14" height="4" rx="2" fill="#d98c5c" ${st_}/><circle cx="8" cy="10" r="4.6" fill="#f58fb0" ${st_}/><circle cx="16" cy="10" r="4.6" fill="#f7a8c4" ${st_}/><circle cx="12" cy="5.5" r="4.6" fill="#f58fb0" ${st_}/><circle cx="12" cy="10" r="2" fill="#f5d76e"/>`);
+    const bin=(x,y)=>sv(x,y,20,26,`<path d="M3 6 L17 6 L15 24 L5 24Z" fill="#9aa5b6" ${st_}/><rect x="1" y="3" width="18" height="4" rx="2" fill="#b9c2d0" ${st_}/>`);
+
+    const aquarium=(x,y)=>{ const W=104,H=62; let h=`<div style="position:absolute;left:${x}px;top:${y+8}px;width:${W}px;height:${H-8}px;border-radius:8px;border:3px solid ${O};background:linear-gradient(#bfe9fb,#6cc3e8);box-sizing:border-box;overflow:hidden;box-shadow:0 4px 0 #9ea9bc">`
+      +`<div style="position:absolute;left:0;bottom:0;width:100%;height:9px;background:#e9d29a;border-top:2px solid ${O};box-sizing:border-box"></div>`
+      +`<div class="ofc-dec-i" style="left:10px;bottom:6px;font-size:16px">🌿</div><div class="ofc-dec-i" style="left:78px;bottom:6px;font-size:14px">🪸</div>`
+      +[['🐠',8,10,'60px','7s',0],['🐟',20,26,'48px','9s',-3],['🐡',50,18,'34px','11s',-5]].map(f=>`<div class="ofc-dec-i" style="left:${f[1]}px;top:${f[2]}px;font-size:14px;--sw:${f[3]};animation:ofcswim ${f[4]} linear ${f[5]}s infinite">${f[0]}</div>`).join('')
+      +[0,1,2].map(k=>`<div class="ofc-dec-i" style="left:${22+k*28}px;bottom:10px;width:5px;height:5px;border-radius:50%;border:1.2px solid #fff;animation:ofcbub ${2.4+k*.6}s ease-in ${k*.7}s infinite"></div>`).join('')+`</div>`
+      +`<div style="position:absolute;left:${x+4}px;top:${y}px;width:${W-8}px;height:8px;border-radius:4px;background:#556;border:2px solid ${O};box-sizing:border-box"></div>`
+      +`<div style="position:absolute;left:${x+10}px;top:${y+H}px;width:${W-20}px;height:12px;background:#9a7b55;border:2px solid ${O};border-top:none;box-sizing:border-box"></div>`; return h; };
+    const trophy=(x,y)=>sv(x,y,36,84,`<rect x="2" y="2" width="32" height="80" rx="3" fill="#cfe7f7" ${st_} opacity=".9"/><rect x="5" y="28" width="26" height="3" fill="${O}"/><rect x="5" y="54" width="26" height="3" fill="${O}"/>`+[[18,20,'#f5c542'],[18,46,'#f5c542'],[18,72,'#e0a82e']].map(c=>`<path d="M${c[0]-8} ${c[1]-10} h16 v6 a8 8 0 0 1 -16 0z M${c[0]-3} ${c[1]+3} h6 v5 h-6z" fill="${c[2]}" stroke="${O}" stroke-width="1.4" transform="translate(0,${c[1]>60?-4:0})"/>`).join(''))+`<div class="ofc-dec-i" style="left:${x+22}px;top:${y+4}px;font-size:11px;animation:ofctwk 2.2s ease-in-out infinite">✨</div><div class="ofc-dec-i" style="left:${x+2}px;top:${y+34}px;font-size:9px;animation:ofctwk 2.8s ease-in-out .8s infinite">✨</div>`;
+    const sofa=(x,y)=>sv(x,y,124,46,`<rect x="6" y="4" width="112" height="26" rx="10" fill="#7a8fd1" ${st_}/><rect x="2" y="16" width="20" height="26" rx="8" fill="#6a7fc2" ${st_}/><rect x="102" y="16" width="20" height="26" rx="8" fill="#6a7fc2" ${st_}/><rect x="20" y="18" width="84" height="22" rx="6" fill="#8ea2e0" ${st_}/><rect x="26" y="8" width="22" height="16" rx="5" fill="#f2b8c6" ${st_} transform="rotate(-8 37 16)"/><rect x="78" y="8" width="22" height="16" rx="5" fill="#f5d76e" ${st_} transform="rotate(8 89 16)"/>`);
+    const ctable=(x,y)=>sv(x,y,44,30,`<ellipse cx="22" cy="14" rx="19" ry="10" fill="#d9a066" ${st_}/><rect x="14" y="4" width="8" height="8" rx="2" fill="#fff" ${st_}/><path d="M22 6 q2 -4 0 -6" stroke="#889" stroke-width="1.4" fill="none"/><rect x="26" y="9" width="10" height="5" rx="1" fill="#e5484d" stroke="${O}" stroke-width="1"/>`);
+    const cat=`<div class="ofc-dec-i" style="left:130px;top:654px;font-size:22px;animation:ofccat 26s linear infinite;z-index:2">🐈</div>`;
+    return [
+      // tường trên
+      poster(140,36,22,16,'#f2b8c6'),clock(264,34),poster(300,38,20,14,'#a6d4f2'),poster(782,36,24,16,'#c8e6b0'),poster(1010,214,0,0,'#fff'),
+      // khu giữa phải: kệ sách + máy in
+      aquarium(768,214),plant(840,262,.9),
+      // góc trái dưới
+      plant(12,566,1.1),trophy(6,436),plant(300,355,1.25),plant(10,355,1.25),plant(592,478,.8),
+      // góc phải dưới (chỉ phần mép, chừa chỗ cho đồ theo dịp)
+      pinkpot(154,448),pinkpot(456,448),
+      lamp(1088,470),plant(1068,556,1.2),rug(858,554,196,54,'#a9b7e0'),sofa(884,562),ctable(1010,572),
+      // hành lang
+      plant(200,646,1),plant(500,646,1),plant(610,646,1),plant(932,646,1),plant(1082,632,1),
+      rug(742,360,100,44,'#cfa9c9'),cat
+    ].join('');
   }
   function renderStars(){
     const box=$('ofc-stars'); if(!box||!days.length) return;
@@ -8030,7 +8165,7 @@ const OFC = (function(){
   }
   function paint(){
     if(!built||!days.length) return;
-    const day=days[st.idx], act=day.acts, cf=cfg(), trips=st.trips, tk=st.tk, snap=st.snap;
+    const day=days[st.idx], act=presOf(day), cf=cfg(), trips=st.trips, tk=st.tk, snap=st.snap;
     const order=activeList(day), slot={}; order.forEach((p,k)=>slot[p]=k);
     const lt=q=>(((PERS[NAMES[q]]||{}).tr||{}).late||0)*45, tAdj=q=>act[q].t===null?null:act[q].t+lt(q);
     const byLeave=order.slice().sort((x,y)=>{ const a1=tAdj(x), b1=tAdj(y); if(a1===null&&b1===null) return x-y; if(a1===null) return 1; if(b1===null) return -1; return a1-b1||x-y; });
@@ -8071,11 +8206,11 @@ const OFC = (function(){
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
       c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && loc.seat===true;
-      el.title=a? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
+      el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((a&&tk>=leaveTk[i]&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
-      const b=$('ofc-b'+i); b.textContent=a?a.n:''; b.style.opacity=(a&&!loc.meet)?1:0;
-      $('ofc-t'+i).style.opacity=loc.meet?0:(a?1:0.7);
+      const b=$('ofc-b'+i); b.textContent=(a&&!a.idle)?a.n:''; b.style.opacity=(a&&!a.idle&&!loc.meet)?1:0;
+      $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
       if(say) el.style.zIndex=70;
       const lit=!!a && working, yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
@@ -8089,11 +8224,12 @@ const OFC = (function(){
       const c=info[st.sel], px=Math.min(Math.max(c.loc.x-130,4),1120-264), py=(c.loc.y-31-150>40)?c.loc.y-31-150:c.loc.y+40;
       pop.style.display='flex'; pop.style.left=px+'px'; pop.style.top=py+'px';
       $('ofc-p0').textContent=NAMES[st.sel];
-      $('ofc-p1').textContent=c.a?L_('Dự án chính: ','Main project: ')+c.a.proj:T('Hôm nay chưa ghi việc');
-      $('ofc-p2').textContent=c.a?(c.a.n+L_(' việc trong ngày',(c.a.n===1?' task':' tasks')+' today')+(c.a.others?L_(', cùng ',', plus ')+c.a.others+L_(' dự án khác',' other projects'):'')):T('Chưa chắc là nghỉ');
-      const tl=c.a&&c.a.tasks&&c.a.tasks.length?c.a.tasks[Math.floor(tk/3)%c.a.tasks.length]:null;
-      $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm: ','Working on: ')+tl.d:'';
-      $('ofc-p3').textContent=T(c.say)||(c.a?T('Đang ngồi làm tại bàn'):T('Đang ở chỗ ngồi'));
+      $('ofc-p1').textContent=(c.a&&!c.a.idle)?L_('Dự án chính: ','Main project: ')+c.a.proj:T('Hôm nay chưa ghi việc');
+      $('ofc-p2').textContent=(c.a&&!c.a.idle)?(c.a.n+L_(' việc trong ngày',(c.a.n===1?' task':' tasks')+' today')+(c.a.others?L_(', cùng ',', plus ')+c.a.others+L_(' dự án khác',' other projects'):'')):T('Chưa chắc là nghỉ');
+      const tl=c.a&&!c.a.idle&&c.a.tasks&&c.a.tasks.length?c.a.tasks[Math.floor(tk/3)%c.a.tasks.length]:null;
+      $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm: ','Working on: ')+(LANGEN()?(trEn(tl.d)||tl.d):tl.d):'';
+      $('ofc-p3').textContent=T(c.say)||((c.a&&!c.a.idle)?T('Đang ngồi làm tại bàn'):T('Đang ở chỗ ngồi'));
+      if(c.a&&c.a.idle){ ['ofc-p1','ofc-p2','ofc-p3','ofc-p4'].forEach(id=>{ $(id).textContent='...'; }); }
     } else pop.style.display='none';
     const PL=(MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs;
     const PS=5, pages=Math.max(1,Math.ceil(PL.length/PS)), page=Math.floor(tk/3)%pages;
@@ -8102,7 +8238,7 @@ const OFC = (function(){
     $('ofc-wbn').textContent=(MEET&&MEET.items.length)?'':day.tasks+' tasks';
     const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e;
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
-    const nAct=order.length, total=NAMES.length-GONE.length;
+    const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
     $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?nAct:0; $('ofc-h2').textContent=day.tasks;
     $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+L_(' đến ',' to ')+days[days.length-1].date;
@@ -8122,12 +8258,12 @@ const OFC = (function(){
     $('ofc-phase').textContent=T(ph);
     $('ofc-btn').textContent=T(st.journey?'Dừng, về ngày gần nhất':'Xem lại cả hành trình');
     $('ofc-st').textContent=L_(nAct+' bạn có việc, '+day.projs.length+' dự án, '+day.tasks+' task',nAct+' members working, '+day.projs.length+' projects, '+day.tasks+' tasks');
-    const byp={}; order.forEach(i=>{ const k=act[i].key; byp[k]=(byp[k]||0)+1; });
+    const byp={}; order.forEach(i=>{ if(act[i].idle) return; const k=act[i].key; byp[k]=(byp[k]||0)+1; });
     let bk=null,bn=0; Object.keys(byp).forEach(k=>{ if(byp[k]>bn){ bn=byp[k]; bk=k; } });
     const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
     $('ofc-bz').textContent=bn>=2?L_('Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.','Busiest project: '+bl+', '+bn+' members working on it.'):T('Hôm nay mỗi bạn làm một việc riêng.');
-    const off=NAMES.filter((nm,i)=>seat[i] && !act[i]);
-    $('ofc-off').textContent=off.length?L_(off.length+' bạn chưa ghi việc: '+off.join(', ')+'.',off.length+' member'+(off.length>1?'s':'')+' with no work logged: '+off.join(', ')+'.'):T('Hôm nay cả team đều có việc.');
+    const off=NAMES.filter((nm,i)=>seat[i] && !act[i] && GONE.indexOf(i)<0), idl=NAMES.filter((nm,i)=>act[i]&&act[i].idle);
+    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2=idl.length?L_(' Chưa ghi việc: '+idl.join(', ')+'.',' No work logged: '+idl.join(', ')+'.'):''; $('ofc-off').textContent=a1+a2; }
   }
   function evDecor(ev){
     const D='#14202b', bal=(x,y,c)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:22px;height:28px;border-radius:50% 50% 48% 48%;border:2px solid ${D};background:${c};box-sizing:border-box"></div><div style="position:absolute;left:${x+10}px;top:${y+28}px;width:2px;height:24px;background:${D}"></div>`;
