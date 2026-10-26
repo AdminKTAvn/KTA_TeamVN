@@ -7557,7 +7557,7 @@ const OFC = (function(){
   'Trang trí: ':'Decor: ',
   '🎵 Nhạc: Tắt':'🎵 Music: Off',
   'Chưa có dữ liệu ActivityLog để dựng văn phòng.':'No ActivityLog data to build the office yet.',
-  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓','Đang chờ nhạc…':'Waiting for music…','Thời tiết: Mưa':'Weather: Rain','Thời tiết: Tạnh':'Weather: Clear','Trời mưa to quá!':'It is pouring!','Ừ, nhớ mang áo mưa về nha':'Yeah, bring a raincoat home','Mưa rồi, nhớ đóng cửa sổ nha':'It is raining, close the window please','Ok, để mình đóng':'Ok, I will close it','Mưa thế này pha cà phê nóng đi!':'Rainy day, time for hot coffee!','Đồng ý, cho mình một ly!':'Agreed, one for me too!','Chiều nay về kiểu gì đây?':'How do we get home this afternoon?','Chờ tạnh rồi tính':'Let us wait until it stops','Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật':'Music not ready, tap the 🎵 Music button to start',
+  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓','Đang chờ nhạc…':'Waiting for music…','Điểm danh (Admin/Leader): bấm tên để đánh dấu off':'Attendance (Admin/Leader): tap a name to mark off','Thời tiết: Mưa':'Weather: Rain','Thời tiết: Tạnh':'Weather: Clear','Trời mưa to quá!':'It is pouring!','Ừ, nhớ mang áo mưa về nha':'Yeah, bring a raincoat home','Mưa rồi, nhớ đóng cửa sổ nha':'It is raining, close the window please','Ok, để mình đóng':'Ok, I will close it','Mưa thế này pha cà phê nóng đi!':'Rainy day, time for hot coffee!','Đồng ý, cho mình một ly!':'Agreed, one for me too!','Chiều nay về kiểu gì đây?':'How do we get home this afternoon?','Chờ tạnh rồi tính':'Let us wait until it stops','Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật':'Music not ready, tap the 🎵 Music button to start',
   'Tốc độ: Vừa':'Speed: Medium',
   'Tốc độ: Chậm':'Speed: Slow',
   'Sự kiện: theo lịch':'Event: by schedule',
@@ -7686,7 +7686,7 @@ const OFC = (function(){
       { const txe=String(r[7]||'').trim(), rpe=String(r[8]||'').trim(); if(tx&&txe) EN[tx]=txe; if(rp&&rpe) EN[rp]=rpe; }
       if(ty==='music'){ if(tx) window.KTA_MUSIC=tx; return; }
       if(ty==='guest'||ty==='khách'||ty==='khach'){ const gn=String(r[1]||'').trim(); if(gn&&dayMatch(r[6],viewIso)!==false&&GUESTS.length<6) GUESTS.push({n:gn,t:tx}); return; }
-      if(ty==='weather'||ty==='thời tiết'||ty==='thoi tiet'||ty==='mưa'||ty==='mua'||ty==='rain'){ const w=(tx+' '+rp).toLowerCase(); WXROWS.push({k:(ty==='mưa'||ty==='mua'||ty==='rain'||/mưa|mua|rain/.test(w))&&!/(^|\s)(off|tắt|tat|không|khong|no|clear|nắng|nang)(\s|$)/.test(w)?'rain':'clear',range:String(r[6]||'').trim()}); return; }
+      if(ty==='weather'||ty==='thời tiết'||ty==='thoi tiet'||ty==='mưa'||ty==='mua'||ty==='rain'){ const w=(tx+' '+rp).toLowerCase(); WXROWS.push({k:/(^|\s)(auto|tự động|tu dong|thực tế|thuc te)(\s|$)/.test(w)?'auto':((ty==='mưa'||ty==='mua'||ty==='rain'||/mưa|mua|rain/.test(w))&&!/(^|\s)(off|tắt|tat|không|khong|no|clear|nắng|nang)(\s|$)/.test(w)?'rain':'clear'),range:String(r[6]||'').trim()}); return; }
       if(ty==='off'||ty==='nghỉ'||ty==='nghi'){ if(who>=0) OFFROWS.push({who:who,range:String(r[6]||'').trim()}); return; }
       if(ty==='decor'||ty==='trangtri'||ty==='trang trí'){ const t=DECOR.find(t=>t.k===tx.toLowerCase().trim()||t.re.test(tx)); if(t) DECORROWS.push({t:t.k,range:String(r[6]||'').trim(),off:/^(off|tắt|tat|không|khong|no)$/i.test(rp),ban:/^(off|tắt|tat|không|khong|no)$/i.test(rp)?'':rp}); return; }
       if(ty==='birthday'||ty==='meal'){
@@ -8020,10 +8020,27 @@ const OFC = (function(){
         return {vis:!(tk<kf[0].t+.3&&false),x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,say:(!moving&&b.say)?b.say:'',mv:moving}; } }
     return {vis:false,x:772,y:716,say:'',mv:false};
   }
+  // Thời tiết thật (Open-Meteo, miễn phí, không cần key) — khu vực TP.HCM (Tân Bình). Dòng weather trong Sheet (rain/clear) ghi đè; không có dòng = theo thời gian thực.
+  const WX_LAT=10.8, WX_LON=106.66;
+  function fetchWx(){
+    try{ const c=JSON.parse(localStorage.getItem('kta_wx2')||'null'); if(c&&Date.now()-c.t<600000){ window._ofcWxLive=!!c.r; window._ofcWxDay=c.d||{}; return; } }catch(e){}
+    try{
+      const ac=window.AbortController?new AbortController():null; const tm=setTimeout(()=>{ try{ ac&&ac.abort(); }catch(e){} },8000);
+      fetch('https://api.open-meteo.com/v1/forecast?latitude='+WX_LAT+'&longitude='+WX_LON+'&current=precipitation,rain,weather_code&daily=precipitation_sum&past_days=60&forecast_days=1&timezone=Asia%2FBangkok',ac?{signal:ac.signal}:{})
+        .then(r=>r.json()).then(j=>{ clearTimeout(tm); const c=j&&j.current; if(!c) return;
+          const codes=[51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]; const rain=(+c.precipitation>=0.1)||(+c.rain>=0.1)||codes.indexOf(+c.weather_code)>=0;
+          const d={}; try{ const t=j.daily.time, v=j.daily.precipitation_sum; for(let i=0;i<t.length;i++) d[t[i]]=(+v[i]>=2)?1:0; }catch(e){}
+          window._ofcWxLive=rain; window._ofcWxDay=d; try{ localStorage.setItem('kta_wx2',JSON.stringify({t:Date.now(),r:rain?1:0,d:d})); }catch(e){} paintWeather(); })
+        .catch(()=>{ clearTimeout(tm); });
+    }catch(e){}
+  }
   function weatherNow(){
     if(st.wPrev) return st.wPrev==='rain'?'rain':'';
-    try{ const day=days[st.idx]; if(!day) return ''; const ii=st.idx===days.length-1&&localIso()>day.iso?localIso():day.iso; let res='';
-      WXROWS.forEach(r=>{ if(!r.range||rngIn(r.range,ii)) res=(r.k==='rain')?'rain':''; }); return res; }catch(e){ return ''; }
+    try{ const day=days[st.idx]; if(!day) return ''; const isLast=st.idx===days.length-1; const ii=isLast&&localIso()>day.iso?localIso():day.iso; let res='auto';
+      WXROWS.forEach(r=>{ if(!r.range||rngIn(r.range,ii)) res=r.k; });
+      if(res==='rain') return 'rain'; if(res==='clear') return '';
+      if(isLast) return window._ofcWxLive?'rain':'';
+      return (window._ofcWxDay&&window._ofcWxDay[day.iso])?'rain':''; }catch(e){ return ''; }
   }
   function paintWeather(){
     try{ const on=weatherNow()==='rain'; const el=$('ofc-rain'); if(el) el.style.display=on?'block':'none'; if(window.KTA_BGRain) window.KTA_BGRain(on); }catch(e){}
@@ -8038,7 +8055,19 @@ const OFC = (function(){
   }
   const IDLE_STUB={proj:'',n:0,others:0,key:'~idle',tasks:[],t:null,idle:true};
   function isOffDay(i,iso){ return OFFROWS.some(r=>r.who===i&&(rngIn(r.range,iso)||dayMatch(r.range,iso)===true)); }
-  function presOf(day){ const o=Object.assign({},day.acts); NAMES.forEach((nm,i)=>{ if(!o[i]&&seat[i]&&GONE.indexOf(i)<0&&!isOffDay(i,day.iso)) o[i]=IDLE_STUB; }); return o; }
+  function effIso(day){ try{ const last=days[days.length-1]; return (day===last&&localIso()>day.iso)?localIso():day.iso; }catch(e){ return day.iso; } }
+  function presOf(day){ const o=Object.assign({},day.acts); const ei=effIso(day); NAMES.forEach((nm,i)=>{ if(!o[i]&&seat[i]&&GONE.indexOf(i)<0&&!isOffDay(i,ei)&&!isOffDay(i,day.iso)) o[i]=IDLE_STUB; }); return o; }
+  function toggleOff(nm){
+    const day=days[st.idx]; if(!day) return; const i=NAMES.indexOf(nm); if(i<0) return; const date=effIso(day), was=isOffDay(i,date)||isOffDay(i,day.iso), now=!was;
+    const rows=Array.isArray(window.KTA_OFFICE)?window.KTA_OFFICE.slice():[]; const msg=$('ofc-offmsg');
+    const save=()=>{ window.KTA_OFFICE=rows; try{ localStorage.setItem('kta_office',JSON.stringify(rows)); }catch(e){} };
+    if(now){ rows.push(['off',nm,'','','','',date,'','']); }
+    else{ for(let k=rows.length-1;k>=0;k--){ const r=rows[k]; if(r&&String(r[0]).trim().toLowerCase()==='off'&&nameIdx(r[1])===i&&String(r[6]||'').trim()===date) rows.splice(k,1); } }
+    const prev=window.KTA_OFFICE; save(); applyOffice();
+    if(!now&&(isOffDay(i,date)||isOffDay(i,day.iso))){ window.KTA_OFFICE=prev; save(); applyOffice(); if(msg) msg.textContent=L_(nm+' đang off theo dòng khoảng ngày trong Sheet, hãy sửa dòng đó trong Sheet.',nm+' is off through a date-range row in the Sheet; edit that row in the Sheet.'); return; }
+    st.trips={}; st.snap=true; paint();
+    try{ const pw=(typeof getRolePw==='function')?getRolePw():''; sheetsRequest(null,{action:'setOff',password:pw,name:nm,date:date,off:now}).then(r=>{ const m=$('ofc-offmsg'); if(m) m.textContent=(r&&r.ok)?L_('Đã lưu vào Sheet.','Saved to the Sheet.'):L_('Chưa lưu được vào Sheet (cần cập nhật Apps Script). Thay đổi chỉ có trên máy này.','Could not save to the Sheet (Apps Script needs updating). Change is local only.'); }).catch(()=>{ const m=$('ofc-offmsg'); if(m) m.textContent=L_('Chưa lưu được vào Sheet. Thay đổi chỉ có trên máy này.','Could not save to the Sheet. Change is local only.'); }); }catch(e){}
+  }
   const DEC_CSS='<style>@keyframes ofcfall{0%{transform:translate(0,-40px) rotate(0)}100%{transform:translate(30px,800px) rotate(300deg)}}@keyframes ofcrise{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-760px);opacity:0}}@keyframes ofcblink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes ofcfly{0%{transform:translateX(-60px)}100%{transform:translateX(1180px)}}@keyframes ofcsway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}@keyframes ofcbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes ofcglow{0%,100%{filter:drop-shadow(0 0 2px rgba(255,220,120,.2)) brightness(1)}50%{filter:drop-shadow(0 0 9px rgba(255,215,90,.95)) brightness(1.18)}}@keyframes ofcpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}@keyframes ofcwave{0%,100%{transform:skewY(-5deg) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}@keyframes ofcfloat{0%,100%{transform:translate(0,0)}50%{transform:translate(5px,-9px)}}@keyframes ofcswim{0%{transform:translateX(0) scaleX(1)}49%{transform:translateX(var(--sw)) scaleX(1)}50%{transform:translateX(var(--sw)) scaleX(-1)}99%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(0) scaleX(1)}}@keyframes ofcbub{0%{transform:translateY(0);opacity:0}20%{opacity:.9}100%{transform:translateY(-44px);opacity:0}}@keyframes ofccat{0%{transform:translateX(0) scaleX(-1)}49%{transform:translateX(540px) scaleX(-1)}50%{transform:translateX(540px) scaleX(1)}99%{transform:translateX(0) scaleX(1)}100%{transform:translateX(0) scaleX(-1)}}@keyframes ofctwk{0%,100%{opacity:.2;transform:scale(.6)}50%{opacity:1;transform:scale(1.1)}}@keyframes ofcpop{0%,100%{transform:scale(.4);opacity:0}30%,60%{transform:scale(1);opacity:1}}.ofc-dec-i{position:absolute;pointer-events:none;line-height:1}</style>';
   const DECOR=[
     {k:'xmas', sm:['🎅','🎁','🧦','🔔','⭐','🍪'], hang:['🔔','⭐','🎄','🔔','⭐','🎁'], re:/xmas|giáng|giang|noel|christmas/i, vn:'Giáng sinh', en:'Christmas', rng:['12-15..12-26'], ban:['🎄 Giáng sinh an lành · Merry Christmas','🎄 Merry Christmas · Happy Holidays'], col:'#c0392b', bulbs:['#e5484d','#2f9e57','#f5b942','#fff'], fall:['❄',22], floor:[['🎄',900,478,78],['🎁',868,566,26],['🎁',966,572,22],['⛄',1010,500,40],['🎅',800,300,0]]},
@@ -8333,7 +8362,12 @@ const OFC = (function(){
     const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
     $('ofc-bz').textContent=bn>=2?L_('Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.','Busiest project: '+bl+', '+bn+' members working on it.'):T('Hôm nay mỗi bạn làm một việc riêng.');
     const off=NAMES.filter((nm,i)=>seat[i] && !act[i] && GONE.indexOf(i)<0), idl=NAMES.filter((nm,i)=>act[i]&&act[i].idle);
-    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2=idl.length?L_(' Chưa ghi việc: '+idl.join(', ')+'.',' No work logged: '+idl.join(', ')+'.'):''; $('ofc-off').textContent=a1+a2; }
+    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2=idl.length?L_(' Chưa ghi việc: '+idl.join(', ')+'.',' No work logged: '+idl.join(', ')+'.'):''; $('ofc-off').textContent=a1+a2;
+      const staff=(window.sheetsRole==='admin'||window.sheetsRole==='leader'); let box=$('ofc-offbox');
+      if(staff){ const cand=NAMES.filter((nm,i)=>seat[i]&&GONE.indexOf(i)<0&&(!act[i]||act[i].idle)); const dd=effIso(day);
+        if(!box){ box=document.createElement('div'); box.id='ofc-offbox'; box.style.cssText='margin-top:8px'; $('ofc-off').parentNode.appendChild(box); box.addEventListener('click',e=>{ const b=e.target.closest('button[data-n]'); if(b) toggleOff(b.getAttribute('data-n')); }); }
+        box.innerHTML=cand.length?('<div style="font-size:12px;font-weight:700;color:#5b4a2e;margin-bottom:5px">'+T('Điểm danh (Admin/Leader): bấm tên để đánh dấu off')+' · '+dd+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+cand.map(nm=>{ const o=isOffDay(NAMES.indexOf(nm),dd)||isOffDay(NAMES.indexOf(nm),day.iso); return '<button type="button" data-n="'+nm+'" style="min-height:36px;padding:0 12px;border-radius:18px;border:2px solid #14202b;background:'+(o?'#14202b':'#fff')+';color:'+(o?'#f6f1e7':'#14202b')+';font:700 12.5px system-ui,sans-serif;cursor:pointer">'+(o?'☑ ':'☐ ')+nm+(o?' · off':'')+'</button>'; }).join('')+'</div><div id="ofc-offmsg" style="font-size:12px;color:#5b4a2e;margin-top:6px"></div>'):'';
+      } else if(box){ box.remove(); } }
   }
   function evDecor(ev){
     const D='#14202b', bal=(x,y,c)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:22px;height:28px;border-radius:50% 50% 48% 48%;border:2px solid ${D};background:${c};box-sizing:border-box"></div><div style="position:absolute;left:${x+10}px;top:${y+28}px;width:2px;height:24px;background:${D}"></div>`;
@@ -8390,6 +8424,7 @@ const OFC = (function(){
     applyOffice();
     paint();
     fitScene();
+    fetchWx(); if(!window._ofcWxT){ window._ofcWxT=setInterval(()=>{ try{ localStorage.removeItem('kta_wx2'); }catch(e){} fetchWx(); },900000); }
     intro();
     if(!timer) timer=setInterval(tick,TICK);
     try{ const mb=$('ofc-mus'); if(mb&&!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) setTimeout(()=>{ if(!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) mb.click(); },300); }catch(e){}
