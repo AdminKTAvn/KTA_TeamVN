@@ -7557,7 +7557,7 @@ const OFC = (function(){
   'Trang trí: ':'Decor: ',
   '🎵 Nhạc: Tắt':'🎵 Music: Off',
   'Chưa có dữ liệu ActivityLog để dựng văn phòng.':'No ActivityLog data to build the office yet.',
-  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓',
+  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓','Đang chờ nhạc…':'Waiting for music…','Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật':'Music not ready, tap the 🎵 Music button to start',
   'Tốc độ: Vừa':'Speed: Medium',
   'Tốc độ: Chậm':'Speed: Slow',
   'Sự kiện: theo lịch':'Event: by schedule',
@@ -7935,7 +7935,7 @@ const OFC = (function(){
     const musUrl=()=>{ try{ applyOffice(); return (window.KTA_MUSIC||localStorage.getItem('kta_music')||'').trim(); }catch(e){ return (window.KTA_MUSIC||'').trim(); } };
     const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1));
     const musHide='position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none', musShow='position:fixed;right:12px;bottom:12px;width:250px;height:170px;z-index:99999;border-radius:12px;overflow:hidden;border:2px solid #14202b;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.35)';
-    const musStop=()=>{ $('ofc-musbox').innerHTML=''; $('ofc-musbox').style.cssText=musHide; musOn=false; $('ofc-mus').textContent=T('🎵 Nhạc: Tắt'); };
+    const musStop=()=>{ window._ofcPlaying=false; $('ofc-musbox').innerHTML=''; $('ofc-musbox').style.cssText=musHide; musOn=false; $('ofc-mus').textContent=T('🎵 Nhạc: Tắt'); };
     $('ofc-mus').addEventListener('click',()=>{
       if(musOn){ musStop(); window._ofcMusOff=true; return; } window._ofcMusOff=false;
       const u=musUrl();
@@ -7945,12 +7945,12 @@ const OFC = (function(){
       else {
         const lm=u.match(/[?&]list=([\w-]+)/), vm=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
         let src='';
-        if(lm) src='https://www.youtube.com/embed/'+(vm?vm[1]:'videoseries')+'?list='+lm[1]+'&autoplay=1&loop=1';
-        else if(vm) src='https://www.youtube.com/embed/'+vm[1]+'?autoplay=1&loop=1&playlist='+vm[1];
+        if(lm) src='https://www.youtube.com/embed/'+(vm?vm[1]:'videoseries')+'?list='+lm[1]+'&autoplay=1&loop=1&enablejsapi=1';
+        else if(vm) src='https://www.youtube.com/embed/'+vm[1]+'?autoplay=1&loop=1&playlist='+vm[1]+'&enablejsapi=1';
         if(!src){ $('ofc-mus').textContent=T('🎵 Link nhạc chưa đúng'); setTimeout(()=>{ if(!musOn) $('ofc-mus').textContent=T('🎵 Nhạc: Tắt'); },2500); return; }
         h='<iframe width="'+(isIOS?250:200)+'" height="'+(isIOS?170:200)+'" src="'+src+(isIOS?'&playsinline=1':'')+'" allow="autoplay; encrypted-media; picture-in-picture" frameborder="0"></iframe>';
       }
-      $('ofc-musbox').style.cssText=(isIOS&&/<iframe/.test(h))?musShow:musHide; $('ofc-musbox').innerHTML=h; { const au=$('ofc-musbox').querySelector('audio'); if(au){ const pr=au.play(); if(pr&&pr.catch) pr.catch(()=>{}); } } musOn=true; $('ofc-mus').textContent=(isIOS&&/<iframe/.test(h))?T('🎵 Chạm ▶ trong khung video'):T('🎵 Nhạc: Bật');
+      $('ofc-musbox').style.cssText=(isIOS&&/<iframe/.test(h))?musShow:musHide; $('ofc-musbox').innerHTML=h; { const au=$('ofc-musbox').querySelector('audio'); if(au){ au.addEventListener('playing',()=>{ window._ofcPlaying=true; }); const pr=au.play(); if(pr&&pr.catch) pr.catch(()=>{}); } const fr=$('ofc-musbox').querySelector('iframe'); if(fr){ const hs=()=>{ try{ fr.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*'); }catch(e){} }; fr.addEventListener('load',hs); [800,1800,3000,4500].forEach(t=>setTimeout(hs,t)); } } window._ofcPlaying=false; musOn=true; $('ofc-mus').textContent=(isIOS&&/<iframe/.test(h))?T('🎵 Chạm ▶ trong khung video'):T('🎵 Nhạc: Bật');
     });
     $('ofc-spd').addEventListener('change',e=>{
       if(e.target.value==='mid'){ TICK=1800; SPEED=120; } else { TICK=3000; SPEED=80; }
@@ -8341,6 +8341,7 @@ const OFC = (function(){
     return h;
   }
 
+  if(!window._ofcYT){ window._ofcYT=true; window.addEventListener('message',e=>{ try{ if(!/youtube\.com$/.test(new URL(e.origin).hostname)) return; const d=typeof e.data==='string'?JSON.parse(e.data):e.data; if(!d) return; if(d.event==='onStateChange'&&d.info===1) window._ofcPlaying=true; else if(d.event==='infoDelivery'&&d.info&&d.info.playerState===1) window._ofcPlaying=true; }catch(x){} }); }
   function intro(){
     if(window._ofcIntro) return; window._ofcIntro=true;
     try{
@@ -8350,14 +8351,14 @@ const OFC = (function(){
       const w=document.createElement('div'); w.id='ofc-iw'; w.style.cssText='position:absolute;inset:0;z-index:200';
       w.innerHTML=css+'<div id="ofc-intro"><div class="d l"></div><div class="d r"></div></div><div id="ofc-ipn"><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#f0c98a;font-weight:700">KTA TeamVN</div><div id="ofc-ifl" style="font:700 54px/1.1 Courier New,monospace;color:#ff5a4d;text-shadow:0 0 14px rgba(255,90,77,.7);margin:6px 0 2px"><span id="ofc-ifn">1</span><small style="font-size:20px;color:#f0c98a;text-shadow:none"> F</small></div><div id="ofc-itt" style="font:700 19px Georgia,serif;margin:2px 0 10px">'+T('Thang máy đang lên văn phòng…')+'</div><div style="height:8px;border-radius:6px;background:#2c3b4b;overflow:hidden"><i id="ofc-ibr" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f0c98a,#ff9f6b);border-radius:6px"></i></div><div id="ofc-ist" style="font-size:12.5px;margin-top:9px;min-height:18px;color:#cfd6df">🎵 '+T('Đang tải nhạc…')+'</div><button id="ofc-igo" style="display:none;margin-top:10px;min-height:44px;padding:0 22px;border-radius:24px;border:0;background:#f0c98a;color:#14202b;font:700 14px system-ui,sans-serif;cursor:pointer">'+T('Vào văn phòng 🎵')+'</button></div>';
       sc.appendChild(w);
-      const TT=4200, t0=Date.now(); let done=false;
+      const TT=7000, t0=Date.now(); let done=false;
       const iv=setInterval(()=>{ const b=$('ofc-ibr'); if(!b){ clearInterval(iv); return; } const p=Math.min(1,(Date.now()-t0)/TT); b.style.width=(p*100)+'%'; $('ofc-ifn').textContent=Math.min(17,1+Math.floor(p*16)); if(p>=1) clearInterval(iv); },80);
       const openDoor=()=>{ if(done) return; done=true; const a=$('ofc-intro'), b=$('ofc-ipn'); if(a) a.classList.add('open'); if(b) b.classList.add('open'); setTimeout(()=>{ const x=$('ofc-iw'); if(x) x.remove(); },2200); };
+      const ting=()=>{ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; const ac=window._ofcAC||(window._ofcAC=new AC()); if(ac.state==='suspended') ac.resume(); const t=ac.currentTime; [[1318.5,0],[987.8,.32]].forEach(n=>{ const o=ac.createOscillator(), g=ac.createGain(); o.type='sine'; o.frequency.value=n[0]; g.gain.setValueAtTime(0.0001,t+n[1]); g.gain.exponentialRampToValueAtTime(.28,t+n[1]+.02); g.gain.exponentialRampToValueAtTime(.0001,t+n[1]+1.6); o.connect(g); g.connect(ac.destination); o.start(t+n[1]); o.stop(t+n[1]+1.7); }); }catch(e){} };
       setTimeout(()=>{
-        if(!$('ofc-iw')) return; $('ofc-ifn').textContent=17; $('ofc-itt').textContent=T('Tới nơi rồi, ting!');
-        const mbx=$('ofc-musbox'), au=mbx&&mbx.querySelector('audio'); const blocked=!!((au&&au.paused)||!(mbx&&mbx.innerHTML));
-        if(blocked){ $('ofc-ist').textContent=T('Trình duyệt cần bạn bấm 1 lần để bật nhạc'); const g=$('ofc-igo'); g.style.display='inline-block'; g.onclick=()=>{ try{ const mb=$('ofc-mus'); if(mb&&/Tắt|Off/.test(mb.textContent)) mb.click(); else if(au){ const pr=au.play(); if(pr&&pr.catch) pr.catch(()=>{}); } }catch(e){} $('ofc-ist').textContent=T('Nhạc đã bật ✓'); g.style.display='none'; setTimeout(openDoor,350); }; }
-        else { $('ofc-ist').textContent=T('Nhạc đã sẵn sàng ✓'); setTimeout(openDoor,700); }
+        if(!$('ofc-iw')||done) return; $('ofc-ifn').textContent=17; $('ofc-itt').textContent=T('Tới nơi rồi, ting!'); ting();
+        $('ofc-ist').textContent=window._ofcPlaying?T('Nhạc đã sẵn sàng ✓'):T('Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật');
+        setTimeout(openDoor,900);
       },TT);
       setTimeout(openDoor,60000);
     }catch(e){}
@@ -8380,6 +8381,62 @@ const OFC = (function(){
   return { show:show };
 })();
 
+</script>
+<script>
+/* Nền ngoài văn phòng: công viên + đường + nhà (hướng Bắc ở trên), tự đổi ngày/đêm theo giờ, đổ bóng theo giờ */
+(function(){
+  function rng(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function build(night,hour){
+    var W=1840,H=1000,R=rng(7),ri=function(a,b){ return a+Math.floor(R()*(b-a+1)); },pk=function(a){ return a[Math.floor(R()*a.length)]; };
+    var P=night?{ground:'#232b2a',road:'#3a3f45',line:'#8d8a78',park:'#1f3a2a',t:['#173326','#1d4030','#244c39'],roofs:['#3a4249','#434a52','#4a4a48','#394650','#41474d','#4b4640'],roofd:'#2a2f34',ac:'#59616a',water:'#2f5a6a'}
+      :{ground:'#cdd1c2',road:'#a3a8ad',line:'#f4f1e6',park:'#7fae6a',t:['#4f8a4a','#5f9a55','#6fa862'],roofs:['#d9cdb8','#c9c4bc','#e0b98f','#b8c4c9','#d6d0c4','#c7b9a6'],roofd:'#9c978d',ac:'#e8e6e1',water:'#8ec5d6'};
+    var tt=Math.max(-1,Math.min(1,(hour-12)/6));
+    var dx=night?3:Math.round(tt*18), dy=night?-3:-(12+Math.round(4*(1-Math.abs(tt))));   // Bắc = lên trên; sáng bóng đổ sang trái, chiều sang phải
+    var s=["<svg xmlns='http://www.w3.org/2000/svg' width='"+W+"' height='"+H+"' viewBox='0 0 "+W+" "+H+"' preserveAspectRatio='xMidYMin slice'>"];
+    s.push("<rect width='"+W+"' height='"+H+"' fill='"+P.ground+"'/>");
+    s.push("<rect x='1636' y='0' width='62' height='"+H+"' fill='"+P.road+"'/><line x1='1667' y1='0' x2='1667' y2='"+H+"' stroke='"+P.line+"' stroke-width='2' stroke-dasharray='14 12'/>");
+    s.push("<rect x='250' y='168' width='1410' height='38' fill='"+P.road+"'/><line x1='252' y1='187' x2='1660' y2='187' stroke='"+P.line+"' stroke-width='2' stroke-dasharray='16 12'/>");
+    var RB=[[1500,250,120,110],[1722,340,100,130],[1500,560,120,110]];
+    var shAlpha=night?.28:.30;
+    RB.forEach(function(b){ var x=b[0],y=b[1],w=b[2],h=b[3],c=pk(P.roofs);
+      for(var k=6;k>=1;k--){ s.push("<rect x='"+(x+dx*k/6)+"' y='"+(y+dy*k/6)+"' width='"+w+"' height='"+h+"' fill='rgba(0,0,0,"+(shAlpha/2.2).toFixed(2)+")'/>"); }
+      s.push("<rect x='"+x+"' y='"+y+"' width='"+w+"' height='"+h+"' rx='2' fill='"+c+"' stroke='"+P.roofd+"' stroke-width='1.5'/>");
+      for(var i=0;i<Math.max(1,Math.floor(w*h/2600));i++) s.push("<rect x='"+(x+ri(6,Math.max(7,w-18)))+"' y='"+(y+ri(6,Math.max(7,h-14)))+"' width='"+ri(8,15)+"' height='"+ri(6,11)+"' fill='"+P.ac+"' opacity='.9'/>");
+      if(night) for(var j=0;j<Math.max(1,Math.floor(w*h/5000));j++) s.push("<rect x='"+(x+ri(4,Math.max(5,w-8)))+"' y='"+(y+ri(4,Math.max(5,h-8)))+"' width='4' height='3' fill='#ffd978' opacity='.85'/>");
+    });
+    s.push("<rect x='0' y='0' width='190' height='"+H+"' fill='"+P.park+"'/>");
+    s.push("<rect x='190' y='0' width='62' height='"+H+"' fill='"+P.road+"'/><line x1='221' y1='0' x2='221' y2='"+H+"' stroke='"+P.line+"' stroke-width='2' stroke-dasharray='14 12'/>");
+    s.push("<ellipse cx='70' cy='470' rx='46' ry='24' fill='"+P.water+"'/>");
+    var trees=[];
+    for(var n=0;n<150;n++){ trees.push([ri(0,170),ri(0,H),ri(14,28),pk(P.t)]); }
+    for(var yy=20;yy<H;yy+=46){ if(yy>150&&yy<228) continue; trees.push([292,yy+ri(-4,4),ri(11,15),pk(P.t)]); }
+    var cnt=0; while(cnt<150){ var x=ri(1480,1840), y2=ri(0,H), ok=!(x>1620&&x<1716)&&!(x<1620&&y2>150&&y2<225); if(ok) RB.forEach(function(b){ if(x>b[0]-26&&x<b[0]+b[2]+26&&y2>b[1]-26&&y2<b[1]+b[3]+26) ok=false; }); if(ok){ trees.push([x,y2,ri(14,28),pk(P.t)]); cnt++; } }
+    var sh=night?'rgba(0,0,0,.25)':'rgba(0,0,0,.20)';
+    trees.forEach(function(t){ s.push("<circle cx='"+(t[0]+dx*.55)+"' cy='"+(t[1]+dy*.55)+"' r='"+t[2]+"' fill='"+sh+"'/>"); });
+    trees.forEach(function(t){ s.push("<circle cx='"+t[0]+"' cy='"+t[1]+"' r='"+t[2]+"' fill='"+t[3]+"'/>"); });
+    var cx0=W/2-585, cx1=W/2+585, cy0=232;
+    s.push("<defs><filter id='bl' x='-20%' y='-20%' width='140%' height='140%'><feGaussianBlur stdDeviation='16'/></filter></defs>");
+    s.push("<rect x='"+(cx0+dx*5)+"' y='"+(cy0+dy*5)+"' width='"+(cx1-cx0)+"' height='"+(H-cy0-dy*5+60)+"' fill='rgba(0,0,0,"+(night?.30:.34)+")' filter='url(#bl)'/>");
+    var lf=night?.5:(1-Math.max(0,tt)*.5);
+    s.push("<defs><linearGradient id='lg' x1='1' y1='0' x2='0' y2='0'><stop offset='0' stop-color='rgba(0,0,0,"+(.42*lf).toFixed(2)+")'/><stop offset='.55' stop-color='rgba(0,0,0,"+(.22*lf).toFixed(2)+")'/><stop offset='1' stop-color='rgba(0,0,0,0)'/></linearGradient></defs>");
+    s.push("<rect x='"+(cx0-360)+"' y='150' width='"+(360+30)+"' height='"+(H-150)+"' fill='url(#lg)' filter='url(#bl)'/>");
+    s.push("<rect width='"+W+"' height='"+H+"' fill='rgba(14,22,14,"+(night?.10:.16)+")'/>");
+    s.push('</svg>'); return s.join('');
+  }
+  var last='';
+  function apply(){
+    try{
+      var h=new Date().getHours()+new Date().getMinutes()/60, night=(h<6||h>=18), key=night?'n':('d'+Math.round(h*2));
+      if(key===last) return; last=key;
+      var svg=build(night,h);
+      var st=document.getElementById('kta-bg'); if(!st){ st=document.createElement('style'); st.id='kta-bg'; document.head.appendChild(st); }
+      st.textContent="body{background:"+(night?'#232b2a':'#cdd1c2')+" url(\"data:image/svg+xml;utf8,"+encodeURIComponent(svg)+"\") no-repeat top center / cover fixed !important}"
+        +(night?"body .app-title{color:#f1ede2}body .app-title-sub{color:#b9c2b6}":"");
+    }catch(e){}
+  }
+  apply(); setInterval(apply,300000);
+  window.KTA_BG=function(night,hour){ last=''; var h=hour==null?12:hour; var svg=build(!!night,h); var st=document.getElementById('kta-bg')||document.head.appendChild(Object.assign(document.createElement('style'),{id:'kta-bg'})); st.textContent="body{background:"+(night?'#232b2a':'#cdd1c2')+" url(\"data:image/svg+xml;utf8,"+encodeURIComponent(svg)+"\") no-repeat top center / cover fixed !important}"+(night?"body .app-title{color:#f1ede2}body .app-title-sub{color:#b9c2b6}":""); };
+})();
 </script>
 </body>
 </html>
