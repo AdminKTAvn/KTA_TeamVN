@@ -8054,7 +8054,10 @@ const OFC = (function(){
   function rngIn(g,iso){
     const md=iso.slice(5);
     return String(g||'').split(';').some(x=>{ x=x.trim(); if(!x) return false;
-      const pr=x.split(/\s*(?:\.\.|–|—|đến|\sto\s|\s-\s)\s*/i); const one=v=>{ v=String(v||'').trim(); let m=parseDay(v); if(m) return {iso:m}; m=v.match(/^(\d{1,2})[\/-](\d{1,2})$/)||v.match(/^(\d{2})-(\d{2})$/); return m?{md:('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2)}:null; };
+      const pr=x.split(/\s*(?:\.\.|–|—|đến|\sto\s|\s-\s)\s*/i); const one=v=>{ v=String(v||'').trim(); let m=parseDay(v); if(m) return {iso:m}; const pd=n=>('0'+n).slice(-2);
+        m=v.match(/^(\d{1,2})\/(\d{1,2})$/); if(m){ let dd=+m[1], mm=+m[2]; if(mm>12&&dd<=12){ const t=dd; dd=mm; mm=t; } return {md:pd(mm)+'-'+pd(dd)}; }   // dd/mm (kiểu Việt)
+        m=v.match(/^(\d{1,2})-(\d{1,2})$/); if(m){ let a=+m[1], b=+m[2]; if(a>12&&b<=12){ const t=a; a=b; b=t; } return {md:pd(a)+'-'+pd(b)}; }   // mm-dd (lịch mặc định) — tự đảo nếu gõ dd-mm
+        return null; };
       const a=one(pr[0]), b=pr.length>1?one(pr[1]):a; if(!a||!b) return false;
       if(a.iso&&b.iso) return iso>=a.iso&&iso<=b.iso;
       const am=a.md||a.iso.slice(5), bm=b.md||b.iso.slice(5);
