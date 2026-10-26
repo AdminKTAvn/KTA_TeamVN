@@ -7502,6 +7502,7 @@ const OFC = (function(){
   '🎵 Chạm ▶ trong khung video':'🎵 Tap ▶ in the video box',
   '🎵 Link nhạc chưa đúng':'🎵 Invalid music link',
   '🎵 Nhạc: Bật':'🎵 Music: On',
+  'Trang trí: ':'Decor: ',
   '🎵 Nhạc: Tắt':'🎵 Music: Off',
   'Chưa có dữ liệu ActivityLog để dựng văn phòng.':'No ActivityLog data to build the office yet.',
   'Tốc độ: Vừa':'Speed: Medium',
@@ -7622,7 +7623,7 @@ const OFC = (function(){
   const TRAITS=[['quiet',/ít giao tiếp|it giao tiep|quiet|im lặng/i],['talk',/hay nói|hay noi|talk|nói nhiều/i],['coffee',/cà phê|ca phe|coffee/i],['snack',/ăn vặt|an vat|snack|ăn uống/i],['ask',/hỏi việc|hoi viec|ask/i],['support',/support|hỗ trợ|ho tro/i],['late',/ở lại|o lai|muộn|late/i]];
   function applyOffice(){
     let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
-    EVENTS.length=EV0; MEET=null;
+    EVENTS.length=EV0; MEET=null; DECORROWS=[];
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
     if(st.demoMeet) MEET={title:'Team meeting',sub:'Chào cả team, bắt đầu giao ban!',items:[{t:'Tổng kết tuần qua',w:NAMES.indexOf('Liam'),r:'Tuần qua mình chốt xong 5 dự án'},{t:'Kế hoạch tuần mới',w:NAMES.indexOf('Stuart'),r:'Tuần mới ưu tiên các dự án gấp'},{t:'Nhắc deadline',w:NAMES.indexOf('Nina'),r:'Nhớ chốt bản vẽ đúng hạn nhé'}]};
@@ -7631,6 +7632,7 @@ const OFC = (function(){
       if(!r) return; const ty=String(r[0]||'').trim().toLowerCase(), who=nameIdx(r[1]), wi=nameIdx(r[2]), tx=String(r[3]||'').trim(), rp=String(r[4]||'').trim(), ch=parseFloat(String(r[5]||'').replace(',','.'));
       { const txe=String(r[7]||'').trim(), rpe=String(r[8]||'').trim(); if(tx&&txe) EN[tx]=txe; if(rp&&rpe) EN[rp]=rpe; }
       if(ty==='music'){ if(tx) window.KTA_MUSIC=tx; return; }
+      if(ty==='decor'||ty==='trangtri'||ty==='trang trí'){ const t=DECOR.find(t=>t.k===tx.toLowerCase().trim()||t.re.test(tx)); if(t) DECORROWS.push({t:t.k,range:String(r[6]||'').trim(),off:/^(off|tắt|tat|không|khong|no)$/i.test(rp),ban:/^(off|tắt|tat|không|khong|no)$/i.test(rp)?'':rp}); return; }
       if(ty==='birthday'||ty==='meal'){
         const d=String(r[3]||r[2]||'').trim(); let md='', iso='';
         let m=d.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m){ iso=d.slice(0,10); md=m[2]+'-'+m[3]; }
@@ -7840,14 +7842,15 @@ const OFC = (function(){
     <button id="ofc-mus" type="button" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 16px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b;cursor:pointer">${T('🎵 Nhạc: Tắt')}</button>
     <span id="ofc-musbox" style="position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none"></span>
     <select id="ofc-spd" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="mid">${T('Tốc độ: Vừa')}</option><option value="slow">${T('Tốc độ: Chậm')}</option></select>
-    <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">${T('Sự kiện: theo lịch')}</option><option value="birthday">${T('Xem thử sinh nhật')}</option><option value="meal">${T('Xem thử tiệc ăn uống')}</option><option value="award">${T('Xem thử vinh danh tháng')}</option><option value="meeting">${T('Xem thử họp giao ban')}</option></select>
+    <select id="ofc-evsel" style="min-height:44px;border-radius:24px;border:2px solid #14202b;background:#fff;padding:0 14px;font:700 13px 'DM Sans',system-ui,sans-serif;color:#14202b"><option value="">${T('Sự kiện: theo lịch')}</option><option value="birthday">${T('Xem thử sinh nhật')}</option><option value="meal">${T('Xem thử tiệc ăn uống')}</option><option value="award">${T('Xem thử vinh danh tháng')}</option><option value="meeting">${T('Xem thử họp giao ban')}</option>${DECOR.map(t=>'<option value="decor:'+t.k+'">'+T('Trang trí: ')+L_(t.vn,t.en)+'</option>').join('')}</select>
     <div style="min-width:190px"><div id="ofc-day" style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b"></div><div id="ofc-phase" style="font-size:13px;font-weight:700;color:#5b4a2e"></div></div>
   </div>
   <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">${hud('ofc-h0',T('Thành viên'))}${hud('ofc-h1',T('Đang làm'))}${hud('ofc-h2',T('Task trong ngày'))}${hud('ofc-h3',T('Đang đi lại'))}
     <span style="display:inline-flex;gap:14px;margin-left:8px;font-size:13px">${[['L','Nhóm Liam'],['S','Nhóm Stuart'],['N','Nhóm Nina']].map(a=>`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:14px;border-radius:4px;border:2px solid #14202b;background:${TEAMCOL[a[0]]};display:inline-block"></span>${T(a[1])}</span>`).join('')}</span></div>
   <div id="ofc-fit" style="overflow:hidden;border-radius:18px;border:2px solid #14202b;background:#d9d3c4;width:100%;box-sizing:border-box">
    <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden;transform-origin:0 0">
-    ${BG}${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}
+    ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}
+    <div id="ofc-decor2" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:7;overflow:hidden"></div>${DEC_CSS}
     <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
    </div>
   </div>
@@ -7867,7 +7870,7 @@ const OFC = (function(){
     const musHide='position:absolute;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none', musShow='position:fixed;right:12px;bottom:12px;width:250px;height:170px;z-index:99999;border-radius:12px;overflow:hidden;border:2px solid #14202b;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.35)';
     const musStop=()=>{ $('ofc-musbox').innerHTML=''; $('ofc-musbox').style.cssText=musHide; musOn=false; $('ofc-mus').textContent=T('🎵 Nhạc: Tắt'); };
     $('ofc-mus').addEventListener('click',()=>{
-      if(musOn){ musStop(); return; }
+      if(musOn){ musStop(); window._ofcMusOff=true; return; } window._ofcMusOff=false;
       const u=musUrl();
       if(!u){ $('ofc-mus').textContent=T('🎵 Chưa có link nhạc'); setTimeout(()=>{ if(!musOn) $('ofc-mus').textContent=T('🎵 Nhạc: Tắt'); },2500); return; }
       let h='';
@@ -7888,7 +7891,7 @@ const OFC = (function(){
       st.trips={}; st.tk=0; st.snap=true; paint();
     });
     $('ofc-evsel').addEventListener('change',e=>{
-      const v=e.target.value; st.demoMeet=(v==='meeting'); st.preview=(v==='meeting')?'':(v||''); st.journey=false; applyOffice();
+      let v=e.target.value; st.decorPrev=''; if(/^decor:/.test(v)){ st.decorPrev=v.slice(6); v=''; } st.demoMeet=(v==='meeting'); st.preview=(v==='meeting')?'':(v||''); st.journey=false; applyOffice();
       const act=days[st.idx].acts, ids=Object.keys(act).map(Number).filter(i=>seat[i]);
       st.pwho=ids.length?NAMES[ids[Math.floor(R()*ids.length)]]:'';
       st.trips={}; st.cup={}; st.tk=(v==='award')?AW.s-3:((v&&v!=='meeting')?Math.max(cfg().work,EV.s-3):0); st.snap=true; paint();
@@ -7898,6 +7901,76 @@ const OFC = (function(){
     fitScene();
     if(!window._ofcFit){ window._ofcFit=true; window.addEventListener('resize',()=>{ try{ fitScene(); }catch(e){} }); }
     try{ if(window.ResizeObserver) new ResizeObserver(()=>fitScene()).observe($('ofc-fit')); }catch(e){}
+  }
+
+  // ═══ Trang trí theo dịp / sự kiện trong năm ═══
+  let DECORROWS=[];
+  const DEC_CSS='<style>@keyframes ofcfall{0%{transform:translate(0,-40px) rotate(0)}100%{transform:translate(30px,800px) rotate(300deg)}}@keyframes ofcrise{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-760px);opacity:0}}@keyframes ofcblink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes ofcfly{0%{transform:translateX(-60px)}100%{transform:translateX(1180px)}}@keyframes ofcsway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}@keyframes ofcbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes ofcglow{0%,100%{filter:drop-shadow(0 0 2px rgba(255,220,120,.2)) brightness(1)}50%{filter:drop-shadow(0 0 9px rgba(255,215,90,.95)) brightness(1.18)}}@keyframes ofcpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}@keyframes ofcwave{0%,100%{transform:skewY(-5deg) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}@keyframes ofcfloat{0%,100%{transform:translate(0,0)}50%{transform:translate(5px,-9px)}}@keyframes ofcpop{0%,100%{transform:scale(.4);opacity:0}30%,60%{transform:scale(1);opacity:1}}.ofc-dec-i{position:absolute;pointer-events:none;line-height:1}</style>';
+  const DECOR=[
+    {k:'xmas', re:/xmas|giáng|giang|noel|christmas/i, vn:'Giáng sinh', en:'Christmas', rng:['12-15..12-26'], ban:['🎄 Giáng sinh an lành · Merry Christmas','🎄 Merry Christmas · Happy Holidays'], col:'#c0392b', bulbs:['#e5484d','#2f9e57','#f5b942','#fff'], fall:['❄',22], floor:[['🎄',900,478,78],['🎁',868,566,26],['🎁',966,572,22],['⛄',1010,500,40],['🎅',800,300,0]]},
+    {k:'newyear', re:/năm mới dương|dương lịch|nam moi duong|new ?year|tết tây|tet tay/i, vn:'Năm mới', en:'New Year', rng:['12-27..01-03'], ban:['🎆 Chúc mừng năm mới · Happy New Year','🎆 Happy New Year'], col:'#1f3a93', bulbs:['#f5c542','#fff','#6aa9e0','#f58fb0'], fall:['✨',16], floor:[['🍾',900,500,42],['🥂',960,520,38],['🎈',1040,480,44],['🎈',860,470,38]], fire:true},
+    {k:'tet', re:/tết|tet\b|âm lịch|am lich|lunar/i, vn:'Tết Nguyên Đán', en:'Lunar New Year', rng:['2027-01-30..2027-02-14','2028-01-20..2028-02-04'], ban:['🧧 Chúc mừng năm mới · Xuân an khang','🧧 Happy Lunar New Year'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['🌸',18], floor:[['🌸',900,470,76],['🌼',966,486,52],['🧧',870,574,26],['🧧',1000,580,24],['🍊',940,580,28]], lantern:true},
+    {k:'halloween', re:/halloween|ma quỷ|ma quy/i, vn:'Halloween', en:'Halloween', rng:['10-25..10-31'], ban:['🎃 Halloween vui vẻ · Happy Halloween','🎃 Happy Halloween'], col:'#6c3483', bulbs:['#f5821f','#8e44ad'], fall:['🦇',0], floor:[['🎃',900,490,64],['🎃',976,520,40],['🕸',852,462,40],['👻',1030,490,44]], bats:true},
+    {k:'women83', re:/8\/3|8-3|quốc tế phụ nữ|quoc te phu nu|women'?s? ?day|march 8/i, vn:'Quốc tế Phụ nữ 8/3', en:"Women's Day 8/3", rng:['03-06..03-08'], ban:['🌷 Chúc mừng 8/3 · Happy Women’s Day','🌷 Happy International Women’s Day'], col:'#d6336c', bulbs:['#f58fb0','#fff','#f5d76e'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
+    {k:'women2010', re:/20\/10|20-10|phụ nữ việt|phu nu viet/i, vn:'Phụ nữ Việt Nam 20/10', en:"Vietnamese Women's Day 20/10", rng:['10-18..10-20'], ban:['🌹 Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam','🌹 Happy Vietnamese Women’s Day 20/10'], col:'#d6336c', bulbs:['#f58fb0','#fff','#e5484d'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
+    {k:'national', re:/quốc khánh|quoc khanh|2\/9|30\/4|1\/5|national|giải phóng|giai phong|lao động|lao dong/i, vn:'Lễ lớn 30/4 · 1/5 · 2/9', en:'Public holiday', rng:['04-28..05-01','08-30..09-02'], ban:['🇻🇳 Chào mừng ngày lễ · Việt Nam','🇻🇳 Happy National Day'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['⭐',12], floor:[['🇻🇳',900,480,60],['🇻🇳',990,500,44],['🌟',950,560,30]]},
+    {k:'trungthu', re:/trung thu|mid.?autumn|rằm|ram thang tam/i, vn:'Tết Trung thu', en:'Mid-Autumn Festival', rng:['2027-09-12..2027-09-15','2028-09-30..2028-10-03'], ban:['🏮 Vui Tết Trung thu · Mid-Autumn','🏮 Happy Mid-Autumn Festival'], col:'#b9770e', bulbs:['#f5b942','#f5821f','#e5484d'], fall:['🌕',6], floor:[['🥮',900,520,40],['🏮',960,480,48],['🐇',880,470,40],['🌕',1030,500,44]], lantern:true}
+  ];
+  function rngIn(g,iso){
+    const md=iso.slice(5);
+    return String(g||'').split(';').some(x=>{ x=x.trim(); if(!x) return false;
+      const pr=x.split(/\s*(?:\.\.|–|—|đến|\sto\s|\s-\s)\s*/i); const one=v=>{ v=String(v||'').trim(); let m=parseDay(v); if(m) return {iso:m}; m=v.match(/^(\d{1,2})[\/-](\d{1,2})$/)||v.match(/^(\d{2})-(\d{2})$/); return m?{md:('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2)}:null; };
+      const a=one(pr[0]), b=pr.length>1?one(pr[1]):a; if(!a||!b) return false;
+      if(a.iso&&b.iso) return iso>=a.iso&&iso<=b.iso;
+      const am=a.md||a.iso.slice(5), bm=b.md||b.iso.slice(5);
+      if(a.iso&&!b.iso) return iso===a.iso;
+      return am<=bm?(md>=am&&md<=bm):(md>=am||md<=bm);
+    });
+  }
+  function decorActive(iso){
+    if(st.decorPrev){ const t=DECOR.find(d=>d.k===st.decorPrev); return t?[{t:t,ban:''}]:[]; }
+    const out=[];
+    DECOR.forEach(t=>{
+      const rows=DECORROWS.filter(r=>r.t===t.k);
+      if(rows.length){
+        const on=rows.filter(r=>!r.off);
+        if(!on.length) return;
+        const dated=on.filter(r=>r.range);
+        if(dated.length){ const hit=dated.find(r=>rngIn(r.range,iso)); if(hit) out.push({t:t,ban:hit.ban}); return; }
+        if(t.rng.some(g=>rngIn(g,iso))) out.push({t:t,ban:on[0].ban}); return;
+      }
+      if(t.rng.some(g=>rngIn(g,iso))) out.push({t:t,ban:''});
+    });
+    return out;
+  }
+  function decorHtml(list){
+    let fl='', ov='';
+    const EM=(c,x,y,sz,ex)=>`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;font-size:${sz}px;${ex||''}">${c}</div>`;
+    list.forEach((a,ti)=>{ const t=a.t;
+      t.floor.forEach(f=>{ if(f[3]>0){ const AN={'🎄':'glow','🎃':'glow','🌕':'glow','🌟':'pulse','🎁':'bob','🥂':'bob','🍊':'bob','🥮':'bob','🐇':'bob','👻':'float','🎈':'float','🇻🇳':'wave'}[f[0]]||'sway'; fl+=EM(f[0],f[1],f[2],f[3],'transform-origin:50% 90%;animation:ofc'+AN+' '+(2.4+((f[1]%5)*.3))+'s ease-in-out '+(-(f[1]%7)*.4)+'s infinite;'); } });
+      // dây đèn
+      const bl=t.bulbs; for(let x=14;x<1106;x+=30){ const k=Math.round((x-14)/30), y=32+((k%2)?5:0); ov+=`<div class="ofc-dec-i" style="left:${x}px;top:${y}px;width:9px;height:12px;border-radius:50% 50% 45% 45%;background:${bl[k%bl.length]};border:1.5px solid #14202b;box-sizing:border-box;animation:ofcblink ${1.2+(k%3)*.4}s ease-in-out ${(k%4)*.3}s infinite"></div>`; }
+      ov+=`<div class="ofc-dec-i" style="left:8px;top:33px;width:1104px;height:3px;background:#14202b;opacity:.35;border-radius:2px"></div>`;
+      // banner
+      const txt=a.ban||L_(t.ban[0],t.ban[1]);
+      ov+=`<div class="ofc-dec-i" style="left:${560-200+ti*0}px;top:${44+ti*24}px;width:400px;height:20px;line-height:20px;text-align:center;border-radius:10px;background:${t.col};color:#fff;font:700 12px 'DM Sans',system-ui,sans-serif;border:2px solid #14202b;box-sizing:border-box;white-space:nowrap;overflow:hidden">${txt.replace(/</g,'&lt;')}</div>`;
+      // hiệu ứng rơi/bay
+      const n=t.fall[1]; for(let k=0;k<n;k++){ const x=((k*997)%1080)+8, d=(5+((k*7)%6)), dl=-((k*1.7)%d);
+        ov+=t.rise?`<div class="ofc-dec-i" style="left:${x}px;top:770px;font-size:${14+(k%3)*4}px;animation:ofcrise ${d+3}s linear ${dl}s infinite">${t.fall[0]}</div>`
+                  :`<div class="ofc-dec-i" style="left:${x}px;top:0;font-size:${12+(k%3)*4}px;animation:ofcfall ${d+4}s linear ${dl}s infinite">${t.fall[0]}</div>`; }
+      if(t.bats) for(let k=0;k<5;k++) ov+=`<div class="ofc-dec-i" style="left:0;top:${60+k*45}px;font-size:${18+(k%2)*6}px;animation:ofcfly ${14+k*3}s linear ${-k*4}s infinite">🦇</div>`;
+      if(t.fire) for(let k=0;k<5;k++) ov+=`<div class="ofc-dec-i" style="left:${120+k*210}px;top:${70+(k%2)*60}px;font-size:46px;animation:ofcpop ${3+k*.4}s ease-in-out ${k*.7}s infinite">${['🎆','🎇','🎆','🎇','✨'][k]}</div>`;
+      if(t.lantern) for(let k=0;k<8;k++){ const x=70+k*140; if(x>330&&x<780) continue; ov+=`<div class="ofc-dec-i" style="left:${x}px;top:36px;font-size:24px;animation:ofcblink ${2+(k%3)}s ease-in-out infinite">🏮</div>`; }
+    });
+    return [fl,ov];
+  }
+  function renderDecor(){
+    const f=$('ofc-decor'), o=$('ofc-decor2'); if(!f||!o||!days[st.idx]) return;
+    const isLast=st.idx===days.length-1, iso=isLast&&localIso()>days[st.idx].iso?localIso():days[st.idx].iso;
+    const list=decorActive(iso), key=list.map(a=>a.t.k+'|'+a.ban).join(',')+'#'+LANGEN();
+    if(f.dataset.k===key) return; f.dataset.k=key;
+    const h=list.length?decorHtml(list):['',''];
+    f.innerHTML=h[0]; o.innerHTML=h[1];
   }
   function renderStars(){
     const box=$('ofc-stars'); if(!box||!days.length) return;
@@ -8034,7 +8107,7 @@ const OFC = (function(){
     $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+L_(' đến ',' to ')+days[days.length-1].date;
     $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
-    const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx; try{ renderStars(); }catch(e){} try{ const staff=(typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader'); $('ofc-evsel').style.display=staff?'':'none'; if(!staff&&(st.preview||st.demoMeet)){ st.preview=''; st.demoMeet=false; $('ofc-evsel').value=''; } }catch(e){}
+    const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx; try{ renderStars(); }catch(e){} try{ renderDecor(); }catch(e){} try{ const staff=(typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader'); $('ofc-evsel').style.display=staff?'':'none'; if(!staff&&(st.preview||st.demoMeet||st.decorPrev)){ st.preview=''; st.demoMeet=false; st.decorPrev=''; $('ofc-evsel').value=''; } }catch(e){}
     $('ofc-day').textContent=T(WD[day.wd])+', '+day.date;
     let ph;
     if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
@@ -8089,6 +8162,7 @@ const OFC = (function(){
     paint();
     fitScene();
     if(!timer) timer=setInterval(tick,TICK);
+    try{ const mb=$('ofc-mus'); if(mb&&!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) setTimeout(()=>{ if(!window._ofcMusOff&&/Tắt|Off/.test(mb.textContent)) mb.click(); },300); }catch(e){}
   }
   window.ktaOfficeLang=function(){ try{ if(!built) return; Object.keys(C).forEach(k=>delete C[k]); built=false; st.snap=true; show(); }catch(e){} };
   return { show:show };
