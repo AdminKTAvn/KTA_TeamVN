@@ -7557,7 +7557,7 @@ const OFC = (function(){
   'Trang trí: ':'Decor: ',
   '🎵 Nhạc: Tắt':'🎵 Music: Off',
   'Chưa có dữ liệu ActivityLog để dựng văn phòng.':'No ActivityLog data to build the office yet.',
-  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓','Đang chờ nhạc…':'Waiting for music…','Điểm danh (Admin/Leader): bấm tên để đánh dấu off':'Attendance (Admin/Leader): tap a name to mark off','Thời tiết: Mưa':'Weather: Rain','Thời tiết: Tạnh':'Weather: Clear','Trời mưa to quá!':'It is pouring!','Ừ, nhớ mang áo mưa về nha':'Yeah, bring a raincoat home','Mưa rồi, nhớ đóng cửa sổ nha':'It is raining, close the window please','Ok, để mình đóng':'Ok, I will close it','Mưa thế này pha cà phê nóng đi!':'Rainy day, time for hot coffee!','Đồng ý, cho mình một ly!':'Agreed, one for me too!','Chiều nay về kiểu gì đây?':'How do we get home this afternoon?','Chờ tạnh rồi tính':'Let us wait until it stops','Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật':'Music not ready, tap the 🎵 Music button to start',
+  'Thang máy đang lên văn phòng…':'Elevator going up to the office…','Tới nơi rồi, ting!':'Ding! We have arrived.','Nhạc đã sẵn sàng ✓':'Music is ready ✓','Trình duyệt cần bạn bấm 1 lần để bật nhạc':'Tap once so the browser can play music','Vào văn phòng 🎵':'Enter the office 🎵','Đang tải nhạc…':'Loading music…','Nhạc đã bật ✓':'Music on ✓','Đang chờ nhạc…':'Waiting for music…','Chạm vào màn hình để bật nhạc':'Tap anywhere to start the music','Điểm danh (Admin/Leader): bấm tên để đánh dấu off':'Attendance (Admin/Leader): tap a name to mark off','Thời tiết: Mưa':'Weather: Rain','Thời tiết: Tạnh':'Weather: Clear','Trời mưa to quá!':'It is pouring!','Ừ, nhớ mang áo mưa về nha':'Yeah, bring a raincoat home','Mưa rồi, nhớ đóng cửa sổ nha':'It is raining, close the window please','Ok, để mình đóng':'Ok, I will close it','Mưa thế này pha cà phê nóng đi!':'Rainy day, time for hot coffee!','Đồng ý, cho mình một ly!':'Agreed, one for me too!','Chiều nay về kiểu gì đây?':'How do we get home this afternoon?','Chờ tạnh rồi tính':'Let us wait until it stops','Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật':'Music not ready, tap the 🎵 Music button to start',
   'Tốc độ: Vừa':'Speed: Medium',
   'Tốc độ: Chậm':'Speed: Slow',
   'Sự kiện: theo lịch':'Event: by schedule',
@@ -8393,6 +8393,24 @@ const OFC = (function(){
   }
 
   if(!window._ofcYT){ window._ofcYT=true; window.addEventListener('message',e=>{ try{ if(!/youtube\.com$/.test(new URL(e.origin).hostname)) return; const d=typeof e.data==='string'?JSON.parse(e.data):e.data; if(!d) return; if(d.event==='onStateChange'&&d.info===1) window._ofcPlaying=true; else if(d.event==='infoDelivery'&&d.info&&d.info.playerState===1) window._ofcPlaying=true; }catch(x){} }); }
+  // Trình duyệt chặn tự phát nhạc khi chưa có thao tác nào → lần chạm/bấm ĐẦU TIÊN ở bất kỳ đâu sẽ khởi động nhạc (đúng như bấm tắt rồi bật lại)
+  function armMusicGesture(){
+    if(window._ofcGest) return; window._ofcGest=true;
+    const evs=['pointerdown','touchstart','keydown','click'];
+    const h=e=>{
+      try{
+        if(e&&e.isTrusted===false) return;   // bỏ qua click do code tạo ra (VD tự bật nhạc)
+        if(e&&e.target&&e.target.closest&&e.target.closest('#ofc-mus')){ evs.forEach(x=>document.removeEventListener(x,h,true)); return; }
+        evs.forEach(x=>document.removeEventListener(x,h,true));
+        if(window._ofcMusOff||window._ofcPlaying) return;
+        const mb=$('ofc-mus'); if(!mb) return;
+        if(!(window.KTA_MUSIC||localStorage.getItem('kta_music')||'').trim()) return;
+        const off=/Tắt|Off/.test(mb.textContent), on=/Bật|On/.test(mb.textContent)&&!off;
+        if(on){ mb.click(); mb.click(); } else if(off){ mb.click(); }
+      }catch(x){}
+    };
+    evs.forEach(x=>document.addEventListener(x,h,true));
+  }
   function intro(){
     if(window._ofcIntro) return; window._ofcIntro=true;
     try{
@@ -8410,7 +8428,7 @@ const OFC = (function(){
       const ting=()=>{ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; const ac=window._ofcAC||(window._ofcAC=new AC()); if(ac.state==='suspended') ac.resume(); const t=ac.currentTime; [[1318.5,0],[987.8,.32]].forEach(n=>{ const o=ac.createOscillator(), g=ac.createGain(); o.type='sine'; o.frequency.value=n[0]; g.gain.setValueAtTime(0.0001,t+n[1]); g.gain.exponentialRampToValueAtTime(.28,t+n[1]+.02); g.gain.exponentialRampToValueAtTime(.0001,t+n[1]+1.6); o.connect(g); g.connect(ac.destination); o.start(t+n[1]); o.stop(t+n[1]+1.7); }); }catch(e){} };
       setTimeout(()=>{
         if(!$('ofc-iw')||done) return; $('ofc-ifn').textContent=17; $('ofc-itt').textContent=T('Tới nơi rồi, ting!'); ting();
-        $('ofc-ist').textContent=window._ofcPlaying?T('Nhạc đã sẵn sàng ✓'):T('Nhạc chưa sẵn sàng, bấm nút 🎵 Nhạc để bật');
+        $('ofc-ist').textContent=window._ofcPlaying?T('Nhạc đã sẵn sàng ✓'):T('Chạm vào màn hình để bật nhạc');
         setTimeout(openDoor,900);
       },TT);
       setTimeout(openDoor,60000);
@@ -8426,6 +8444,7 @@ const OFC = (function(){
     applyOffice();
     paint();
     fitScene();
+    armMusicGesture();
     fetchWx(); if(!window._ofcWxT){ window._ofcWxT=setInterval(()=>{ try{ localStorage.removeItem('kta_wx2'); }catch(e){} fetchWx(); },900000); }
     intro();
     if(!timer) timer=setInterval(tick,TICK);
