@@ -7631,7 +7631,7 @@ const OFC = (function(){
   let SHIFTS={};   // từ Sheet (type=shift): {i:{a:phút vào, l:phút về|null}}
   const parseHM=v=>{ const m=/(\d{1,2})\s*(?:[:hHgG])\s*(\d{2})?/.exec(String(v||'')); if(!m) return null; const h=+m[1], mi=m[2]?+m[2]:0; return (h>23||mi>59)?null:h*60+mi; };
   const arrMin = i => (SHIFTS[i]&&SHIFTS[i].a!=null) ? SHIFTS[i].a : (G1.indexOf(NAMES[i])>=0 ? 450 : 480);
-  const leaveMin = i => (SHIFTS[i]&&SHIFTS[i].l!=null) ? SHIFTS[i].l : arrMin(i)+570;
+  const leaveMin = i => (SHIFTS[i]&&SHIFTS[i].l!=null&&SHIFTS[i].l>arrMin(i)+60) ? SHIFTS[i].l : arrMin(i)+570;   // giờ về phải sau giờ vào ít nhất 1 tiếng, nếu không bỏ qua
   // đi làm: mỗi người ra khỏi thang máy lần lượt, cách nhau ~1 giây (không ra cùng lúc theo nhóm giờ)
   function arrLag(i,act){ const g=[]; for(let j=0;j<NAMES.length;j++){ if(act[j]&&arrTick(j)===arrTick(i)) g.push(j); } g.sort((a,b)=>arrMin(a)-arrMin(b)||a-b); return Math.max(0,g.indexOf(i))*Math.min(1000,Math.round(3400/Math.max(1,g.length))); }
   const arrTick = i => { const a=arrMin(i); return a<=465?1:(a<=495?3:5); };
@@ -7665,7 +7665,7 @@ const OFC = (function(){
   // ── NẠP NGỮ CẢNH TỪ GOOGLE SHEET (tab "Office") ──
   // Cột: type | who | with | text | reply | chance.  type = line / sit / walk / birthday / meal / music
   const EV0=EVENTS.length, IDLE0={};
-  const nameIdx=x=>{ const f=String(x||'').trim().split(/\s+/)[0].toLowerCase(); return NAMES.findIndex(n=>n.toLowerCase()===f); };
+  const nameIdx=x=>{ const f=String(x||'').trim().split(/\s+/)[0].toLowerCase(); let k=NAMES.findIndex(n=>n.toLowerCase()===f); if(k<0&&f.length>=3){ const c=NAMES.map((n,i)=>n.toLowerCase().indexOf(f)===0?i:-1).filter(i=>i>=0); if(c.length===1) k=c[0]; } return k; };   // 'Stu' = Stuart
   let MEET=null, NOTES=[], NOTEH='';   // bảng tin tùy chỉnh (type=board)
   const WDMAP={mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
   // trả về true/false nếu cột date hợp lệ (ngày cụ thể hoặc thứ trong tuần), null nếu trống/không hiểu
@@ -7802,8 +7802,9 @@ const OFC = (function(){
   function liveOn(){ try{ if(st.journey||st.preview||st.demoMeet||st.decorPrev) return false; if(st.idx!==days.length-1) return false; const day=days[st.idx]; if(eventFor(day)) return false; const a=awardFor(day); if(a&&a.ceremony) return false; return true; }catch(e){ return false; } }
   function liveMin(){ const t=new Date(); return t.getHours()*60+t.getMinutes(); }
   // trả về tick mục tiêu theo giờ thật (hoặc -1 nếu không cần ép)
+  function firstArr(){ let mn=1e9; try{ NAMES.forEach((nm,i)=>{ const a=arrMin(i); if(a<mn) mn=a; }); }catch(e){} return mn<1e9?mn:450; }
   function liveFix(tk,cf){ const m=liveMin();
-    if(m<450) return Math.min(tk,0); if(m<480) return Math.min(tk,2); if(m<540) return Math.min(tk,cf.work-1);
+    if(MEET){ if(m<450) return Math.min(tk,0); if(m<480) return Math.min(tk,2); if(m<540) return Math.min(tk,cf.work-1); } else if(m<firstArr()) return Math.min(tk,0);   // không họp sáng: ai vào trước làm trước, không phải đợi
     if(tk<cf.work+2) return cf.work+2; if(tk>=cf.leave-4) return cf.work+14; return tk; }
   function tick(){
     if(window._ofcHold) return;
@@ -7850,6 +7851,7 @@ const OFC = (function(){
         if(welAll() && tk>=tm_-4 && tk<=te-5){   // họp với toàn thể nhân sự: cả team vào phòng họp, khách đứng giữa trước màn hình
           wo.forEach((i2,ix)=>{ busy[i2]=1; if(i2!==LIAM && tk===tm_-4 && !trips[i2]) trips[i2]=newTrip(i2,'wmeet',allLoc(i2,ids0),GMEET,''); }); }
       }
+      if(liveOn()){ const lmn=liveMin(); NAMES.forEach((nm,q)=>{ if(lmn<arrMin(q)) busy[q]=1; }); }   // chưa vào văn phòng thì chưa đi lại/nói chuyện
       const active=activeList(day), rnd=p=>R()<p;
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
       active.forEach(i=>{
@@ -8379,7 +8381,7 @@ const OFC = (function(){
       if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
-      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && loc.seat===true;
+      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && (!LV||lm>=arrMin(i)) && loc.seat===true;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
@@ -8388,7 +8390,7 @@ const OFC = (function(){
       $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
       if(say) el.style.zIndex=70;
-      const lit=!!a && working, yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
+      const lit=!!a && working && (!LV||lm>=arrMin(i)), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
       [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(!m) return; const red=yt&&k===1; m.style.background=red?'#e5484d':(lit?'#7fd1ff':'#55616f'); const h=red?'<div style="position:absolute;left:3px;top:6px;width:0;height:0;border-left:6px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent"></div>':''; if(m.dataset.h!==h){ m.innerHTML=h; m.dataset.h=h; } });
       if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=T(say); sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
@@ -8426,7 +8428,7 @@ const OFC = (function(){
     const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e;
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
-    $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?(LV?(lunch?0:order.filter(q=>!act[q].idle&&!lvd(q)).length):nAct):0; $('ofc-h2').textContent=day.tasks;
+    $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?(LV?(lunch?0:order.filter(q=>!act[q].idle&&!lvd(q)&&lm>=arrMin(q)).length):nAct):0; $('ofc-h2').textContent=day.tasks;
     $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+L_(' đến ',' to ')+days[days.length-1].date;
     $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
@@ -8452,7 +8454,7 @@ const OFC = (function(){
     const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
     $('ofc-bz').textContent=bn>=2?L_('Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.','Busiest project: '+bl+', '+bn+' members working on it.'):T('Hôm nay mỗi bạn làm một việc riêng.');
     const off=NAMES.filter((nm,i)=>seat[i] && !act[i] && GONE.indexOf(i)<0), idl=NAMES.filter((nm,i)=>act[i]&&act[i].idle);
-    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2=idl.length?L_(' Chưa ghi việc: '+idl.join(', ')+'.',' No work logged: '+idl.join(', ')+'.'):''; $('ofc-off').textContent=a1+a2;
+    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2='';   // bảng off chỉ hiện người off, không hiện 'chưa ghi việc' $('ofc-off').textContent=a1+a2;
       const staff=((typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader')); let box=$('ofc-offbox');
       if(staff){ const cand=NAMES.filter((nm,i)=>seat[i]&&GONE.indexOf(i)<0&&(!act[i]||act[i].idle)); const dd=effIso(day);
         if(!box){ box=document.createElement('div'); box.id='ofc-offbox'; box.style.cssText='margin-top:8px'; $('ofc-off').parentNode.appendChild(box); box.addEventListener('click',e=>{ const b=e.target.closest('button[data-n]'); if(b) toggleOff(b.getAttribute('data-n')); }); }
