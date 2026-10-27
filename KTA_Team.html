@@ -3311,6 +3311,12 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 @keyframes ofcwork{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 @keyframes ofcwalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .ofc-badge{position:absolute;left:30px;top:-2px;min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:9px;background:#14202b;color:#F6F1E7;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.ofc-in.ofc-sleep{filter:brightness(.8) saturate(.75)}
+@keyframes ofczz{0%{opacity:0;transform:translate(0,6px) scale(.7)}25%{opacity:1}100%{opacity:0;transform:translate(10px,-22px) scale(1.25)}}
+@keyframes ofcbr{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+.ofc-in.ofc-sleep{animation:ofcbr 2.6s ease-in-out infinite}
+.ofc-ch.ofc-zz::after{content:'Z z z';position:absolute;left:34px;top:-14px;font:900 17px/1 system-ui,sans-serif;color:#1f4fb4;letter-spacing:1px;text-shadow:0 0 3px #fff,0 0 3px #fff;pointer-events:none;z-index:80;animation:ofczz 2.4s ease-out infinite}
+.ofc-in.ofc-eat::after{content:'🍱';position:absolute;left:26px;top:-12px;font-size:13px}
 .ofc-tag{position:absolute;left:-8px;top:56px;width:60px;box-sizing:border-box;background:#fff;border:1px solid #14202b;border-radius:8px;text-align:center;font-size:10px;font-weight:700;line-height:14px;color:#14202b;pointer-events:none}
 .ofc-say{position:absolute;left:-38px;top:-34px;z-index:5;width:120px;box-sizing:border-box;padding:3px 6px;border-radius:10px;background:#fff;border:2px solid #14202b;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b;pointer-events:none}
 .ofc-hud{min-width:92px;box-sizing:border-box;padding:4px 12px;border-radius:12px;background:#14202b;color:#F6F1E7;display:flex;flex-direction:column}
@@ -7625,6 +7631,8 @@ const OFC = (function(){
   const GRID=[['William',1,'A'],['Rhys',1,'D'],['Jayson',1,'E'],['Dale',1,'H'],['Andrew',2,'A'],['Zolius',2,'D'],['Daniel',2,'E'],['Vanessa',2,'H'],
     ['Nina',3,'D'],['Stuart',3,'E'],['Nick',3,'H'],['Alice',4,'A'],['Sam',4,'D'],['Liam',4,'E'],['Sayid',4,'H'],
     ['Mei',6,'D'],['Wilder',6,'E'],['Jayce',6,'H'],['Henry',7,'D'],['Bonnie',7,'E'],['Nora',7,'H']];
+  // CHỖ NGỦ TRƯA (tùy chỉnh; ai không có tên ở đây thì ngủ gục ngay trên ghế, như Dale/Kane): Tên:[x, y, hướng đầu]  — hướng đầu: 0=lên, 90=phải, 180=xuống, -90=trái
+  const SLEEPPOS={Alice:[59,308,90], Andrew:[61,131,90], Bonnie:[312,481,90], Daniel:[277,156,-90], Henry:[313,576,90], Jayce:[280,194,-90], Jayson:[276,75,-90], Liam:[382,311,37], Mei:[311,440,90], Nick:[580,237,-90], Nina:[590,462,180], Nora:[590,555,0], Rhys:[57,177,90], Sam:[245,286,0], Sayid:[582,309,-90], Vanessa:[578,164,-90], Wilder:[311,525,90], William:[61,83,90], Zolius:[277,116,-90]};
   const seat={}, tcol={}, team={};
   GRID.forEach(g=>{ const i=NAMES.indexOf(g[0]); seat[i]={x:CX[g[2]],y:CY[g[1]],rot:ROT[g[2]],wx:WX[g[2]],c:g[2]}; });
   Object.keys(TEAMOF).forEach(t=>TEAMOF[t].forEach(i=>{ team[i]=t; tcol[i]=TEAMCOL[t]; }));
@@ -7666,7 +7674,7 @@ const OFC = (function(){
   // Cột: type | who | with | text | reply | chance.  type = line / sit / walk / birthday / meal / music
   const EV0=EVENTS.length, IDLE0={};
   const nameIdx=x=>{ const f=String(x||'').trim().split(/\s+/)[0].toLowerCase(); let k=NAMES.findIndex(n=>n.toLowerCase()===f); if(k<0&&f.length>=3){ const c=NAMES.map((n,i)=>n.toLowerCase().indexOf(f)===0?i:-1).filter(i=>i>=0); if(c.length===1) k=c[0]; } return k; };   // 'Stu' = Stuart
-  let MEET=null, NOTES=[], NOTEH='';   // bảng tin tùy chỉnh (type=board)
+  let MEET=null, NOTES=[], NOTEH='', LUNCHM={}, LUNCHT={};   // bảng tin tùy chỉnh (type=board)
   const WDMAP={mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
   // trả về true/false nếu cột date hợp lệ (ngày cụ thể hoặc thứ trong tuần), null nếu trống/không hiểu
   function dayMatch(g,iso){
@@ -7684,7 +7692,7 @@ const OFC = (function(){
   const TRAITS=[['quiet',/ít giao tiếp|it giao tiep|quiet|im lặng/i],['talk',/hay nói|hay noi|talk|nói nhiều/i],['coffee',/cà phê|ca phe|coffee/i],['snack',/ăn vặt|an vat|snack|ăn uống/i],['ask',/hỏi việc|hoi viec|ask/i],['support',/support|hỗ trợ|ho tro/i],['late',/ở lại|o lai|muộn|late/i]];
   function applyOffice(){
     let rows=window.KTA_OFFICE; if(!rows){ try{ rows=JSON.parse(localStorage.getItem('kta_office')||'null'); }catch(e){ rows=null; } }
-    EVENTS.length=EV0; MEET=null; DECORROWS=[]; OFFROWS=[]; GUESTS=[]; WXROWS=[]; SHIFTS={}; NOTES=[]; NOTEH='';
+    EVENTS.length=EV0; MEET=null; DECORROWS=[]; OFFROWS=[]; GUESTS=[]; WXROWS=[]; SHIFTS={}; NOTES=[]; NOTEH=''; LUNCHM={}; LUNCHT={};
     const viewIso=(days[st.idx]&&days[st.idx].iso)||'';
     NAMES.forEach(nm=>{ const P=PERS[nm]||(PERS[nm]={}); if(!(nm in IDLE0)) IDLE0[nm]=P.idle||null; P.idle=IDLE0[nm]?IDLE0[nm].slice():null; P.idleDay=[]; P.sitx=[]; P.walkx=[]; P.tr={}; });
     if(st.demoMeet) MEET={title:'Team meeting',sub:'Chào cả team, bắt đầu giao ban!',items:[{t:'Tổng kết tuần qua',w:NAMES.indexOf('Liam'),r:'Tuần qua mình chốt xong 5 dự án'},{t:'Kế hoạch tuần mới',w:NAMES.indexOf('Stuart'),r:'Tuần mới ưu tiên các dự án gấp'},{t:'Nhắc deadline',w:NAMES.indexOf('Nina'),r:'Nhớ chốt bản vẽ đúng hạn nhé'}]};
@@ -7694,6 +7702,7 @@ const OFC = (function(){
       { const txe=String(r[7]||'').trim(), rpe=String(r[8]||'').trim(); if(tx&&txe) EN[tx]=txe; if(rp&&rpe) EN[rp]=rpe; }
       if(ty==='music'){ if(tx) window.KTA_MUSIC=tx; return; }
       if(ty==='board'||ty==='bảng tin'||ty==='bang tin'||ty==='notice'||ty==='thông báo'||ty==='thong bao'){ try{ const g=String(r[6]||'').trim(), eff=effIso(days[st.idx]); if(g&&dayMatch(g,viewIso)===false&&dayMatch(g,eff)===false) return; const who0=String(r[1]||'').trim().toLowerCase(); if(who0==='title'||who0==='tiêu đề'||who0==='tieu de'){ if(tx) NOTEH=tx; } else if(tx&&NOTES.length<30) NOTES.push({t:tx,c:rp}); }catch(e){} return; }
+      if(ty==='lunch'||ty==='ăn trưa'||ty==='an trua'){ try{ if(who>=0){ const g=String(r[6]||'').trim(), eff=effIso(days[st.idx]); if(!g||dayMatch(g,viewIso)!==false||dayMatch(g,eff)!==false){ const v=String(r[2]||'').trim().toLowerCase(); { const tm=String(r[3]||'').match(/(\d{1,2})[:h](\d{2})/); if(tm) LUNCHT[who]=(+tm[1])*60+(+tm[2]); else delete LUNCHT[who]; } LUNCHM[who]=/ngo|out|ra ngoài|ra ngoai|đi ăn|di an/.test(v)?'out':(/sofa|ngủ|ngu|nap/.test(v)?'sofa':(/in|tại|tai|chỗ|cho|văn phòng|van phong/.test(v)?'in':'')); } } }catch(e){} return; }
       if(ty==='shift'||ty==='ca'||ty==='giờ làm'||ty==='gio lam'){ try{ if(who>=0){ const g=String(r[6]||'').trim(), eff=effIso(days[st.idx]); if(!g||dayMatch(g,viewIso)!==false||dayMatch(g,eff)!==false){ const a=parseHM(r[2]), l=parseHM(r[3]); if(a!==null||l!==null) SHIFTS[who]={a:a,l:l}; } } }catch(e){} return; }
       if(ty==='guest'||ty==='khách'||ty==='khach'){ const gn=String(r[1]||'').trim(); if(gn&&dayMatch(r[6],viewIso)!==false&&GUESTS.length<6) GUESTS.push({n:gn,t:tx}); return; }
       if(ty==='weather'||ty==='thời tiết'||ty==='thoi tiet'||ty==='mưa'||ty==='mua'||ty==='rain'){ const w=(tx+' '+rp).toLowerCase(); WXROWS.push({k:/(^|\s)(auto|tự động|tu dong|thực tế|thuc te)(\s|$)/.test(w)?'auto':((ty==='mưa'||ty==='mua'||ty==='rain'||/mưa|mua|rain/.test(w))&&!/(^|\s)(off|tắt|tat|không|khong|no|clear|nắng|nang)(\s|$)/.test(w)?'rain':'clear'),range:String(r[6]||'').trim()}); return; }
@@ -8311,7 +8320,7 @@ const OFC = (function(){
     if(c.key===loc.key && !instant) return;
     c.timers.forEach(clearTimeout); c.timers=[];
     const from=c.loc; c.loc=loc; c.key=loc.key;
-    const seated=()=>{ c.moving=false; rot.style.transform='rotate('+(loc.seat?loc.rot:0)+'deg)'+(loc.meet?' scale(.62)':''); el.style.opacity=loc.hide?0:(c.base!==undefined?c.base:1); el.style.pointerEvents=loc.hide?'none':'auto'; refresh(i); };
+    const seated=()=>{ c.moving=false; rot.style.transform='rotate('+(loc.seat?loc.rot:0)+'deg)'+(loc.meet?' scale(.62)':''); el.style.opacity=loc.hide?0:(c.base!==undefined?c.base:1); el.style.pointerEvents=loc.hide?'none':'auto'; refresh(i); setTimeout(spreadTags,80); };
     if(instant || !from){
       el.style.transition='none'; place(i,loc.x,loc.y); el.style.zIndex=loc.seat?40:50+Math.round(loc.y/20);
       void el.offsetWidth; el.style.transition='';
@@ -8319,7 +8328,7 @@ const OFC = (function(){
     }
     const pts=route(from,loc);
     el.style.opacity=1; el.style.pointerEvents='auto';
-    rot.style.transform='rotate(0deg)'; c.moving=true; inn.className='ofc-in ofc-walking';
+    rot.style.transform='rotate(0deg)'; c.moving=true; el.classList.remove('ofc-zz'); inn.className='ofc-in ofc-walking';
     el.style.zIndex=60;
     let cur={x:from.x,y:from.y}, t=lag||0;
     pts.forEach(p=>{
@@ -8329,10 +8338,37 @@ const OFC = (function(){
     });
     c.timers.push(setTimeout(()=>{ el.style.zIndex=loc.seat?40:50+Math.round(loc.y/20); seated(); },t+50));
   }
+  // tên không đè nhau: ai trùng thì nhảy sang chỗ trống gần nhất
+  function spreadTags(){
+    try{
+      const ids=[]; for(let i=0;i<NAMES.length;i++){ const c=C[i], el=$('ofc-c'+i), t=$('ofc-t'+i); if(!c||!el||!t) continue; t.style.transform=''; if(el.style.display==='none'||c.moving||el.style.opacity==='0') continue; ids.push(i); }
+      if(!ids.length) return;
+      const sc=$('ofc-scene'), sw=sc.getBoundingClientRect().width/(sc.offsetWidth||1)||1;
+      const R=r=>({l:r.left,t:r.top,r:r.right,b:r.bottom});
+      const hit=(a,b)=>a.l<b.r-1&&a.r>b.l+1&&a.t<b.b-1&&a.b>b.t+1;
+      const body={}; ids.forEach(i=>{ const r=$('ofc-r'+i); body[i]=R((r||$('ofc-c'+i)).getBoundingClientRect()); });
+      const base={}; ids.forEach(i=>{ base[i]=R($('ofc-t'+i).getBoundingClientRect()); });
+      const V=[[0,15],[0,30],[0,45],[0,-78],[0,-94],[0,-110],[0,60],[0,-126]];
+      const SIDE=[[62,-32],[-62,-32],[92,-32],[-92,-32],[122,-32],[-122,-32]];
+      const placed=[], mv={};
+      const mk=(b,d)=>({l:b.l+d[0]*sw,r:b.r+d[0]*sw,t:b.t+d[1]*sw,b:b.b+d[1]*sw});
+      // 1) tên không vướng ai thì đứng nguyên giữa người
+      const stay=ids.filter(i=>!ids.some(j=>j!==i&&(hit(base[i],base[j])||hit(base[i],body[j]))));
+      const rest=ids.filter(i=>stay.indexOf(i)<0);
+      stay.forEach(i=>placed.push(base[i]));
+      // 2) tên bị vướng: đứng cùng hàng với người, dời sang bên trống (thẳng cột với nhau)
+      const first=[]; rest.forEach(i=>{ let pick=null;
+        for(const d of SIDE){ const r=mk(base[i],d); if(placed.some(q=>hit(r,q))) continue; if(ids.some(j=>j!==i&&hit(r,body[j]))) continue; pick=d; placed.push(r); break; }
+        if(!pick){ for(const d of V){ const r=mk(base[i],d); if(placed.some(q=>hit(r,q))) continue; pick=d; placed.push(r); break; } }
+        if(!pick){ pick=[0,0]; placed.push(base[i]); }
+        mv[i]=pick; });
+      Object.keys(mv).forEach(i=>{ const d=mv[i]; if(d[0]||d[1]){ const t=$('ofc-t'+i); t.style.transform='translate('+d[0]+'px,'+d[1]+'px)'; t.style.zIndex=90; } });
+    }catch(e){}
+  }
   function refresh(i){ // trạng thái đứng yên: gõ phím khi ngồi làm
     const c=C[i]; if(!c||c.moving) return;
     const inn=document.querySelector('#ofc-c'+i+' .ofc-in'); if(!inn) return;
-    inn.className='ofc-in'+(c.working?' ofc-work':'');
+    inn.className='ofc-in'+(c.working?' ofc-work':'')+(c.sleep?' ofc-sleep':'')+(c.eat?' ofc-eat':''); ($('ofc-c'+i)||inn).classList.toggle('ofc-zz',!!c.sleep&&!c.moving);
   }
   function paint(){
     paintWeather();
@@ -8346,6 +8382,15 @@ const OFC = (function(){
     const LV=liveOn(), lm=liveMin(), liveT={}; if(LV){ byLeave.forEach((p,k)=>{ const sch=leaveMin(p); liveT[p]=(NAMES[p]==='Nina')?((act[p].t!=null&&act[p].t>=1020)?act[p].t:sch):Math.max(sch,(act[p].t!=null?act[p].t:0)); }); [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(liveT[pr[0]],liveT[pr[1]]); liveT[pr[0]]=m; liveT[pr[1]]=m; } }); }
     const lvd=q=>LV?(lm>=450&&lm>=liveT[q]):(tk>=leaveTk[q]);
     const lunch=LV&&lm>=690&&lm<780;
+    // nghỉ trưa: ~40% đi ăn ngoài (về lại 12:10-12:25), còn lại ăn tại chỗ; sau đó ngủ trưa (3 người đầu ngủ ở sofa, còn lại ngủ tại bàn) đến 13:00
+    const LP={}; let lnIn=0, lnOut=0, lnNap=0;
+    if(lunch){ const hs=q=>{ let h=7; const t=NAMES[q]+'|'+day.iso; for(let c=0;c<t.length;c++) h=(h*31+t.charCodeAt(c))%9973; return h; };
+      const here=order.filter(q=>act[q]&&lm>=arrMin(q)&&!lvd(q));
+      here.forEach(q=>{ const h=hs(q), m=LUNCHM[q], out=m==='out'?true:((m==='in'||m==='sofa')?false:(h%100)<40); const late=out&&LUNCHT[q]!==undefined&&LUNCHT[q]>=720; LP[q]={out:out,back:late?LUNCHT[q]:720+(h%16),late:late,h:h}; if(out) lnOut++; else lnIn++; });
+      const nappers=here.slice().sort((x,y)=>((LUNCHM[y]==='sofa'?1:0)-(LUNCHM[x]==='sofa'?1:0))||(LP[x].h-LP[y].h)); let sf=0;
+      nappers.forEach(q=>{ if(sf<3){ LP[q].sofa=sf++; } });
+      here.forEach(q=>{ const p=LP[q]; if(lm>=((p.late?99999:(p.out?p.back:720)))) lnNap++; }); }
+    const SOFAX=[918,954,990];
     const allGone=LV&&(lm<450||(order.length>0&&order.every(q=>lm>=liveT[q])));
     const meeting = tk<cf.meetEnd, working = tk>=cf.work;
     const ev=eventFor(day), evOn=!!ev && tk>=EV.s && tk<EV.e, evSlot={};
@@ -8360,7 +8405,12 @@ const OFC = (function(){
       let loc=seatLoc(i), say='';
       if(!a){ loc=seatLoc(i); }
       else if(LV?(lm<arrMin(i)):(cf.arrive && tk<arrTick(i))) loc=ELEV;
-      else if(a && (lvd(i)||lunch)) loc=ELEV;
+      else if(a && lvd(i)) loc=ELEV;
+      else if(a && lunch && LP[i]){ const p=LP[i], napping=lm>=((p.late?99999:(p.out?p.back:720)));
+        if(p.out&&lm<p.back){ loc=ELEV; }
+        else if(napping){ const sp=SLEEPPOS[NAMES[i]]; if(sp && !(p.sofa!==undefined&&LUNCHM[i]==='sofa')){ const aw=[24,316,610].reduce((a,b)=>Math.abs(b-sp[0])<Math.abs(a-sp[0])?b:a); loc={key:'sl'+i,x:sp[0],y:sp[1],seat:true,rot:sp[2],wx:aw,br:[{x:aw,y:sp[1]},{x:aw,y:AY}]}; } else if(p.sofa!==undefined){ loc={key:'nap'+i,x:SOFAX[p.sofa],y:586,seat:true,rot:90,wx:SOFAX[p.sofa],br:[{x:779,y:586},{x:779,y:AY}]}; } else loc=seatLoc(i); }
+        else { loc=seatLoc(i); } }
+      else if(a && lunch) loc=ELEV;
       else if(WF && i===LIAM && tk>=WF.td+3 && tk<WF.te-4){ const lw=liamWelcome(tk,WF,order); loc=lw.loc; say=lw.say; }
       else if(meeting) loc=allLoc(i,order);
       else if(evOn) loc=evLoc(Math.min(evSlot[i],EVP.length-1));
@@ -8383,7 +8433,7 @@ const OFC = (function(){
       if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
-      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && (!LV||lm>=arrMin(i)) && loc.seat===true;
+      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && !lunch && (!LV||lm>=arrMin(i)) && loc.seat===true; c.sleep=!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true; c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
@@ -8392,7 +8442,7 @@ const OFC = (function(){
       $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
       if(say) el.style.zIndex=70;
-      const lit=!!a && working && (!LV||lm>=arrMin(i)), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
+      const lit=!!a && working && !lunch && (!LV||lm>=arrMin(i)), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
       [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(!m) return; const red=yt&&k===1; m.style.background=red?'#e5484d':(lit?'#7fd1ff':'#55616f'); const h=red?'<div style="position:absolute;left:3px;top:6px;width:0;height:0;border-left:6px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent"></div>':''; if(m.dataset.h!==h){ m.innerHTML=h; m.dataset.h=h; } });
       if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=T(say); sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
@@ -8446,9 +8496,9 @@ const OFC = (function(){
     else if(!working) ph='Về chỗ ngồi';
     else if(tk>=cf.leave) ph='Cuối ngày, mọi người ra về';
     else ph='Giờ làm việc';
-    if(lunch&&!allGone) ph='Nghỉ trưa 🍜 (11:30 đến 13:00)'; if(allGone) ph='Văn phòng đã đóng cửa 🌙';
+    if(lunch&&!allGone) ph=(lm<720)?L_('Nghỉ trưa 🍜 · ăn tại chỗ '+lnIn+', đi ăn ngoài '+lnOut,'Lunch break 🍜 · eating in '+lnIn+', eating out '+lnOut):L_('Nghỉ trưa 😴 · '+lnNap+' bạn ngủ trưa (đi ăn ngoài về 12:00–12:15)',"Nap time 😴 · "+lnNap+' napping (lunch-out back 12:00–12:15)'); if(allGone) ph='Văn phòng đã đóng cửa 🌙';
     $('ofc-phase').textContent=T(ph)+(LV?' · '+hhmm(lm):'');
-    try{ let nt=$('ofc-night'); if(!nt){ nt=document.createElement('div'); nt.id='ofc-night'; nt.style.cssText='position:absolute;inset:0;background:#0b1626;opacity:0;pointer-events:none;transition:opacity 2.5s;z-index:60;border-radius:inherit'; $('ofc-scene').appendChild(nt); } nt.style.opacity=allGone?'.45':'0'; }catch(e){}
+    try{ let nt=$('ofc-night'); if(!nt){ nt=document.createElement('div'); nt.id='ofc-night'; nt.style.cssText='position:absolute;inset:0;background:#0b1626;opacity:0;pointer-events:none;transition:opacity 2.5s;z-index:60;border-radius:inherit'; $('ofc-scene').appendChild(nt); } nt.style.opacity=allGone?'.45':((lunch&&lm>=720)?'.32':'0'); }catch(e){}
     $('ofc-btn').textContent=T(st.journey?'Dừng, về ngày gần nhất':'Xem lại cả hành trình');
     $('ofc-st').textContent=L_(nAct+' bạn có việc, '+day.projs.length+' dự án, '+day.tasks+' task',nAct+' members working, '+day.projs.length+' projects, '+day.tasks+' tasks');
     const byp={}; order.forEach(i=>{ if(act[i].idle) return; const k=act[i].key; byp[k]=(byp[k]||0)+1; });
@@ -8456,12 +8506,13 @@ const OFC = (function(){
     const bl=bk?(day.projs.find(p=>p.k===bk)||{}).t:'';
     $('ofc-bz').textContent=bn>=2?L_('Dự án đông nhất: '+bl+', '+bn+' bạn cùng làm.','Busiest project: '+bl+', '+bn+' members working on it.'):T('Hôm nay mỗi bạn làm một việc riêng.');
     const off=NAMES.filter((nm,i)=>seat[i] && !act[i] && GONE.indexOf(i)<0), idl=NAMES.filter((nm,i)=>act[i]&&act[i].idle);
-    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2='';   // bảng off chỉ hiện người off, không hiện 'chưa ghi việc' $('ofc-off').textContent=a1+a2;
+    { const a1=off.length?L_(off.length+' bạn off: '+off.join(', ')+'.',off.length+' off: '+off.join(', ')+'.'):T('Hôm nay không ai off.'); const a2=''; /* bảng off chỉ hiện người off */ $('ofc-off').textContent=a1+a2;
       const staff=((typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader')); let box=$('ofc-offbox');
       if(staff){ const cand=NAMES.filter((nm,i)=>seat[i]&&GONE.indexOf(i)<0&&(!act[i]||act[i].idle)); const dd=effIso(day);
         if(!box){ box=document.createElement('div'); box.id='ofc-offbox'; box.style.cssText='margin-top:8px'; $('ofc-off').parentNode.appendChild(box); box.addEventListener('click',e=>{ const b=e.target.closest('button[data-n]'); if(b) toggleOff(b.getAttribute('data-n')); }); }
         box.innerHTML=cand.length?('<div style="font-size:12px;font-weight:700;color:#5b4a2e;margin-bottom:5px">'+T('Điểm danh (Admin/Leader): bấm tên để đánh dấu off')+' · '+dd+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+cand.map(nm=>{ const o=isOffDay(NAMES.indexOf(nm),dd)||isOffDay(NAMES.indexOf(nm),day.iso); return '<button type="button" data-n="'+nm+'" style="min-height:36px;padding:0 12px;border-radius:18px;border:2px solid #14202b;background:'+(o?'#14202b':'#fff')+';color:'+(o?'#f6f1e7':'#14202b')+';font:700 12.5px system-ui,sans-serif;cursor:pointer">'+(o?'☑ ':'☐ ')+nm+(o?' · off':'')+'</button>'; }).join('')+'</div><div id="ofc-offmsg" style="font-size:12px;color:#5b4a2e;margin-top:6px"></div>'):'';
       } else if(box){ box.remove(); } }
+    setTimeout(spreadTags,120);
   }
   function evDecor(ev){
     const D='#14202b', bal=(x,y,c)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:22px;height:28px;border-radius:50% 50% 48% 48%;border:2px solid ${D};background:${c};box-sizing:border-box"></div><div style="position:absolute;left:${x+10}px;top:${y+28}px;width:2px;height:24px;background:${D}"></div>`;
