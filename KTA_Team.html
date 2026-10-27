@@ -3311,12 +3311,22 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 @keyframes ofcwork{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 @keyframes ofcwalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .ofc-badge{position:absolute;left:30px;top:-2px;min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:9px;background:#14202b;color:#F6F1E7;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+@keyframes ofcdl{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-3px) rotate(8deg)}}
+@keyframes ofcsw{0%{opacity:0;transform:translate(0,0)}30%{opacity:1}100%{opacity:0;transform:translate(-3px,12px)}}
+.ofc-ch.ofc-dl0::before,.ofc-ch.ofc-dl1::before,.ofc-ch.ofc-dl2::before{position:absolute;left:-4px;top:-9px;font-size:14px;line-height:1;z-index:81;pointer-events:none;animation:ofcdl .7s ease-in-out infinite}
+.ofc-ch.ofc-dl0::before{content:'\23F0';filter:drop-shadow(0 0 4px #ff3b30);font-size:17px;animation-duration:.35s}
+.ofc-ch.ofc-dl1::before{content:'\23F0';filter:drop-shadow(0 0 3px #f5b942);animation-duration:1.1s}
+.ofc-ch.ofc-dl2::before{content:'\1F4C5';font-size:12px;animation:none;opacity:.9}
+.ofc-in.ofc-rush::before{content:'\1F4A6';position:absolute;left:30px;top:2px;font-size:11px;z-index:3;animation:ofcsw 1s ease-in infinite}
+.ofc-in.ofc-rush.ofc-work{animation-duration:.4s}
 .ofc-in.ofc-sleep{filter:brightness(.8) saturate(.75)}
 @keyframes ofczz{0%{opacity:0;transform:translate(0,6px) scale(.7)}25%{opacity:1}100%{opacity:0;transform:translate(10px,-22px) scale(1.25)}}
 @keyframes ofcbr{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 .ofc-in.ofc-sleep{animation:ofcbr 2.6s ease-in-out infinite}
 .ofc-ch.ofc-zz::after{content:'Z z z';position:absolute;left:34px;top:-14px;font:900 17px/1 system-ui,sans-serif;color:#1f4fb4;letter-spacing:1px;text-shadow:0 0 3px #fff,0 0 3px #fff;pointer-events:none;z-index:80;animation:ofczz 2.4s ease-out infinite}
 .ofc-in.ofc-eat::after{content:'🍱';position:absolute;left:26px;top:-12px;font-size:13px}
+.ofc-tag.on::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#2ecc71;margin-right:3px;vertical-align:1px;box-shadow:0 0 4px #2ecc71}
+.ofc-tag.me{border-color:#2ecc71;border-width:2px;line-height:12px}
 .ofc-tag{position:absolute;left:-8px;top:56px;width:60px;box-sizing:border-box;background:#fff;border:1px solid #14202b;border-radius:8px;text-align:center;font-size:10px;font-weight:700;line-height:14px;color:#14202b;pointer-events:none}
 .ofc-say{position:absolute;left:-38px;top:-34px;z-index:5;width:120px;box-sizing:border-box;padding:3px 6px;border-radius:10px;background:#fff;border:2px solid #14202b;text-align:center;font-size:10px;font-weight:700;line-height:12px;color:#14202b;pointer-events:none}
 .ofc-hud{min-width:92px;box-sizing:border-box;padding:4px 12px;border-radius:12px;background:#14202b;color:#F6F1E7;display:flex;flex-direction:column}
@@ -5658,6 +5668,7 @@ async function doLogin(){
       if(role==='admin')  localStorage.setItem('teamhub_sheets_adminpw',  pw);
       if(role==='leader') localStorage.setItem('teamhub_sheets_leaderpw', pw);
       if(role==='user')   localStorage.setItem('teamhub_sheets_userpw',   pw);
+      if(role==='guest')  { localStorage.setItem('teamhub_sheets_guestpw', pw); if(res.gname) window.KTA_GUEST=res.gname; }
       localStorage.setItem('teamhub_sheets_role', role); // save role for auto-reconnect
       // Ẩn login, hiện app
       document.getElementById('login-overlay').style.display = 'none';
@@ -5671,7 +5682,7 @@ async function doLogin(){
       else                     updateSheetsBadge('connected_user');
       if(typeof applyRoleUI==='function') applyRoleUI();
       // User: load fresh data; Admin/Leader: load all
-      if(role==='user') await sheetsLoadAllFresh();
+      if(role==='user'||role==='guest') await sheetsLoadAllFresh();
       else await sheetsLoadAll();
     } else {
       if(err){ err.style.display='block'; err.textContent='Password không đúng. Vui lòng thử lại!'; }
@@ -5712,9 +5723,13 @@ function getLeaderPw(){
 function getUserPw(){
   return localStorage.getItem('teamhub_sheets_userpw') || '';
 }
+function getGuestPw(){
+  return localStorage.getItem('teamhub_sheets_guestpw') || '';
+}
 function getRolePw(){
   if(sheetsRole==='admin')  return getAdminPw();
   if(sheetsRole==='leader') return getLeaderPw();
+  if(sheetsRole==='guest')  return getGuestPw();
   return '';
 }
 function saveSheetsConfig(cfg){
@@ -6002,7 +6017,7 @@ function _refreshProjectDisplayIfNeeded(){
 // Fresh version: luôn lấy từ Sheets, không dùng cache localStorage
 async function sheetsLoadAllFresh(){
   try{
-    const pw = getRolePw() || getAdminPw() || getLeaderPw() || getUserPw() || '';
+    const pw = getRolePw() || getAdminPw() || getLeaderPw() || getUserPw() || getGuestPw() || '';
     const res = await sheetsRequest(null, { action:'loadAll', password: pw });
     // Handle both res.data.projects and res.projects (direct)
     const data = res.data || res;
@@ -6068,7 +6083,7 @@ async function sheetsLoadAllFresh(){
 async function sheetsLoadAll(){
   try{
     const cfg = getSheetsConfig();
-    const pw = getAdminPw();
+    const pw = getAdminPw() || getRolePw() || getLeaderPw() || getUserPw() || getGuestPw() || '';
     const res = await sheetsRequest(null, { action:'loadAll', password: pw });
     const data2 = res.data || res;
     if(res.ok && data2){
@@ -6198,27 +6213,29 @@ async function sendFeedback(personName, message){
         const adminPw     = localStorage.getItem('teamhub_sheets_adminpw')  || '';
         const leaderPw    = localStorage.getItem('teamhub_sheets_leaderpw') || '';
         const userPw      = localStorage.getItem('teamhub_sheets_userpw')   || '';
+        const guestPw     = localStorage.getItem('teamhub_sheets_guestpw')  || '';
         // Ưu tiên dùng password của role đã lưu
         let pwToTry = '';
         if(savedRole === 'admin')       pwToTry = adminPw;
         else if(savedRole === 'leader') pwToTry = leaderPw;
         else if(savedRole === 'user')   pwToTry = userPw;
-        else pwToTry = adminPw || leaderPw || userPw || '';
+        else if(savedRole === 'guest')  pwToTry = guestPw;
+        else pwToTry = adminPw || leaderPw || userPw || guestPw || '';
 
         const res = await sheetsRequest(cfg.scriptUrl, { action:'ping', password: pwToTry });
         if(res.ok){
           // Luôn dùng role từ Sheets trả về, không tin localStorage
-          const verifiedRole = res.role || 'none';
+          const verifiedRole = res.role || 'none'; if(res.gname) window.KTA_GUEST=res.gname;
           // Nếu role không khớp với password đã lưu → thử lại với các password khác
           if(verifiedRole === 'none' || verifiedRole !== savedRole){
             // Thử tất cả password để tìm đúng role
-            const allPws = [adminPw, leaderPw, userPw].filter(p=>p && p !== pwToTry);
+            const allPws = [adminPw, leaderPw, userPw, guestPw].filter(p=>p && p !== pwToTry);
             let finalRole = verifiedRole;
             let finalPw = pwToTry;
             for(const p of allPws){
               const r2 = await sheetsRequest(cfg.scriptUrl, {action:'ping', password: p});
               if(r2.ok && r2.role && r2.role !== 'none'){
-                finalRole = r2.role;
+                finalRole = r2.role; if(r2.gname) window.KTA_GUEST=r2.gname;
                 finalPw = p;
                 break;
               }
@@ -6229,6 +6246,7 @@ async function sendFeedback(personName, message){
               if(finalRole==='admin')  localStorage.setItem('teamhub_sheets_adminpw', finalPw);
               if(finalRole==='leader') localStorage.setItem('teamhub_sheets_leaderpw', finalPw);
               if(finalRole==='user')   localStorage.setItem('teamhub_sheets_userpw', finalPw);
+              if(finalRole==='guest')  localStorage.setItem('teamhub_sheets_guestpw', finalPw);
               sheetsRole = finalRole;
             } else {
               // Tất cả password đều none → chặn, hiện login
@@ -6686,6 +6704,13 @@ function applyRoleUI(){
   if(!userTab) return;
   const officeTab = document.getElementById('maintab-office'); if(officeTab) officeTab.style.display = 'flex';
   const lbTab = document.getElementById('maintab-lb');
+  if(sheetsRole === 'guest'){
+    // Khách KTA: chỉ thấy Văn phòng
+    [userTab,projTab,evalTab,membersTab,lbTab].forEach(x=>{ if(x) x.style.display='none'; });
+    if(officeTab) officeTab.style.order = '-1';
+    { const act=document.querySelector('.main-tab.active'); if(!act||act.id!=='maintab-office'){ switchMainTab('office'); try{ OFC.show(); }catch(e){} } }
+    return;
+  }
   if(sheetsRole === 'user'){
     // Member: tạm khoá Xếp hạng — chỉ thấy Văn phòng (mặc định) + Tra cứu
     userTab.style.display = 'flex';
@@ -7652,12 +7677,20 @@ const OFC = (function(){
       const nm=String(r[2]||'').replace(/\s+/g,' ').trim(), ph=String(r[4]||'').replace(/^\d+\s*/,'');
       [[8,9],[10,11]].forEach((c,ix)=>{ const who=String(r[c[0]]||'').trim(); if(!who||na) return; const w=wfac(r[c[1]]);
         (by[who]=by[who]||[]).push({no:r[1],name:nm,scale:r[3],ph:ph,k:w.k,f:(act||pro)?w.f:0,urgent:w.urgent,hold:hold,pro:pro,role:ix?'VN2':'VN1'}); });
-      if(act||pro){ [[12,13],[14,15]].forEach(c=>{ const d=String(r[c[1]]||'').slice(0,10), ms=(function(a){ return a.find(x=>/\d/.test(x))||a[0]||''; })(String(r[c[0]]||'').split('|').map(x=>x.trim())); if(/^\d{4}-\d{2}-\d{2}$/.test(d) && d>=iso && d<=addDays(iso,6)){ const w=[r[8],r[10]].filter(Boolean).join(', '); dead.push({d:d,t:nm+(ms?' · '+ms:''),w:w,sc:r[3]}); } }); }
+      if(act||pro){ [[12,13],[14,15]].forEach(c=>{ const d=String(r[c[1]]||'').slice(0,10), ms=(function(a){ return a.find(x=>/\d/.test(x))||a[0]||''; })(String(r[c[0]]||'').split('|').map(x=>x.trim())); if(/^\d{4}-\d{2}-\d{2}$/.test(d) && d>=iso && d<=addDays(iso,6)){ const w=[r[8],r[10]].filter(Boolean).join(', '); dead.push({d:d,p:nm,t:nm+(ms?' · '+ms:''),w:w,sc:r[3]}); } }); }
     });
     dead.sort((a,b)=>a.d<b.d?-1:(a.d>b.d?1:0));
     TRK._k=wk+'|'+R.length; TRK._iso=iso; TRK._v={week:wk,by:by,dead:dead}; return TRK._v;
   }
-  const TRK={};
+  // người nào có deadline trong 7 ngày: {days, proj}
+  function dlMap(iso){
+    const m={}; const T0=trkFor(iso); if(!T0) return m;
+    const t0=new Date(iso+'T00:00:00').getTime();
+    T0.dead.forEach(x=>{ const dd=Math.round((new Date(x.d+'T00:00:00').getTime()-t0)/864e5);
+      String(x.w||'').split(/,\s*/).forEach(nm=>{ const q=NAMES.indexOf(nm); if(q<0) return; if(!m[q]||dd<m[q].days) m[q]={days:dd,proj:x.p||x.t}; }); });
+    return m;
+  }
+  const TRK={}; let DLNOW=false, DLLIST=[];
   const WDN=['CN','T2','T3','T4','T5','T6','T7'], WDE=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dlabel=iso=>{ const d=new Date(iso+'T00:00:00'); return (LANGEN()?WDE:WDN)[d.getDay()]+' '+iso.slice(8,10)+'/'+iso.slice(5,7); };
   const seat={}, tcol={}, team={};
@@ -7902,6 +7935,9 @@ const OFC = (function(){
         const social=(j,kind,say,reply)=>{ trips[i]=newTrip(i,kind,standLoc(j),3,say,{to:j,hostSay:reply}); busy[i]=1; busy[j]=1; n++; };
         const free=names=>names.map(x=>NAMES.indexOf(x)).filter(j=>j!==i&&j!==NINA&&act[j]&&!busy[j]&&!(((PERS[NAMES[j]]||{}).tr||{}).quiet>=4));
         const sit=(j,say,reply)=>{ trips[i]={kind:'sit',dest:seatLoc(i),say:P.silent?'':say,stage:'stay',n:3,stay:3,to:j,hostSay:reply}; busy[i]=1; busy[j]=1; };
+        if(nm==='Daniel'){ const dm=dlMap(effIso(day)), cand=active.filter(j=>j!==i && team[j]==='L' && dm[j] && dm[j].days<=1 && !busy[j] && seat[j]);
+          if(cand.length && rnd(.18*soc)){ const j=cand[Math.floor(R()*cand.length)], pj=String(dm[j].proj).slice(0,18);
+            social(j,'chat',dm[j].days<=0?L_('Hôm nay nộp '+pj+' đó '+NAMES[j]+'!','Due today: '+pj+', '+NAMES[j]+'!'):L_('Mai nộp '+pj+' nha '+NAMES[j]+'!','Due tomorrow: '+pj+', '+NAMES[j]+'!'),(NAMES[j]==='William'||NAMES[j]==='Andrew')?L_('Oke anh Guột, đang gấp nè!','Okay Guot, on it!'):(dm[j].days<=0?L_('Ok Daniel, đang gấp nè!','Ok Daniel, on it!'):L_('Ok, mình lo kịp!','Got it, will make it!'))); return; } }
         if(weatherNow()==='rain' && rnd(.10*soc)){
           const RL=[['Trời mưa to quá!','Ừ, nhớ mang áo mưa về nha'],['Mưa rồi, nhớ đóng cửa sổ nha','Ok, để mình đóng'],['Mưa thế này pha cà phê nóng đi!','Đồng ý, cho mình một ly!'],['Chiều nay về kiểu gì đây?','Chờ tạnh rồi tính']];
           const f=free(NAMES.filter(x=>seat[NAMES.indexOf(x)])); if(f.length){ const q=RL[Math.floor(R()*RL.length)]; social(f[Math.floor(R()*f.length)],'chat',q[0],q[1]); return; } }
@@ -7985,7 +8021,7 @@ const OFC = (function(){
     <span style="display:inline-flex;gap:14px;margin-left:8px;font-size:13px">${[['L','Nhóm Liam'],['S','Nhóm Stuart'],['N','Nhóm Nina']].map(a=>`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:14px;border-radius:4px;border:2px solid #14202b;background:${TEAMCOL[a[0]]};display:inline-block"></span>${T(a[1])}</span>`).join('')}</span></div>
   <div id="ofc-fit" style="overflow:hidden;border-radius:18px;border:2px solid #14202b;background:#d9d3c4;width:100%;box-sizing:border-box">
    <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden;transform-origin:0 0">
-    ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}${guestHtml()}
+    ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}${guestHtml()}${guestHtml().replace(/id="ofc-g/g,'id="ofc-k')}
     <div id="ofc-decor2" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:7;overflow:hidden"></div><div id="ofc-rain" style="display:none;position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:8;overflow:hidden;background:rgba(38,56,84,.10)"><div style="position:absolute;left:0;top:14px;width:1120px;height:20px;overflow:hidden"><div class="ofc-rl1"></div><div class="ofc-rl2"></div></div></div><style>@keyframes ofcrain1{from{background-position:0 0}to{background-position:-80px 240px}}@keyframes ofcrain2{from{background-position:0 0}to{background-position:-48px 144px}}#ofc-rain .ofc-rl1,#ofc-rain .ofc-rl2{position:absolute;inset:0}#ofc-rain .ofc-rl1{background:url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='240'%3E%3Cg stroke='%23d9ebff' stroke-width='1.6' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M20 10 l-10 30M70 70 l-10 30M105 140 l-10 30M40 180 l-10 30M90 20 l-10 30'/%3E%3C/g%3E%3C/svg%3E\");animation:ofcrain1 .8s linear infinite}#ofc-rain .ofc-rl2{background:url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='144'%3E%3Cg stroke='%23c4dcf5' stroke-width='1.2' stroke-linecap='round' opacity='.4'%3E%3Cpath d='M12 6 l-7 20M52 50 l-7 20M30 100 l-7 20M70 120 l-7 20'/%3E%3C/g%3E%3C/svg%3E\");animation:ofcrain2 1.1s linear infinite}</style>${DEC_CSS}
     <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span><div id="ofc-p5" style="display:none;margin-top:4px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18);font-size:11.5px;line-height:1.45;color:#dfe8f3"></div></div>
    </div>
@@ -7996,6 +8032,7 @@ const OFC = (function(){
   </div>
 </div>`;
     NAMES.forEach((nm,i)=>{ C[i]=null; });
+    buildPOI();
     root.querySelectorAll('.ofc-ch').forEach(el=>{ el.addEventListener('click',()=>{ const i=+el.dataset.i; st.sel=(st.sel===i)?-1:i; paint(); }); });
     const reset=()=>{ st.tk=0; st.trips={}; st.snap=true; setTimeout(applyOffice,0); };
     $('ofc-btn').addEventListener('click',()=>{ if(st.journey){ st.journey=false; st.idx=days.length-1; } else { st.journey=true; st.idx=0; } reset(); paint(); });
@@ -8392,10 +8429,174 @@ const OFC = (function(){
       Object.keys(mv).forEach(i=>{ const d=mv[i]; if(d[0]||d[1]){ const t=$('ofc-t'+i); t.style.transform='translate('+d[0]+'px,'+d[1]+'px)'; t.style.zIndex=90; } });
     }catch(e){}
   }
+  // người đang xem app: chấm xanh cạnh tên nhân vật + dòng "Đang xem"
+  function presenceUI(){
+    try{
+      const adm=(typeof sheetsRole!=='undefined'&&sheetsRole==='admin'); const all=Array.isArray(window.KTA_ONLINE)?window.KTA_ONLINE:[], on=adm?all:[], me=window.KTA_ME||'';
+      NAMES.forEach((nm,i)=>{ const t=$('ofc-t'+i); if(t){ t.classList.toggle('on',all.indexOf(nm)>=0); t.classList.toggle('me',nm===me); } });
+      let d=$('ofc-online'); const ph=$('ofc-phase');
+      if(!d&&ph){ d=document.createElement('div'); d.id='ofc-online'; d.style.cssText='font-size:12px;color:#4a5560;margin-top:3px;line-height:1.5'; ph.insertAdjacentElement('afterend',d); }
+      if(d){ const names=on.filter(x=>NAMES.indexOf(x)>=0).sort(), GG=window.KTA_GUESTS||{}, gl=adm?Object.keys(GG).filter(n=>!GG[n].left).sort():[], k=names.join(',')+'|'+me+'|'+(LANGEN()?'e':'v')+'|'+gl.join(',');
+        if(d.dataset.k!==k){ d.dataset.k=k;
+          let h=names.length?'<span style="color:#1f9d55">●</span> '+L_('Đang xem','Viewing now')+' ('+names.length+'): '+names.map(n=>n===me?'<b>'+n+'</b>':n).join(', '):'';
+          if(gl.length) h+=(h?' · ':'')+'🎩 '+L_('Khách KTA: ','KTA guests: ')+gl.join(', ');
+          if(adm&&typeof window.ktaPickMe==='function') h+=(h?' · ':'')+'<a href="#" id="ofc-chme" style="color:#4a5560;text-decoration:underline">'+(me?L_('Bạn là ','You are ')+me+' · '+L_('đổi tên','change'):L_('Chọn tên của bạn','Pick your name'))+'</a>';
+          d.innerHTML=h; const a=d.querySelector('#ofc-chme'); if(a) a.onclick=e=>{ e.preventDefault(); window.ktaPickMe(true); }; } }
+    }catch(e){}
+  }
+  // ═══ KHÁCH KTA: đăng nhập bằng mật khẩu khách, xuất hiện từ thang máy, đi dạo; ai cũng thấy ═══
+  const KG_LOOK={kevin:0,alex:1,erik:2,kat:3};
+  const KGT=()=>Date.now()+(window.KTA_SKEW||0);
+  const isGuestRole=()=>{ try{ return typeof sheetsRole!=='undefined'&&sheetsRole==='guest'; }catch(e){ return false; } };
+  const guestName=()=>window.KTA_GUEST||'';
+  function kgHash(q){ let h=2166136261; for(let k=0;k<q.length;k++){ h^=q.charCodeAt(k); h=Math.imul(h,16777619); } return (h>>>0)||1; }
+  function kgDest(a,gn){
+    let m;
+    if((m=/^poi:(\w+)$/.exec(a||''))){ const P=POIS.find(q=>q.id===m[1]); if(!P) return null; const o=P.mk(0); const d=Object.assign({},o.dest); if(d.lie) delete d.lie; if(o.k==='buy'){ return {to:d,stay:5,say:L_('Đi mua nước','Buying drinks')}; } return {to:d,stay:Math.max(4,o.stay)*1.2,say:(m[1]==='wc'||m[1]==='trash')?'':o.say}; }
+    if((m=/^call:(\d+)$/.exec(a||''))){ const j=+m[1]; if(!NAMES[j]||!seat[j]) return null; return {to:standLoc(j),stay:7,say:L_('Chào '+NAMES[j]+'!','Hi '+NAMES[j]+'!'),host:{j:j,txt:L_('Chào '+gn+'! Mời bạn tham quan nhé','Hi '+gn+'! Welcome')}}; }
+    return null;
+  }
+  function kgSim(name,rec,now){
+    let sd=kgHash(name+'|'+rec.since); const rnd=()=>{ sd=(Math.imul(sd,1664525)+1013904223)>>>0; return sd/4294967296; };
+    const kf=[]; let cur=ELEV, t=rec.since, lx=cur.x, ly=cur.y, gone=false;
+    kf.push({t:t,x:lx,y:ly,say:'',hide:true});
+    let act={}; try{ act=presOf(days[days.length-1])||{}; }catch(e){}
+    const cand=NAMES.map((n,i)=>i).filter(i=>seat[i]&&act[i]&&(GONE||[]).indexOf(i)<0);
+    const leg=(o)=>{ route(cur,o.to).forEach(q=>{ t+=Math.hypot(q.x-lx,q.y-ly)/SPEED*1000; lx=q.x; ly=q.y; kf.push({t:t,x:lx,y:ly,say:'',hide:false}); });
+      if(o.stay){ kf.push({t:t+o.stay*1000,x:lx,y:ly,say:o.say||'',host:o.host||null,hide:!!o.to.hide}); t+=o.stay*1000; } cur=o.to; };
+    const evs=(rec.cmds||[]).slice(); if(rec.left) evs.push({t:rec.left,a:'__leave'}); evs.sort((a,b)=>a.t-b.t);
+    let ci=0;
+    const interrupt=tc=>{ let i=0; while(i<kf.length&&kf[i].t<=tc) i++; if(i>=kf.length) return; const a=kf[i-1], b=kf[i], f=(tc-a.t)/Math.max(1,b.t-a.t); const x=a.x+(b.x-a.x)*f, y=a.y+(b.y-a.y)*f; kf.length=i; kf.push({t:tc,x:x,y:y,say:'',hide:false}); cur={key:'kgx',x:x,y:y,br:[]}; lx=x; ly=y; t=tc; };
+    for(let g=0;g<90&&t<now+40000&&!gone;g++){
+      const nx=evs[ci];
+      if(nx&&nx.t<=t){ ci++;
+        if(nx.a==='__leave'){ leg({to:ELEV,stay:0}); gone=true; break; }
+        const d=kgDest(nx.a,name); if(d) leg(d); continue; }
+      let o;
+      const r=rnd();
+      if(r<.42&&cand.length){ const j=cand[Math.floor(rnd()*cand.length)]; o=kgDest('call:'+j,name); }
+      else { const ids=['fish','coffee','water','trophy','sofa','fridge']; o=kgDest('poi:'+ids[Math.floor(rnd()*ids.length)],name); }
+      if(!o) continue; if(!o.stay) o.stay=6; leg(o);
+      if(nx&&nx.t<t&&nx.t>kf[0].t) interrupt(nx.t);
+    }
+    if(now<kf[0].t) return {vis:false};
+    let i=1; while(i<kf.length&&kf[i].t<=now) i++;
+    if(i>=kf.length){ const e=kf[kf.length-1]; if(gone) return {vis:false,gone:true}; return {vis:true,x:e.x,y:e.y,say:e.say,hide:e.hide,mv:false,host:e.host}; }
+    const a=kf[i-1], b=kf[i], f=(now-a.t)/Math.max(1,b.t-a.t), mv=!(a.x===b.x&&a.y===b.y);
+    return {vis:true,x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,say:mv?'':b.say,hide:mv?false:b.hide,mv:mv,host:mv?null:b.host,atElev:(b.x===772&&b.y===716)&&(a.x===772&&a.y===716)};
+  }
+  function kgSlot(name){ const lk=KG_LOOK[String(name).toLowerCase()]; if(lk!==undefined) return lk; return 4+(kgHash(name)%2); }
+  function kgLive(){ try{ return !st.journey&&!st.preview&&st.idx===days.length-1&&!!days.length; }catch(e){ return false; } }
+  function kgHosts(){ const H={}; try{ if(!kgLive()) return H; const G=window.KTA_GUESTS||{}, now=KGT(); Object.keys(G).forEach(n=>{ const c=kgSim(n,G[n],now); if(c.vis&&c.host&&c.host.j!==undefined&&!c.mv) H[c.host.j]=c.host.txt; }); }catch(e){} return H; }
+  function paintKG(){
+    try{
+      const G=window.KTA_GUESTS||{}, live=kgLive(), used={}, now=KGT();
+      Object.keys(G).forEach(name=>{
+        const k=kgSlot(name), el=$('ofc-k'+k); if(!el) return; used[k]=1;
+        const rec=G[name]; const n1=live?kgSim(name,rec,now+TICK):{vis:false};
+        if(!n1.vis){ el.style.display='none'; el.dataset.on=''; return; }
+        const first=el.dataset.on!=='1'; const c0=kgSim(name,rec,now);
+        el.style.display='block'; el.dataset.on='1'; el.dataset.name=name;
+        if(first&&c0.vis){ el.style.transition='none'; el.style.left=(c0.x-22)+'px'; el.style.top=(c0.y-31)+'px'; void el.offsetWidth; }
+        el.style.transition='left '+TICK/1000+'s linear, top '+TICK/1000+'s linear, opacity .4s';
+        el.style.left=(n1.x-22)+'px'; el.style.top=(n1.y-31)+'px';
+        const hid=(n1.hide||(n1.atElev&&!n1.mv)||(!n1.mv&&n1.x===772&&n1.y===716)); el.style.opacity=hid?0:1;
+        const inn=$('ofc-ki'+k); if(inn) inn.className='ofc-in'+(n1.mv?' ofc-walking':'');
+        const tg=$('ofc-kt'+k); if(tg) tg.textContent=name;
+        const sy=$('ofc-ks'+k); if(sy){ sy.textContent=T(n1.say||''); sy.style.opacity=n1.say?1:0; }
+      });
+      for(let k=0;k<6;k++){ if(!used[k]){ const el=$('ofc-k'+k); if(el){ el.style.display='none'; el.dataset.on=''; } } }
+    }catch(e){}
+  }
+  function guestGo(a){
+    const gn=guestName(), G=window.KTA_GUESTS||{}, rec=G[gn];
+    if(!gn||!rec){ toast(L_('Chưa kết nối xong, thử lại sau vài giây','Not connected yet')); return; }
+    const at=KGT(); rec.cmds=(rec.cmds||[]).concat([{t:at,a:a}]); sendAct(a,at); paintKG(); paint();
+  }
+  // ── người dùng tự điều khiển nhân vật của mình ──
+  const meIdx=()=>{ try{ return NAMES.indexOf(window.KTA_ME||''); }catch(e){ return -1; } };
+  function toast(msg){ const sc=$('ofc-scene'); if(!sc) return; let t=$('ofc-toast'); if(!t){ t=document.createElement('div'); t.id='ofc-toast'; t.style.cssText='position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:95;background:#14202b;color:#f6f1e7;padding:8px 16px;border-radius:999px;font:700 13px system-ui,sans-serif;pointer-events:none;transition:opacity .3s;opacity:0;white-space:nowrap'; sc.appendChild(t); } t.textContent=msg; t.style.opacity=1; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity=0; },2400); }
+  const POIS=[
+    {id:'trash',r:[0,628,150,148],tip:['Pantry: đi đổ rác','Pantry: take out the trash'],mk:()=>({k:'utrash',dest:corLoc(114,668),stay:3,say:L_('Đi đổ rác','Taking out the trash')})},
+    {id:'wc',r:[945,640,130,130],tip:['Toilet: đi vệ sinh','Restroom'],mk:()=>{ const d=corLoc(975,662); d.hide=true; return {k:'uwc',dest:d,stay:4,say:L_('Đi vệ sinh','Restroom break')}; }},
+    {id:'sofa',r:[884,555,124,52],tip:['Sofa: nằm nghỉ','Sofa: take a rest'],mk:()=>({k:'ulie',dest:{key:'usofa',x:954,y:586,seat:true,lie:true,rot:90,wx:954,br:[{x:779,y:586},{x:779,y:AY}]},stay:12,say:''})},
+    {id:'fish',r:[768,214,104,80],tip:['Bể cá: ngắm cá','Aquarium: watch the fish'],mk:()=>({k:'ufish',dest:nookLoc(815,305),stay:6,say:L_('Ngắm cá một chút','Watching the fish')})},
+    {id:'water',r:[630,418,100,34],tip:['Bình nước: lấy nước uống','Water: get a drink'],mk:()=>({k:'uwater',dest:nookLoc(718,436),stay:3,say:L_('Lấy nước uống','Getting water')})},
+    {id:'fridge',r:[630,454,100,40],tip:['Tủ lạnh: lấy đồ ăn','Fridge: grab a snack'],mk:()=>({k:'ufridge',dest:nookLoc(748,474),stay:3,say:L_('Lấy đồ trong tủ lạnh','Grabbing a snack')})},
+    {id:'coffee',r:[630,494,100,110],tip:['Máy cà phê: pha cà phê','Coffee machine'],mk:()=>({k:'ucoffee',dest:nookLoc(704,545),stay:3,say:L_('Pha cà phê','Making coffee')})},
+    {id:'buy',r:[700,690,140,86],tip:['Thang máy: đi mua nước','Elevator: buy drinks'],mk:()=>({k:'buy',dest:ELEV,stay:6,say:L_('Đi mua nước','Going to buy drinks'),extra:{back:L_('Nước về rồi!','Drinks are here!')}})},
+    {id:'meet',r:[880,250,220,210],tip:['Phòng họp: vào họp, bật tivi','Meeting room: turn on the TV'],mk:who=>({k:'umeet',dest:meetLoc(who%MP.length),stay:14,say:L_('Mở tivi họp','Starting the TV')})},
+    {id:'trophy',r:[0,436,42,84],tip:['Tủ cúp: ngắm cúp','Trophy case'],mk:()=>({k:'utro',dest:{key:'utro',x:62,y:482,br:[{x:24,y:482},{x:24,y:AY}]},stay:5,say:L_('Cúp của team mình đẹp quá!','Our team trophies!')})}
+  ];
+  function buildAct(who,key){
+    let m;
+    if((m=/^poi:(\w+)$/.exec(key||''))){ const P=POIS.find(q=>q.id===m[1]); if(!P) return null; const o=P.mk(who); return newTrip(who,o.k,o.dest,o.stay,o.say,o.extra); }
+    if((m=/^call:(\d+)$/.exec(key||''))){ const j=+m[1]; if(!NAMES[j]||j===who) return null; return newTrip(who,'ucall',standLoc(j),5,L_('Qua chỗ '+NAMES[j],'Visiting '+NAMES[j]),{to:j,hostSay:L_('Chào '+NAMES[who]+'!','Hi '+NAMES[who]+'!')}); }
+    return null;
+  }
+  function sendAct(key,at){ try{ if(typeof window.ktaSendAct==='function') window.ktaSendAct(key,at); }catch(e){} }
+  function userGo(id){
+    if(isGuestRole()){ if(kgLive()) guestGo(id); return; }
+    const me=meIdx(); if(me<0){ toast(L_('Hãy chọn tên của bạn trước','Pick your name first')); return; }
+    if(!st.canMe){ toast(L_('Bây giờ bạn chưa điều khiển được (ngoài giờ làm hoặc đang nghỉ trưa/họp)','Not available right now')); return; }
+    const t=buildAct(me,id); if(!t) return; st.trips[me]=t; paint(); sendAct(id);
+  }
+  function userHome(){ const me=meIdx(), t=st.trips[me]; if(me<0||!t) return; st.trips[me]=Object.assign({},t,{stage:'back',n:etaTicks(t.dest,seatLoc(me)),say:''}); paint(); }
+  // lời chúc / phản ứng trên đồ trang trí
+  function burst(x,y,em){ try{ const sc=$('ofc-scene'); if(!sc) return; for(let k=0;k<7;k++){ const e=document.createElement('div'); e.textContent=em[k%em.length]; e.style.cssText='position:absolute;left:'+(x-8+(k-3)*10)+'px;top:'+y+'px;font-size:18px;z-index:96;pointer-events:none'; sc.appendChild(e); const an=e.animate([{transform:'translateY(0) scale(.6)',opacity:1},{transform:'translate('+((k-3)*12)+'px,-'+(46+k*8)+'px) scale(1.2)',opacity:0}],{duration:1500+k*120,easing:'ease-out'}); an.onfinish=()=>e.remove(); } }catch(e){} }
+  function doWish(who,text,x,y,em){
+    st.sayo=st.sayo||{}; st.sayo[who]={t:text,u:Date.now()+4500}; if(x!==undefined) burst(x,y,em||['🎉','✨','🎊']);
+    paint(); setTimeout(()=>{ try{ paint(); }catch(e){} },4700);
+  }
+  function wishText(kind){
+    const ev=st.evKind; if(kind==='ev'&&ev){ return ev.type==='birthday'?L_('🎂 Chúc mừng sinh nhật '+(ev.who||'cả team')+'!','🎂 Happy birthday '+(ev.who||'team')+'!'):(ev.type==='award'?L_('🏆 Chúc mừng cả nhà!','🏆 Congratulations!'):L_('😋 Chúc mọi người ngon miệng!','😋 Bon appétit!')); }
+    try{ const l=decorActive(localIso()); if(l.length){ const t=l[0].t; return '🎉 '+(l[0].ban||L_(t.ban[0],t.ban[1])); } }catch(e){}
+    return L_('🎉 Chúc mừng!','🎉 Cheers!');
+  }
+  function userWish(kind,x,y){ const me=meIdx(); if(me<0){ toast(L_('Hãy chọn tên của bạn trước','Pick your name first')); return; } const tx=wishText(kind); doWish(me,tx,x,y,kind==='ev'?['🎂','🎉','✨','🎊']:undefined); sendAct('wish:'+tx.slice(0,70)); }
+  function gToast(msg){ try{ let t=document.getElementById('kta-gtoast'); if(!t){ t=document.createElement('div'); t.id='kta-gtoast'; t.style.cssText='position:fixed;top:16px;right:16px;z-index:99998;background:#14202b;color:#f6f1e7;padding:12px 18px;border-radius:14px;font:700 14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .4s,transform .4s;opacity:0;transform:translateY(-8px);max-width:80vw'; document.body.appendChild(t); } t.textContent=msg; t.style.opacity=1; t.style.transform='none'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity=0; t.style.transform='translateY(-8px)'; },6000); }catch(e){} }
+  function adminGuestNotify(){
+    try{
+      if(!(typeof sheetsRole!=='undefined'&&sheetsRole==='admin')) return;
+      const G=window.KTA_GUESTS||{}, seen=st.gSeen=st.gSeen||{}, first=!st.gInit; st.gInit=true;
+      Object.keys(G).forEach(n=>{ const r=G[n], k1=n+'|'+r.since, k2=n+'|'+r.since+'|L';
+        if(!seen[k1]){ seen[k1]=1; if(!first) gToast('🎩 '+L_(n+' (khách KTA) vừa vào văn phòng',n+' (KTA guest) just entered the office')); }
+        if(r.left&&!seen[k2]){ seen[k2]=1; if(!first) gToast('🎩 '+L_(n+' đã rời văn phòng',n+' left the office')); } });
+    }catch(e){}
+  }
+  window.ktaGuestsPaint=function(){ try{ adminGuestNotify(); paintKG(); presenceUI(); meUI(); }catch(e){} };
+  // nhận hành động của đồng nghiệp từ máy khác
+  window.ktaRemote=function(acts){ try{
+    const seen=st.seenAct=st.seenAct||{}, me=meIdx();
+    Object.keys(acts||{}).forEach(nm=>{ const j=NAMES.indexOf(nm), r=acts[nm]; if(j<0||j===me||!r||seen[nm]===r.t) return; seen[nm]=r.t; if((r.age||0)>18000) return;
+      if(/^wish:/.test(r.a)){ doWish(j,String(r.a).slice(5),undefined); return; }
+      if(!liveOn()||!st.info||!st.info[j]||!st.info[j].a||!st.info[j].loc||st.info[j].loc.seat!==true||st.trips[j]) return;
+      const t=buildAct(j,r.a); if(t){ st.trips[j]=t; paint(); } }); }catch(e){} };
+  function buildPOI(){
+    const sc=$('ofc-scene'); if(!sc||$('ofc-poi')) return;
+    const css=document.createElement('style'); css.textContent='.ofc-poi{position:absolute;z-index:80;border-radius:12px;border:2px dashed transparent;pointer-events:none}.ofc-poi.on{pointer-events:auto;cursor:pointer}.ofc-poi.on:hover{border-color:#2ecc71;background:rgba(46,204,113,.18)}'; document.head.appendChild(css);
+    const box=document.createElement('div'); box.id='ofc-poi'; box.style.cssText='position:absolute;left:0;top:0;width:0;height:0'; sc.appendChild(box);
+    POIS.forEach(P=>{ const d=document.createElement('div'); d.className='ofc-poi'; d.id='ofc-poi-'+P.id; d.style.cssText='left:'+P.r[0]+'px;top:'+P.r[1]+'px;width:'+P.r[2]+'px;height:'+P.r[3]+'px'; d.title=L_(P.tip[0],P.tip[1]); d.addEventListener('click',e=>{ e.stopPropagation(); userGo('poi:'+P.id); }); box.appendChild(d); });
+    { const d=document.createElement('div'); d.className='ofc-poi'; d.id='ofc-poi-ev'; d.style.cssText='left:420px;top:395px;width:100px;height:70px'; d.title=L_('Chúc mừng!','Cheers!'); d.addEventListener('click',e=>{ e.stopPropagation(); userWish('ev',470,400); }); box.appendChild(d); }
+    { const dc=$('ofc-decor'); if(dc){ const c2=document.createElement('style'); c2.textContent='#ofc-decor .ofc-dec-i{pointer-events:auto;cursor:pointer}'; document.head.appendChild(c2); dc.addEventListener('click',e=>{ const it=e.target.closest('.ofc-dec-i'); if(!it) return; const r=it.getBoundingClientRect(), sr=$('ofc-scene').getBoundingClientRect(), k=sr.width/1120; userWish('decor',(r.left-sr.left)/k,(r.top-sr.top)/k); }); } }
+  }
+  function meUI(){
+    try{
+      const me=meIdx(), gst=isGuestRole(), can=gst?(kgLive()&&!!(window.KTA_GUESTS||{})[guestName()]):(!!st.canMe&&me>=0);
+      POIS.forEach(P=>{ const d=$('ofc-poi-'+P.id); if(d) d.classList.toggle('on',can); }); { const d=$('ofc-poi-ev'); if(d) d.classList.toggle('on',me>=0&&!!st.evKind); }
+      let h=$('ofc-hint'); const anchor=$('ofc-online')||$('ofc-phase');
+      if(!h&&anchor){ h=document.createElement('div'); h.id='ofc-hint'; h.style.cssText='font-size:12px;color:#1f7a45;margin-top:3px;line-height:1.5'; anchor.insertAdjacentElement('afterend',h); }
+      if(h){ const txt=can?L_('🎮 Bạn đang điều khiển '+(gst?guestName():NAMES[me])+': bấm Pantry, Toilet, Sofa, Bể cá, bình nước, tủ lạnh, máy cà phê, thang máy, phòng họp, tủ cúp hoặc bạn bè để đi tới đó. '+(gst?'Xong sẽ tự đi dạo tiếp.':'Xong tự về chỗ.'),'🎮 You control '+(gst?guestName():NAMES[me])+': tap Pantry, Restroom, Sofa, Aquarium, water, fridge, coffee, elevator, meeting room, trophies or a friend. You will walk back after.'):''; if(h.textContent!==txt) h.textContent=txt; }
+      let b=$('ofc-pgo'); const pop=$('ofc-pop');
+      if(!b&&pop){ b=document.createElement('button'); b.id='ofc-pgo'; b.style.cssText='margin-top:8px;cursor:pointer;border:none;border-radius:999px;background:#2ecc71;color:#06260f;font:700 13px system-ui,sans-serif;padding:8px 14px;width:100%'; pop.appendChild(b);
+        b.addEventListener('click',e=>{ e.stopPropagation(); const j=st.sel; if(j===meIdx()){ userHome(); } else if(j>=0){ const inf=st.info&&st.info[j]; if(!inf||!inf.loc||inf.loc.seat!==true||inf.loc.meet){ toast(L_(NAMES[j]+' đang không ở chỗ ngồi','Not at their desk')); return; } userGo('call:'+j); st.sel=-1; paint(); } }); }
+      if(b){ const s=st.sel; if(!can||s<0){ b.style.display='none'; } else if(s===me){ b.style.display=st.trips[me]?'block':'none'; b.textContent=L_('↩ Về chỗ ngồi','↩ Back to my desk'); } else { b.style.display='block'; b.textContent=L_('🚶 Qua chỗ '+NAMES[s],'🚶 Visit '+NAMES[s]); } }
+    }catch(e){}
+  }
   function refresh(i){ // trạng thái đứng yên: gõ phím khi ngồi làm
     const c=C[i]; if(!c||c.moving) return;
     const inn=document.querySelector('#ofc-c'+i+' .ofc-in'); if(!inn) return;
-    inn.className='ofc-in'+(c.working?' ofc-work':'')+(c.sleep?' ofc-sleep':'')+(c.eat?' ofc-eat':''); ($('ofc-c'+i)||inn).classList.toggle('ofc-zz',!!c.sleep&&!c.moving);
+    inn.className='ofc-in'+(c.working?' ofc-work':'')+(c.sleep?' ofc-sleep':'')+(c.eat?' ofc-eat':'')+((c.dl!==undefined&&c.dl<=0&&c.working)||(c.rush&&c.working)?' ofc-rush':''); { const ch=$('ofc-c'+i)||inn; ch.classList.toggle('ofc-zz',!!c.sleep&&!c.moving); ['ofc-dl0','ofc-dl1','ofc-dl2'].forEach((k,q)=>ch.classList.toggle(k,c.dl!==undefined&&!c.moving&&Math.max(0,c.dl)===q)); }
   }
   function paint(){
     paintWeather();
@@ -8408,7 +8609,7 @@ const OFC = (function(){
     [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(leaveTk[pr[0]],leaveTk[pr[1]]); leaveTk[pr[0]]=m; leaveTk[pr[1]]=m; } });
     const LV=liveOn(), lm=liveMin(), liveT={}; if(LV){ byLeave.forEach((p,k)=>{ const sch=leaveMin(p); liveT[p]=(NAMES[p]==='Nina')?((act[p].t!=null&&act[p].t>=1020)?act[p].t:sch):Math.max(sch,(act[p].t!=null?act[p].t:0)); }); [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(liveT[pr[0]],liveT[pr[1]]); liveT[pr[0]]=m; liveT[pr[1]]=m; } }); }
     const lvd=q=>LV?(lm>=450&&lm>=liveT[q]):(tk>=leaveTk[q]);
-    const lunch=LV&&lm>=690&&lm<780;
+    const lunch=LV&&lm>=690&&lm<780, DLI=dlMap(effIso(day)), RL={}; order.forEach(q=>{ if(DLI[q]&&DLI[q].days<=0&&(!LV||(lm>=arrMin(q)&&!lvd(q)))){ const ld=team[q]==='S'?STU:(team[q]==='N'?NINA:-1); if(ld>=0&&ld!==q&&act[ld]) RL[ld]=true; } });
     // nghỉ trưa: ~40% đi ăn ngoài (về lại 12:10-12:25), còn lại ăn tại chỗ; sau đó ngủ trưa (3 người đầu ngủ ở sofa, còn lại ngủ tại bàn) đến 13:00
     const LP={}; let lnIn=0, lnOut=0, lnNap=0;
     if(lunch){ const hs=q=>{ let h=7; const t=NAMES[q]+'|'+day.iso; for(let c=0;c<t.length;c++) h=(h*31+t.charCodeAt(c))%9973; return h; };
@@ -8423,7 +8624,7 @@ const OFC = (function(){
     const ev=eventFor(day), evOn=!!ev && tk>=EV.s && tk<EV.e, evSlot={};
     if(evOn){ let k=1; order.forEach(p=>{ if(ev.type==='birthday' && NAMES[p]===ev.who) evSlot[p]=0; else if(ev.type==='award' && ev.who2.indexOf(p)>=0) evSlot[p]=ev.who2.indexOf(p); else { evSlot[p]=k+(ev.type==='award'?1:0); k++; } }); if(ev.type!=='birthday'||!Object.keys(evSlot).some(p=>evSlot[p]===0)){ /* không có người đặc biệt */ } }
     const aw=awardFor(day), wasCup=st.cup||{}; let awStay=false; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.kind==='award' && t.stage==='stay') awStay=true; });
-    const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.stage==='stay') hosting[t.to]=t.hostSay; });
+    const hosting={}; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.hostSay && t.stage==='stay') hosting[t.to]=t.hostSay; }); { const KH=kgHosts(); Object.keys(KH).forEach(k=>{ if(!hosting[k]) hosting[k]=KH[k]; }); }
     const info={};
     let WF=null; try{ if(decKeyNow()==='welcome' && act[LIAM]){ const pl=guestPlan(0); WF={td:Math.round(pl.tDoor),tm:Math.round(pl.tMeet),te:Math.round(pl.tExit)}; } }catch(e){}
     NAMES.forEach((nm,i)=>{
@@ -8454,17 +8655,21 @@ const OFC = (function(){
       const wIdx=aw?aw.who2.indexOf(i):-1;
       const carrying=!!a && i===LIAM && !!t && t.kind==='award' && t.stage==='go';
       const onDesk=!!a && wIdx>=0 && aw.show && (!aw.ceremony || wasCup[i]) && tk>=cf.work-1 && !lvd(i);
+      if(a && !say && RL[i] && working && !lunch && loc.seat===true && !meeting && (tk+i*5)%9===0) say=(i===NINA)?L_('Nhớ chú ý deadline đúng hạn nha!','Remember to hit the deadline!'):[L_('Cùng chạy deadline với team!','Pushing the deadline with the team!'),L_('Gấp lắm, cào phím thôi!','Typing like crazy!')][Math.floor(tk/9+i)%2];
+      if(a && !say && working && !lunch && loc.seat===true && DLI[i] && DLI[i].days<=3 && !meeting && (!LV||(lm>=arrMin(i)&&!lvd(i)))){ const D0=DLI[i], per=D0.days<=0?9:(D0.days===1?14:26);
+        if((tk+i*5)%per===0){ const pj=String(D0.proj).slice(0,18), pool=D0.days<=0?[L_('Hôm nay nộp '+pj+'!','Due today: '+pj+'!'),L_('Sắp xong rồi…','Almost there...'),L_('Gấp gấp gấp!','Rush rush rush!')]:(D0.days===1?[L_('Mai nộp '+pj,'Due tomorrow: '+pj),L_('Còn 1 ngày thôi','Only 1 day left')]:[L_('Còn '+D0.days+' ngày nữa '+pj,D0.days+' days left: '+pj)]); say=pool[Math.floor(tk/per+i)%pool.length]; } }
       if(a && !say && awStay && aw && aw.ceremony && i!==LIAM && wIdx<0 && loc.seat && (i*5+tk)%7===0) say=['Chúc mừng!','Giỏi quá!','Hoan hô!'][(i+tk)%3];
       { const cr=$('ofc-cr'+i), tr=$('ofc-tr'+i); if(cr) cr.style.display=carrying?'block':'none'; if(tr) tr.style.display=onDesk?'block':'none'; }
       if(a && (LV?(lm>=arrMin(i)&&!(st.ar=st.ar||{})[i]&&(st.ar[i]=1)):(cf.arrive && tk===arrTick(i)))) say=hhmm(arrMin(i))+', vào văn phòng';
       if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
-      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))) && loc.seat===true; c.sleep=!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true; c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true;
+      c.base=a?1:0; el.style.display=a?'':'none'; c.rush=!!a&&!!RL[i]&&i!==NINA&&working&&!lunch&&loc.seat===true&&!loc.lie&&(!LV||(lm>=arrMin(i)&&!lvd(i))); c.dl=(a&&working&&!lunch&&loc.seat===true&&!loc.lie&&DLI[i]&&DLI[i].days<=3&&(!LV||(lm>=arrMin(i)&&!lvd(i))))?Math.min(DLI[i].days,2):undefined; c.working=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))) && loc.seat===true&&!loc.lie; c.sleep=(!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true&&!loc.lie)||(!!a&&loc.lie===true); c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true&&!loc.lie;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
       if(a&&loc.meet) MEETON=true;
+      { const o=st.sayo&&st.sayo[i]; if(o){ if(Date.now()<o.u) say=o.t; else delete st.sayo[i]; } }
       const b=$('ofc-b'+i); b.textContent=(a&&!a.idle)?a.n:''; b.style.opacity=(a&&!a.idle&&!loc.meet)?1:0;
       $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
@@ -8474,7 +8679,8 @@ const OFC = (function(){
       if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=T(say); sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
     });
-    st.snap=false;
+    st.snap=false; st.info=info;
+    st.canMe=(function(){ try{ const me=meIdx(); if(me<0||!act[me]||!liveOn()||!info[me]) return false; return working&&!lunch&&!meeting&&!evOn&&!lvd(me)&&lm>=arrMin(me)&&(info[me].loc.seat===true||!!trips[me])&&!(WF&&true&&false); }catch(e){ return false; } })();
     const pop=$('ofc-pop');
     if(st.sel>=0 && info[st.sel]){
       const c=info[st.sel], px=Math.min(Math.max(c.loc.x-130,4),1120-264), py=(c.loc.y-31-250>40)?c.loc.y-31-250:Math.min(c.loc.y+40,640);
@@ -8486,21 +8692,17 @@ const OFC = (function(){
       $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm: ','Working on: ')+(LANGEN()?(trEn(tl.d)||tl.d):tl.d):'';
       $('ofc-p3').textContent=T(c.say)||((c.a&&!c.a.idle)?T('Đang ngồi làm tại bàn'):T('Đang ở chỗ ngồi'));
       if(c.a&&c.a.idle){ ['ofc-p1','ofc-p2','ofc-p3','ofc-p4'].forEach(id=>{ $(id).textContent='...'; }); }
-      { const box=$('ofc-p5'), T0=trkFor(effIso(day)); let h='';
-        if(T0){ const L=(T0.by[NAMES[st.sel]]||[]), act=L.filter(x=>x.f>0||x.k==='ON CALL'), idle=L.length-act.length;
-          const load=act.reduce((a,x)=>a+x.f,0); let real=0; days.forEach(d=>{ if(effIso(d)>=T0.week&&effIso(d)<=effIso(day)&&d.acts&&d.acts[st.sel]&&!d.acts[st.sel].idle) real+=d.acts[st.sel].n||0; });
-          const lab={'FULL TIME':'Full','PART TIME':'Part','ON CALL':'On call'};
-          h='<div style="font-weight:700;color:#7fd1ff;margin-bottom:2px">'+L_('Tracker tuần ','Weekly tracker ')+T0.week.slice(8,10)+'/'+T0.week.slice(5,7)+'</div>';
-          if(!L.length) h+=L_('Chưa có dự án trong tracker','No projects in the tracker yet');
-          else { act.forEach(x=>{ h+='<div>'+(x.urgent?'🔥 ':'')+'<b>'+x.no+'</b> '+x.name.slice(0,22)+' <span style="color:#f0c98a">'+(lab[x.k]||'')+'</span></div>'; });
-            if(idle>0) h+='<div style="opacity:.7">+'+idle+L_(' dự án đang hold/không làm',' on hold / inactive')+'</div>';
-            h+='<div style="margin-top:3px">'+L_('Tải dự kiến ','Planned load ')+'<b>'+load.toFixed(1)+'</b> · '+L_('tuần này đã log ','logged this week ')+'<b>'+real+'</b> task</div>'; } }
+      { const box=$('ofc-p5'), TT=trkFor(effIso(day)); let h='';
+        if(TT){ const me=NAMES[st.sel], mine=TT.dead.filter(x=>String(x.w||'').split(/,\s*/).indexOf(me)>=0);
+          h='<div style="font-weight:700;color:#7fd1ff;margin-bottom:2px">'+L_('Deadline 7 ngày tới','Deadlines this week')+'</div>';
+          if(!mine.length) h+='<div style="opacity:.75">'+L_('Chưa có mốc nào trong 7 ngày tới','No deadlines in the next 7 days')+'</div>';
+          else mine.forEach(x=>{ h+='<div><b style="color:#f0c98a">'+dlabel(x.d)+'</b> '+x.t.slice(0,60)+'</div>'; }); }
         box.innerHTML=h; box.style.display=h?'block':'none'; }
     } else pop.style.display='none';
     const useN=NOTES.length>0, PL=useN?NOTES.map(x=>({t:x.t,c:x.c})):((MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs);
     const PS=5, pagesA=Math.max(1,Math.ceil(PL.length/PS));
     const T1=trkFor(effIso(day)), DL=(!useN&&!(MEET&&MEET.items.length)&&decKeyNow()!=='welcome'&&T1)?T1.dead:[];
-    const pagesB=DL.length?Math.ceil(DL.length/PS):0, pages=pagesA+pagesB, pg=Math.floor(tk/3)%pages, inDL=pg>=pagesA, page=inDL?pg-pagesA:pg, cnt=inDL?DL.length:PL.length;
+    const pagesB=DL.length?Math.ceil(DL.length/PS):0, pages=pagesA+pagesB, pg=Math.floor(tk/3)%pages, inDL=pg>=pagesA, page=inDL?pg-pagesA:pg, cnt=inDL?DL.length:PL.length; DLNOW=inDL; DLLIST=DL;
     for(let k=0;k<PS;k++){ const o=inDL?DL[page*PS+k]:PL[page*PS+k];
       if(inDL){ $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?dlabel(o.d):''; }
       else { $('ofc-w'+k+'t').textContent=o?((useN||(MEET&&MEET.items.length))?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; } }
@@ -8518,7 +8720,7 @@ const OFC = (function(){
         el.style.left=(ps.x-22)+'px'; el.style.top=(ps.y-31)+'px';
         const inn=$('ofc-gi'+k); inn.className='ofc-in'+(ps.mv?' ofc-walking':''); inn.parentElement.style.transform=(ps.x>860&&ps.y<470)?'scale(.62)':''; { const gt=$('ofc-gt'+k); gt.style.fontSize=(ps.x>860&&ps.y<470)?'6px':''; gt.style.padding=(ps.x>860&&ps.y<470)?'0 3px':'0 6px'; }
         $('ofc-gt'+k).textContent=gl[k].n; const sy=$('ofc-gs'+k); sy.textContent=T(ps.say); sy.style.opacity=ps.say?1:0; } }
-    const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e;
+    const evd=$('ofc-ev'), showDecor=!!ev && tk>=EV.s+2 && tk<EV.e; st.evKind=showDecor?{type:ev.type,who:ev.who}:null;
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
     $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?(LV?(lunch?0:order.filter(q=>!act[q].idle&&!lvd(q)&&lm>=arrMin(q)).length):nAct):0; $('ofc-h2').textContent=day.tasks;
@@ -8553,7 +8755,7 @@ const OFC = (function(){
         if(!box){ box=document.createElement('div'); box.id='ofc-offbox'; box.style.cssText='margin-top:8px'; $('ofc-off').parentNode.appendChild(box); box.addEventListener('click',e=>{ const b=e.target.closest('button[data-n]'); if(b) toggleOff(b.getAttribute('data-n')); }); }
         box.innerHTML=cand.length?('<div style="font-size:12px;font-weight:700;color:#5b4a2e;margin-bottom:5px">'+T('Điểm danh (Admin/Leader): bấm tên để đánh dấu off')+' · '+dd+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+cand.map(nm=>{ const o=isOffDay(NAMES.indexOf(nm),dd)||isOffDay(NAMES.indexOf(nm),day.iso); return '<button type="button" data-n="'+nm+'" style="min-height:36px;padding:0 12px;border-radius:18px;border:2px solid #14202b;background:'+(o?'#14202b':'#fff')+';color:'+(o?'#f6f1e7':'#14202b')+';font:700 12.5px system-ui,sans-serif;cursor:pointer">'+(o?'☑ ':'☐ ')+nm+(o?' · off':'')+'</button>'; }).join('')+'</div><div id="ofc-offmsg" style="font-size:12px;color:#5b4a2e;margin-top:6px"></div>'):'';
       } else if(box){ box.remove(); } }
-    setTimeout(spreadTags,120);
+    setTimeout(spreadTags,120); presenceUI(); meUI(); paintKG();
   }
   function evDecor(ev){
     const D='#14202b', bal=(x,y,c)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:22px;height:28px;border-radius:50% 50% 48% 48%;border:2px solid ${D};background:${c};box-sizing:border-box"></div><div style="position:absolute;left:${x+10}px;top:${y+28}px;width:2px;height:24px;background:${D}"></div>`;
@@ -8624,6 +8826,7 @@ const OFC = (function(){
     }catch(e){}
   }
   function show(){
+    try{ if(!window.KTA_ME && !isGuestRole() && typeof window.ktaPickMe==='function'){ window.ktaPickMe(true,true); return; } }catch(e){}
     const root=$('ofc-root'); if(!root) return;
     buildData();
     if(!days.length){ root.innerHTML='<div style="padding:40px;text-align:center;color:#888;font-size:14px">'+T('Chưa có dữ liệu ActivityLog để dựng văn phòng.')+'</div>'; built=false; return; }
@@ -8752,6 +8955,67 @@ const OFC = (function(){
     el.style.display=on?'block':'none'; if(on!==RAIN){ RAIN=on; last=''; apply(); } };
   apply(); setInterval(apply,300000);
   window.KTA_BG=function(night,hour){ last=''; var h=hour==null?12:hour; var svg=build(!!night,h); cars(!!night); var st=document.getElementById('kta-bg')||document.head.appendChild(Object.assign(document.createElement('style'),{id:'kta-bg'})); st.textContent="body{background:"+(night?'#232b2a':'#cdd1c2')+" url(\"data:image/svg+xml;utf8,"+encodeURIComponent(svg)+"\") no-repeat top center / cover fixed !important}"+(night?"body .app-title{color:#f1ede2}body .app-title-sub{color:#b9c2b6}":""); };
+})();
+</script>
+
+<script>
+/* Nhận diện người xem: chọn tên mình sau khi đăng nhập + báo "đang online" mỗi 25 giây */
+(function(){
+  var TEAMS={L:['Liam','Andrew','Daniel','Mei','Wilder','William'],S:['Stuart','Alice','Bonnie','Dale','Henry','Jayson','Vanessa'],N:['Nina','Jayce','Nick','Nora','Rhys','Sam','Sayid','Zolius']};
+  var COL={L:'#f4a3a8',S:'#9fd3a5',N:'#f5c58a'}, TN={L:"Nhóm Liam",S:"Nhóm Stuart",N:"Nhóm Nina"};
+  var ALL=[].concat(TEAMS.L,TEAMS.S,TEAMS.N);
+  function get(){ try{ return localStorage.getItem('kta_me')||''; }catch(e){ return ''; } }
+  function put(v){ try{ if(v) localStorage.setItem('kta_me',v); else localStorage.removeItem('kta_me'); }catch(e){} }
+  function gpin(){ try{ return localStorage.getItem('kta_pin')||''; }catch(e){ return ''; } }
+  function ppin(v){ try{ if(v) localStorage.setItem('kta_pin',v); else localStorage.removeItem('kta_pin'); }catch(e){} }
+  window.KTA_ME=get();
+  function role(){ try{ return (typeof sheetsRole!=='undefined')?sheetsRole:''; }catch(e){ return ''; } }
+  function pw(){ try{ return (typeof getRolePw==='function'?getRolePw():'')||(typeof getUserPw==='function'?getUserPw():'')||(typeof getAdminPw==='function'?getAdminPw():'')||''; }catch(e){ return ''; } }
+  var skipped=false;
+  function closeBox(){ var o=document.getElementById('kta-who'); if(o) o.remove(); }
+  function pick(force,must){
+    if(document.getElementById('kta-who')) return;
+    var o=document.createElement('div'); o.id='kta-who';
+    o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(20,32,43,.55);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif';
+    var h='<div style="background:#f6f1e7;border-radius:18px;max-width:520px;width:100%;max-height:92vh;overflow:auto;padding:22px 20px;box-shadow:0 18px 50px rgba(0,0,0,.35)"><div style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b">Bạn là ai?</div><div style="font-size:13px;color:#5b6773;margin:4px 0 14px">Chọn đúng tên của bạn để vào văn phòng (như chấm công). Máy sẽ nhớ cho lần sau.</div>';
+    ['L','S','N'].forEach(function(t){ h+='<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7a6a4d;margin:10px 0 6px">'+TN[t]+'</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+      TEAMS[t].forEach(function(n){ h+='<button data-n="'+n+'" style="cursor:pointer;border:2px solid '+(n===window.KTA_ME?'#14202b':'transparent')+';background:'+COL[t]+';color:#14202b;font-weight:700;font-size:14px;padding:8px 14px;border-radius:999px">'+n+'</button>'; }); h+='</div>'; });
+    h+='<div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span></span>'+((force&&!must)?'<button id="kta-who-x" style="cursor:pointer;border:none;background:#14202b;color:#fff;font-size:13px;padding:8px 14px;border-radius:999px">Đóng</button>':'')+'</div></div>';
+    o.innerHTML=h; document.body.appendChild(o);
+    var box=o.firstChild;
+    function pinStep(n){
+      box.innerHTML='<div style="font-family:Georgia,serif;font-weight:700;font-size:22px;color:#14202b">Xin chào '+n+'</div><div style="font-size:13px;color:#5b6773;margin:4px 0 14px">Nhập mã PIN của bạn để vào văn phòng.</div><input id="kta-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" style="width:100%;box-sizing:border-box;font-size:22px;letter-spacing:.3em;text-align:center;padding:10px;border:2px solid #14202b;border-radius:12px;background:#fff"><div id="kta-pin-msg" style="color:#c0392b;font-size:13px;min-height:18px;margin-top:8px"></div><div style="display:flex;justify-content:space-between;gap:10px;margin-top:8px"><button id="kta-pin-back" style="cursor:pointer;border:none;background:none;color:#5b6773;font-size:13px;text-decoration:underline">← Chọn lại</button><button id="kta-pin-ok" style="cursor:pointer;border:none;background:#14202b;color:#fff;font-size:14px;font-weight:700;padding:10px 22px;border-radius:999px">Vào văn phòng</button></div>';
+      var inp=box.querySelector('#kta-pin'), msg=box.querySelector('#kta-pin-msg'), okb=box.querySelector('#kta-pin-ok'); setTimeout(function(){ inp.focus(); },50);
+      box.querySelector('#kta-pin-back').onclick=function(){ closeBox(); pick(force,must); };
+      function go(){
+        var pn=inp.value.trim(); if(!pn){ msg.textContent='Nhập PIN nhé'; return; }
+        okb.disabled=true; msg.style.color='#5b6773'; msg.textContent='Đang kiểm tra...';
+        sheetsRequest(null,{action:'checkpin',password:pw(),name:n,pin:pn,device:(/Mobi|Android|iPhone/i.test(navigator.userAgent)?'Điện thoại':'Máy tính')}).then(function(res){
+          var d=(res&&(res.data||res))||{};
+          if(d.valid===true){ window.KTA_ME=n; put(n); ppin(pn); ping(); closeBox(); try{ var ac=document.querySelector('.main-tab.active'); if(ac&&ac.id==='maintab-office') OFC.show(); }catch(x){} }
+          else { okb.disabled=false; msg.style.color='#c0392b'; msg.textContent=d.msg||'PIN chưa đúng'; inp.select(); }
+        }).catch(function(){ okb.disabled=false; msg.style.color='#c0392b'; msg.textContent='Không kết nối được, thử lại nhé'; });
+      }
+      okb.onclick=go; inp.onkeydown=function(e){ if(e.key==='Enter') go(); };
+    }
+    o.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b){ return; } if(b.id==='kta-who-x'){ closeBox(); return; } var n=b.getAttribute('data-n'); if(n) pinStep(n); });
+  }
+  window.ktaPickMe=pick;
+  function ping(){
+    try{
+      var r=role(); if((r!=='guest'&&!window.KTA_ME)||!r||r==='none'||document.visibilityState==='hidden') return;
+      if(typeof sheetsRequest!=='function') return;
+      sheetsRequest(null,{action:'presence',password:pw(),name:window.KTA_ME||'',pin:gpin(),act:(function(){ var x=window.KTA_ACT||''; window.KTA_ACT=''; return x; })(),at:(function(){ var x=window.KTA_ACTAT||0; window.KTA_ACTAT=0; return x; })(),device:(/Mobi|Android|iPhone/i.test(navigator.userAgent)?'Điện thoại':'Máy tính')}).then(function(res){
+        var d=(res&&(res.data||res))||{}; if(d.srv){ window.KTA_SKEW=d.srv-Date.now(); } if(d.gname){ window.KTA_GUEST=d.gname; } if(d.guests){ window.KTA_GUESTS=d.guests; if(window.KTA_SKEW!==undefined&&typeof window.ktaGuestsPaint==='function') window.ktaGuestsPaint(); } if(d.valid===false&&role()!=='guest'){ window.KTA_ME=''; put(''); ppin(''); } if(Array.isArray(d.online)){ window.KTA_ONLINE=d.online; } if(d.acts&&typeof window.ktaRemote==='function'){ window.ktaRemote(d.acts); }
+      }).catch(function(){});
+    }catch(e){}
+  }
+  window.ktaSendAct=function(a,at){ window.KTA_ACT=String(a||'').slice(0,80); window.KTA_ACTAT=at||0; ping(); };
+  window.addEventListener('pagehide',function(){ try{ if(role()!=='guest') return; var u=(typeof sheetsScriptUrl!=='undefined'&&sheetsScriptUrl)||(typeof getSheetsConfig==='function'&&getSheetsConfig().scriptUrl)||''; if(!u) return; fetch(u,{method:'POST',body:JSON.stringify({action:'presence',password:pw(),act:'bye'}),keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'}}); }catch(e){} });
+  var tickN=0; setInterval(function(){ var ac=document.querySelector('.main-tab.active'); tickN++; if((ac&&ac.id==='maintab-office')||tickN%4===0) ping(); },15000);
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') ping(); });
+  /* sau đăng nhập mà chưa chọn tên thì hỏi 1 lần */
+  var t0=setInterval(function(){ var r=role(); if(r&&r!=='none'){ ping(); clearInterval(t0); } },1500);
 })();
 </script>
 </body>
