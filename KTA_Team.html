@@ -6008,6 +6008,7 @@ async function sheetsLoadAllFresh(){
     const data = res.data || res;
     if(res.ok && data){
       if(Array.isArray(data.officeRows)){ window.KTA_OFFICE=data.officeRows; try{ localStorage.setItem('kta_office',JSON.stringify(data.officeRows)); }catch(e){} }
+      if(Array.isArray(data.trackerRows)){ window.KTA_TRACKER=data.trackerRows; try{ localStorage.setItem('kta_tracker',JSON.stringify(data.trackerRows)); }catch(e){} }
       if(data.musicUrl!==undefined){ window.KTA_MUSIC=data.musicUrl||''; try{ localStorage.setItem('kta_music',window.KTA_MUSIC); }catch(e){} }
       if(data.projects && data.projects.length){
         projects = data.projects;
@@ -6072,6 +6073,7 @@ async function sheetsLoadAll(){
     const data2 = res.data || res;
     if(res.ok && data2){
       if(Array.isArray(data2.officeRows)){ window.KTA_OFFICE=data2.officeRows; try{ localStorage.setItem('kta_office',JSON.stringify(data2.officeRows)); }catch(e){} }
+      if(Array.isArray(data2.trackerRows)){ window.KTA_TRACKER=data2.trackerRows; try{ localStorage.setItem('kta_tracker',JSON.stringify(data2.trackerRows)); }catch(e){} }
       if(data2.musicUrl!==undefined){ window.KTA_MUSIC=data2.musicUrl||''; try{ localStorage.setItem('kta_music',window.KTA_MUSIC); }catch(e){} }
       if(data2.projects && data2.projects.length){
         projects = data2.projects;
@@ -7633,6 +7635,31 @@ const OFC = (function(){
     ['Mei',6,'D'],['Wilder',6,'E'],['Jayce',6,'H'],['Henry',7,'D'],['Bonnie',7,'E'],['Nora',7,'H']];
   // CHỖ NGỦ TRƯA (tùy chỉnh; ai không có tên ở đây thì ngủ gục ngay trên ghế, như Dale/Kane): Tên:[x, y, hướng đầu]  — hướng đầu: 0=lên, 90=phải, 180=xuống, -90=trái
   const SLEEPPOS={Alice:[59,308,90], Andrew:[61,131,90], Bonnie:[312,481,90], Daniel:[277,156,-90], Henry:[313,576,90], Jayce:[280,194,-90], Jayson:[276,75,-90], Liam:[382,311,37], Mei:[311,440,90], Nick:[580,237,-90], Nina:[590,462,180], Nora:[590,555,0], Rhys:[57,177,90], Sam:[245,286,0], Sayid:[582,309,-90], Vanessa:[578,164,-90], Wilder:[311,525,90], William:[61,83,90], Zolius:[277,116,-90]};
+  // ── TRACKER TUẦN (tab "Tracker" trong Sheet) ──
+  // Cột: week,no,name,scale,archPhase,idPhase,principal,status,vn1,vn1w,vn2,vn2w,archMs,archDue,idMs,idDue,type
+  const TRK_F={'FULL TIME':1,'PART TIME':.5,'ON CALL':.2,'NONE':0};
+  function trkRows(){ let r=window.KTA_TRACKER; if(!r){ try{ r=JSON.parse(localStorage.getItem('kta_tracker')||'null'); }catch(e){ r=null; } } return Array.isArray(r)?r:[]; }
+  const addDays=(iso,n)=>{ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  function trkFor(iso){
+    const R=trkRows(); if(!R.length) return null;
+    let wk=''; R.forEach(r=>{ const w=String(r[0]||'').slice(0,10); if(w<=iso && w>wk) wk=w; });
+    if(!wk) return null;
+    if(TRK._k===wk+'|'+R.length && TRK._iso===iso) return TRK._v;
+    const by={}, dead=[];
+    const wfac=w=>{ const u=String(w||'').toUpperCase(); const k=Object.keys(TRK_F).find(x=>u.indexOf(x)>=0); return {f:k?TRK_F[k]:0,k:k||'',urgent:/URGENT/.test(u)}; };
+    R.filter(r=>String(r[0]).slice(0,10)===wk).forEach(r=>{
+      const st=String(r[7]||''), act=/active|winding/i.test(st), na=/not applicable/i.test(st), hold=/hold/i.test(st), pro=/prospective/i.test(st);
+      const nm=String(r[2]||'').replace(/\s+/g,' ').trim(), ph=String(r[4]||'').replace(/^\d+\s*/,'');
+      [[8,9],[10,11]].forEach((c,ix)=>{ const who=String(r[c[0]]||'').trim(); if(!who||na) return; const w=wfac(r[c[1]]);
+        (by[who]=by[who]||[]).push({no:r[1],name:nm,scale:r[3],ph:ph,k:w.k,f:(act||pro)?w.f:0,urgent:w.urgent,hold:hold,pro:pro,role:ix?'VN2':'VN1'}); });
+      if(act||pro){ [[12,13],[14,15]].forEach(c=>{ const d=String(r[c[1]]||'').slice(0,10), ms=(function(a){ return a.find(x=>/\d/.test(x))||a[0]||''; })(String(r[c[0]]||'').split('|').map(x=>x.trim())); if(/^\d{4}-\d{2}-\d{2}$/.test(d) && d>=iso && d<=addDays(iso,6)){ const w=[r[8],r[10]].filter(Boolean).join(', '); dead.push({d:d,t:nm+(ms?' · '+ms:''),w:w,sc:r[3]}); } }); }
+    });
+    dead.sort((a,b)=>a.d<b.d?-1:(a.d>b.d?1:0));
+    TRK._k=wk+'|'+R.length; TRK._iso=iso; TRK._v={week:wk,by:by,dead:dead}; return TRK._v;
+  }
+  const TRK={};
+  const WDN=['CN','T2','T3','T4','T5','T6','T7'], WDE=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dlabel=iso=>{ const d=new Date(iso+'T00:00:00'); return (LANGEN()?WDE:WDN)[d.getDay()]+' '+iso.slice(8,10)+'/'+iso.slice(5,7); };
   const seat={}, tcol={}, team={};
   GRID.forEach(g=>{ const i=NAMES.indexOf(g[0]); seat[i]={x:CX[g[2]],y:CY[g[1]],rot:ROT[g[2]],wx:WX[g[2]],c:g[2]}; });
   Object.keys(TEAMOF).forEach(t=>TEAMOF[t].forEach(i=>{ team[i]=t; tcol[i]=TEAMCOL[t]; }));
@@ -7940,7 +7967,7 @@ const OFC = (function(){
     const hud=(id,lb)=>`<div class="ofc-hud"><span id="${id}">0</span><i>${lb}</i></div>`;
     const board=`<div style="position:absolute;left:846px;top:52px;width:256px;height:156px;box-sizing:border-box;z-index:5;border:3px solid #14202b;border-radius:10px;background:#1c2b3a;box-shadow:0 5px 0 #9ea9bc;padding:10px 14px;display:flex;flex-direction:column;gap:2px">
       <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fd1ff;margin-bottom:4px"><span id="ofc-wbh">Daily report</span><span id="ofc-wbn"></span></div>
-      ${[0,1,2,3,4].map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;line-height:22px;height:22px;color:#F6F1E7"><span id="ofc-w${k}t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span id="ofc-w${k}n" style="font-weight:700;color:#f0c98a"></span></div>`).join('')}
+      ${[0,1,2,3,4].map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;line-height:22px;height:22px;color:#F6F1E7"><span id="ofc-w${k}t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"></span><span id="ofc-w${k}n" style="font-weight:700;color:#f0c98a;white-space:nowrap;flex-shrink:0"></span></div>`).join('')}
     </div>`;
     root.innerHTML=`
 <div class="ofc-wrap">
@@ -7960,7 +7987,7 @@ const OFC = (function(){
    <div id="ofc-scene" style="position:relative;width:1120px;height:776px;background:#d9d3c4;overflow:hidden;transform-origin:0 0">
     ${BG}<div id="ofc-decor" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:1"></div>${mons}${board}<div id="ofc-ev" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;display:none;z-index:8"></div>${chs}${guestHtml()}
     <div id="ofc-decor2" style="position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:7;overflow:hidden"></div><div id="ofc-rain" style="display:none;position:absolute;left:0;top:0;width:1120px;height:776px;pointer-events:none;z-index:8;overflow:hidden;background:rgba(38,56,84,.10)"><div style="position:absolute;left:0;top:14px;width:1120px;height:20px;overflow:hidden"><div class="ofc-rl1"></div><div class="ofc-rl2"></div></div></div><style>@keyframes ofcrain1{from{background-position:0 0}to{background-position:-80px 240px}}@keyframes ofcrain2{from{background-position:0 0}to{background-position:-48px 144px}}#ofc-rain .ofc-rl1,#ofc-rain .ofc-rl2{position:absolute;inset:0}#ofc-rain .ofc-rl1{background:url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='240'%3E%3Cg stroke='%23d9ebff' stroke-width='1.6' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M20 10 l-10 30M70 70 l-10 30M105 140 l-10 30M40 180 l-10 30M90 20 l-10 30'/%3E%3C/g%3E%3C/svg%3E\");animation:ofcrain1 .8s linear infinite}#ofc-rain .ofc-rl2{background:url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='144'%3E%3Cg stroke='%23c4dcf5' stroke-width='1.2' stroke-linecap='round' opacity='.4'%3E%3Cpath d='M12 6 l-7 20M52 50 l-7 20M30 100 l-7 20M70 120 l-7 20'/%3E%3C/g%3E%3C/svg%3E\");animation:ofcrain2 1.1s linear infinite}</style>${DEC_CSS}
-    <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span></div>
+    <div id="ofc-pop" style="position:absolute;width:260px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:90;display:none;flex-direction:column;gap:4px;pointer-events:none"><span id="ofc-p0" style="font-size:15px;font-weight:700;color:#f0c98a"></span><span id="ofc-p1" style="font-size:13px;line-height:1.4"></span><span id="ofc-p2" style="font-size:13px;line-height:1.4"></span><span id="ofc-p4" style="font-size:12px;line-height:1.4;color:#f0c98a"></span><span id="ofc-p3" style="font-size:12px;line-height:1.4;color:#c9d3e1"></span><div id="ofc-p5" style="display:none;margin-top:4px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18);font-size:11.5px;line-height:1.45;color:#dfe8f3"></div></div>
    </div>
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:18px">
@@ -8433,7 +8460,7 @@ const OFC = (function(){
       if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
-      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && !lunch && (!LV||lm>=arrMin(i)) && loc.seat===true; c.sleep=!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true; c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true;
+      c.base=a?1:0; el.style.display=a?'':'none'; c.working=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))) && loc.seat===true; c.sleep=!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true; c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
@@ -8442,7 +8469,7 @@ const OFC = (function(){
       $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
       if(say) el.style.zIndex=70;
-      const lit=!!a && working && !lunch && (!LV||lm>=arrMin(i)), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
+      const lit=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
       [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(!m) return; const red=yt&&k===1; m.style.background=red?'#e5484d':(lit?'#7fd1ff':'#55616f'); const h=red?'<div style="position:absolute;left:3px;top:6px;width:0;height:0;border-left:6px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent"></div>':''; if(m.dataset.h!==h){ m.innerHTML=h; m.dataset.h=h; } });
       if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=T(say); sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
@@ -8450,7 +8477,7 @@ const OFC = (function(){
     st.snap=false;
     const pop=$('ofc-pop');
     if(st.sel>=0 && info[st.sel]){
-      const c=info[st.sel], px=Math.min(Math.max(c.loc.x-130,4),1120-264), py=(c.loc.y-31-150>40)?c.loc.y-31-150:c.loc.y+40;
+      const c=info[st.sel], px=Math.min(Math.max(c.loc.x-130,4),1120-264), py=(c.loc.y-31-250>40)?c.loc.y-31-250:Math.min(c.loc.y+40,640);
       pop.style.display='flex'; pop.style.left=px+'px'; pop.style.top=py+'px';
       $('ofc-p0').textContent=NAMES[st.sel];
       $('ofc-p1').textContent=(c.a&&!c.a.idle)?L_('Dự án chính: ','Main project: ')+c.a.proj:T('Hôm nay chưa ghi việc');
@@ -8459,12 +8486,26 @@ const OFC = (function(){
       $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm: ','Working on: ')+(LANGEN()?(trEn(tl.d)||tl.d):tl.d):'';
       $('ofc-p3').textContent=T(c.say)||((c.a&&!c.a.idle)?T('Đang ngồi làm tại bàn'):T('Đang ở chỗ ngồi'));
       if(c.a&&c.a.idle){ ['ofc-p1','ofc-p2','ofc-p3','ofc-p4'].forEach(id=>{ $(id).textContent='...'; }); }
+      { const box=$('ofc-p5'), T0=trkFor(effIso(day)); let h='';
+        if(T0){ const L=(T0.by[NAMES[st.sel]]||[]), act=L.filter(x=>x.f>0||x.k==='ON CALL'), idle=L.length-act.length;
+          const load=act.reduce((a,x)=>a+x.f,0); let real=0; days.forEach(d=>{ if(effIso(d)>=T0.week&&effIso(d)<=effIso(day)&&d.acts&&d.acts[st.sel]&&!d.acts[st.sel].idle) real+=d.acts[st.sel].n||0; });
+          const lab={'FULL TIME':'Full','PART TIME':'Part','ON CALL':'On call'};
+          h='<div style="font-weight:700;color:#7fd1ff;margin-bottom:2px">'+L_('Tracker tuần ','Weekly tracker ')+T0.week.slice(8,10)+'/'+T0.week.slice(5,7)+'</div>';
+          if(!L.length) h+=L_('Chưa có dự án trong tracker','No projects in the tracker yet');
+          else { act.forEach(x=>{ h+='<div>'+(x.urgent?'🔥 ':'')+'<b>'+x.no+'</b> '+x.name.slice(0,22)+' <span style="color:#f0c98a">'+(lab[x.k]||'')+'</span></div>'; });
+            if(idle>0) h+='<div style="opacity:.7">+'+idle+L_(' dự án đang hold/không làm',' on hold / inactive')+'</div>';
+            h+='<div style="margin-top:3px">'+L_('Tải dự kiến ','Planned load ')+'<b>'+load.toFixed(1)+'</b> · '+L_('tuần này đã log ','logged this week ')+'<b>'+real+'</b> task</div>'; } }
+        box.innerHTML=h; box.style.display=h?'block':'none'; }
     } else pop.style.display='none';
     const useN=NOTES.length>0, PL=useN?NOTES.map(x=>({t:x.t,c:x.c})):((MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs);
-    const PS=5, pages=Math.max(1,Math.ceil(PL.length/PS)), page=Math.floor(tk/3)%pages;
-    for(let k=0;k<PS;k++){ const o=PL[page*PS+k]; $('ofc-w'+k+'t').textContent=o?((useN||(MEET&&MEET.items.length))?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; }
-    { const hd=(decKeyNow()==='welcome'?'Welcome KTA':(useN?T(NOTEH||'Bảng tin'):(MEET?T(MEET.title):'Daily report')))+(pages>1?' '+(page+1)+'/'+pages:''); $('ofc-wbh').textContent=hd;
-      $('ofc-wbn').textContent=(useN||(MEET&&MEET.items.length))?'':day.tasks+' tasks';
+    const PS=5, pagesA=Math.max(1,Math.ceil(PL.length/PS));
+    const T1=trkFor(effIso(day)), DL=(!useN&&!(MEET&&MEET.items.length)&&decKeyNow()!=='welcome'&&T1)?T1.dead:[];
+    const pagesB=DL.length?Math.ceil(DL.length/PS):0, pages=pagesA+pagesB, pg=Math.floor(tk/3)%pages, inDL=pg>=pagesA, page=inDL?pg-pagesA:pg, cnt=inDL?DL.length:PL.length;
+    for(let k=0;k<PS;k++){ const o=inDL?DL[page*PS+k]:PL[page*PS+k];
+      if(inDL){ $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?dlabel(o.d):''; }
+      else { $('ofc-w'+k+'t').textContent=o?((useN||(MEET&&MEET.items.length))?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; } }
+    { const base=(decKeyNow()==='welcome'?'Welcome KTA':(useN?T(NOTEH||'Bảng tin'):(MEET?T(MEET.title):'Daily report'))), hd=(inDL?L_('Deadline 7 ngày tới','Deadlines this week'):base)+((inDL?pagesB:pagesA)>1?' '+(page+1)+'/'+(inDL?pagesB:pagesA):''); $('ofc-wbh').textContent=hd;
+      $('ofc-wbn').textContent=inDL?(DL.length+L_(' mốc',' due')):((useN||(MEET&&MEET.items.length))?'':day.tasks+' tasks');
       // tivi phòng họp: chỉ sáng khi đang họp, không chiếu nội dung
       { const sc=$('ofc-scr'); if(sc){ const on=!!MEETON; sc.style.background=on?'linear-gradient(135deg,#9fdcff,#4aa3e8)':'#1c2b3a'; sc.style.boxShadow=on?'0 0 14px 4px rgba(120,200,255,.75),0 3px 0 #6f7f96':'0 3px 0 #6f7f96';
         [0,1,2,3].forEach(q=>{ const e=$('ofc-scr'+q); if(e){ e.textContent=''; e.style.height=on?'3px':'7px'; e.style.margin=on?(q===0?'4px 0 2px':'0 0 2px'):'0'; e.style.background=on?'rgba(255,255,255,.85)':'none'; e.style.width=on?[60,100,80,40][q]+'%':'auto'; e.style.borderRadius='2px'; } }); } } }
