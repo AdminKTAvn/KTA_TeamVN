@@ -7560,6 +7560,7 @@ const OFC = (function(){
   'Vui quá đi!':'So much fun!',
   'Về chỗ làm việc':'Back to my desk',
   'Về chỗ ngồi':'Back to the seats',
+  'Vào văn phòng, tự do trước giờ họp 8:45':'Arriving, free time before the 8:45 meeting',
   'Xem lại cả hành trình':'Replay the whole journey',
   'Xem tí YouTube...':'Watching a bit of YouTube...',
   'Yo yo, task xong là chill!':'Yo yo, task is done, time to chill!',
@@ -7687,7 +7688,7 @@ const OFC = (function(){
     const m={}; const T0=trkFor(iso); if(!T0) return m;
     const t0=new Date(iso+'T00:00:00').getTime();
     T0.dead.forEach(x=>{ const dd=Math.round((new Date(x.d+'T00:00:00').getTime()-t0)/864e5);
-      String(x.w||'').split(/,\s*/).forEach(nm=>{ const q=NAMES.indexOf(nm); if(q<0) return; if(!m[q]||dd<m[q].days) m[q]={days:dd,proj:x.p||x.t}; }); });
+      String(x.w||'').split(/,\s*/).forEach(nm=>{ const q=NAMES.indexOf(nm); if(q<0) return; if(!m[q]||dd<m[q].days) m[q]={days:dd,proj:x.p||x.t,d:x.d,t:x.t}; }); });
     return m;
   }
   const TRK={}; let DLNOW=false, DLLIST=[];
@@ -7861,7 +7862,28 @@ const OFC = (function(){
     return e?Object.assign({title:e.type==='birthday'?('Sinh nhật '+(e.who||'')):'Tiệc ăn uống cả team'},e):null;
   }
   // mốc thời gian trong 1 chu kỳ (mỗi tick ~1,8 giây)
-  function cfg(){ return st.journey ? {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1} : {cyc:236, meetEnd:MEET?18:0, work:MEET?22:9, arrive:true, leave:224, span:9}; }
+  // Họp sáng: mở đầu → từng mục chương trình → mỗi người có deadline (trong 3 ngày) báo cáo 1 lượt, TV hiện thông tin Tracker
+  const PRE_TK=4;
+  let MPC=null;
+  function meetPlan(){ try{ if(!MEET) return null; const day=days[st.idx]; if(!day) return null; const ei=effIso(day);
+    const key=day.iso+'|'+ei+'|'+MEET.items.length+'|'+Object.keys(day.acts||{}).length+'|'+(Array.isArray(window.KTA_TRACKER)?window.KTA_TRACKER.length:0)+'|'+Object.keys(SHIFTS).length;
+    if(MPC&&MPC.k===key) return MPC.v;
+    const act=presOf(day), DL=dlMap(ei), sp=[];
+    NAMES.forEach((nm,i)=>{ if(act[i]&&seat[i]&&DL[i]&&DL[i].days>=0&&DL[i].days<=3&&arrMin(i)<=525) sp.push(i); });
+    sp.sort((a,b)=>DL[a].days-DL[b].days||a-b); sp.length=Math.min(sp.length,8);
+    const n=MEET.items.length, d0=5+2*n+1, v={sp:sp,DL:DL,d0:d0,n:n,end:Math.max(18,d0+3*sp.length+1),ei:ei};
+    MPC={k:key,v:v}; return v; }catch(e){ return null; } }
+  function tvLines(tk,day,meeting){
+    const P=meetPlan(), ei=P?P.ei:effIso(day), T0=trkFor(ei);
+    const sum=()=>{ let np=0; const seen={}; if(T0) Object.keys(T0.by).forEach(w=>T0.by[w].forEach(e=>{ if(!e.hold&&!seen[e.name]){ seen[e.name]=1; np++; } })); const nd=T0?T0.dead.length:0;
+      return ['TRACKER · '+L_('tuần ','week ')+(T0?dlabel(T0.week):''), L_(np+' dự án đang chạy',np+' active projects'), L_(nd+' deadline trong 7 ngày',nd+' deadlines in 7 days'), MEET?String(MEET.title||''):'']; };
+    if(!meeting||!P) return sum();
+    for(let k=0;k<MEET.items.length;k++){ if(tk>=5+2*k&&tk<7+2*k){ const x=MEET.items[k]; return ['● '+(NAMES[x.w]||''), x.t||'', x.r||'', '']; } }
+    for(let j=0;j<P.sp.length;j++){ const t0=P.d0+3*j; if(tk>=t0&&tk<t0+3){ const q=P.sp[j], D=P.DL[q], en=((T0&&T0.by[NAMES[q]])||[]).find(e=>e.name===D.proj)||null, ms=String(D.t||'').split(' · ').slice(1).join(' · ');
+      return ['● '+NAMES[q]+' · Deadline', D.proj, ms||(en?[en.ph,en.scale].filter(Boolean).join(' · '):''), dlabel(D.d)+' · '+(D.days<=0?L_('hôm nay','today'):L_('còn '+D.days+' ngày',D.days+' days left'))]; } }
+    return sum();
+  }
+  function cfg(){ if(st.journey) return {cyc:14, meetEnd:3, work:5, arrive:false, leave:99, span:1}; const P=MEET?meetPlan():null; const me=MEET?(P?P.end:18):0; return {cyc:236, meetEnd:me, work:MEET?me+4:9, arrive:true, leave:224, span:9}; }
   const hhmm=m=>(m===null||m===undefined)?'':(('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2));
   const activeList=day=>Object.keys(presOf(day)).map(Number).sort((a,b)=>a-b);
   // ── hoạt động ngẫu nhiên trong giờ làm việc ──
@@ -7878,15 +7900,15 @@ const OFC = (function(){
   // trả về tick mục tiêu theo giờ thật (hoặc -1 nếu không cần ép)
   function firstArr(){ let mn=1e9; try{ NAMES.forEach((nm,i)=>{ const a=arrMin(i); if(a<mn) mn=a; }); }catch(e){} return mn<1e9?mn:450; }
   function liveFix(tk,cf){ const m=liveMin();
-    if(MEET){ if(m<450) return Math.min(tk,0); if(m<480) return Math.min(tk,2); if(m<540) return Math.min(tk,cf.work-1); } else if(m<firstArr()) return Math.min(tk,0);   // không họp sáng: ai vào trước làm trước, không phải đợi
-    if(tk<cf.work+2) return cf.work+2; if(tk>=cf.leave-4) return cf.work+14; return tk; }
+    if(MEET){ if(m<450) return Math.min(tk,0); if(m<525) return Math.min(tk,PRE_TK); if(m<540){ st.ns=1; return (tk<3||tk>=cf.meetEnd)?3:tk; } } else if(m<firstArr()) return Math.min(tk,0);   // không họp sáng: ai vào trước làm trước, không phải đợi
+    if(tk<cf.work+2){ st.ns=1; return cf.work+2; } if(tk>=cf.leave-4) return cf.work+14; return tk; }
   function tick(){
     if(window._ofcHold) return;
     const panel=document.getElementById('mainpanel-office');
     if(!panel || !panel.classList.contains('active') || !days.length) return;
     const last=days.length-1, cf=cfg();
     let tk=st.tk+1;
-    if(liveOn()){ const f=liveFix(tk,cf); if(f!==tk){ if(f>tk+3||f<tk-3){ st.trips={}; st.snap=true; } if(f<tk&&f>=cf.work) st.lp=(st.lp||0)+1; tk=f; } if(tk>=cf.cyc) tk=cf.cyc-1; }
+    if(liveOn()){ st.ns=0; const f=liveFix(tk,cf); if(f!==tk){ if(!st.ns&&(f>tk+3||f<tk-3)){ st.trips={}; st.snap=true; } if(f<tk&&(f>=cf.work||f<=PRE_TK)) st.lp=(st.lp||0)+1; tk=f; } if(tk>=cf.cyc) tk=cf.cyc-1; }
     else if(tk>=cf.cyc){
       if(st.journey){ if(st.idx>=last) st.journey=false; else st.idx++; }
       applyOffice(); st.tk=0; st.trips={}; st.snap=true; paint(); return;
@@ -7911,7 +7933,8 @@ const OFC = (function(){
       if(tk===AW.s) go2(0); else if(tk===AW.s+18) go2(1);
       if(tk>=AW.s-2 && tk<AW.s+40){ busy[LIAM]=1; awd.who2.forEach(w=>busy[w]=1); }
     }
-    if(tk>=cf.work && tk<cf.leave-2 && !evBlock){
+    const PRE=liveOn()&&!!MEET&&liveMin()>=450&&liveMin()<525;
+    if((tk>=cf.work||PRE) && tk<cf.leave-2 && !evBlock){
       if(DECT==='welcome'){
         const pl=guestPlan(0), td=Math.round(pl.tDoor), tm_=Math.round(pl.tMeet), te=Math.round(pl.tExit);
         const HST=[LIAM,STU,NINA], DOOR=[[748,572],[812,572],[779,548]];
@@ -8624,7 +8647,7 @@ const OFC = (function(){
     const SOFAX=[918,954,990];
     const allGone=LV&&(lm<450||(order.length>0&&order.every(q=>lm>=liveT[q])));
     st.officeOpen=!allGone;
-    const meeting = tk<cf.meetEnd, working = tk>=cf.work;
+    const PREP=LV&&!!MEET&&lm<525, meeting = (LV&&MEET)?(lm>=525&&lm<540):tk<cf.meetEnd, working = tk>=cf.work;
     const ev=eventFor(day), evOn=!!ev && tk>=EV.s && tk<EV.e, evSlot={};
     if(evOn){ let k=1; order.forEach(p=>{ if(ev.type==='birthday' && NAMES[p]===ev.who) evSlot[p]=0; else if(ev.type==='award' && ev.who2.indexOf(p)>=0) evSlot[p]=ev.who2.indexOf(p); else { evSlot[p]=k+(ev.type==='award'?1:0); k++; } }); if(ev.type!=='birthday'||!Object.keys(evSlot).some(p=>evSlot[p]===0)){ /* không có người đặc biệt */ } }
     const aw=awardFor(day), wasCup=st.cup||{}; let awStay=false; Object.keys(trips).forEach(k=>{ const t=trips[k]; if(t.kind==='award' && t.stage==='stay') awStay=true; });
@@ -8665,10 +8688,14 @@ const OFC = (function(){
       if(a && !say && awStay && aw && aw.ceremony && i!==LIAM && wIdx<0 && loc.seat && (i*5+tk)%7===0) say=['Chúc mừng!','Giỏi quá!','Hoan hô!'][(i+tk)%3];
       { const cr=$('ofc-cr'+i), tr=$('ofc-tr'+i); if(cr) cr.style.display=carrying?'block':'none'; if(tr) tr.style.display=onDesk?'block':'none'; }
       if(a && (LV?(lm>=arrMin(i)&&!(st.ar=st.ar||{})[i]&&(st.ar[i]=1)):(cf.arrive && tk===arrTick(i)))) say=hhmm(arrMin(i))+', vào văn phòng';
-      if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; }); }
+      if(a && meeting && MEET){ if(tk===3 && (i===LIAM||i===STU) && MEET.sub) say=MEET.sub; MEET.items.forEach((x,k)=>{ if(x.w===i && tk===5+2*k) say=x.r||x.t; });
+        const MP2=meetPlan(); if(MP2) MP2.sp.forEach((q,j)=>{ const t0=MP2.d0+3*j;
+          if(i===q && tk===t0){ const D=MP2.DL[q], pj=String(D.proj).slice(0,18); say=D.days<=0?L_('Hôm nay nộp '+pj+'!','Due today: '+pj+'!'):(D.days===1?L_('Mai nộp '+pj,'Due tomorrow: '+pj):L_('Còn '+D.days+' ngày: '+pj,D.days+' days left: '+pj)); }
+          else if(tk===t0+1 && i!==q){ const ld=team[q]==='S'?STU:(team[q]==='N'?NINA:LIAM); if(i===ld) say=j%2?L_('Cố lên, team hỗ trợ nha!','You got this, we have your back!'):L_('Ok, cần gì cứ báo mình nhé!','Ok, tell me if you need help!'); } }); }
+      if(a && LV && MEET && !meeting && lm>=540 && lm<545 && !(st.bk=st.bk||{})[i] && (st.bk[i]=1)) say=L_('Về chỗ làm việc','Back to my desk');
       if(a && meeting && tk===cf.meetEnd-1) say='';
       const c=C[i]||(C[i]={loc:null,key:'',timers:[],moving:false});
-      c.base=a?1:0; el.style.display=a?'':'none'; c.rush=!!a&&!!RL[i]&&i!==NINA&&working&&!lunch&&loc.seat===true&&!loc.lie&&(!LV||(lm>=arrMin(i)&&!lvd(i))); c.dl=(a&&working&&!lunch&&loc.seat===true&&!loc.lie&&DLI[i]&&DLI[i].days<=3&&(!LV||(lm>=arrMin(i)&&!lvd(i))))?Math.min(DLI[i].days,2):undefined; c.working=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))) && loc.seat===true&&!loc.lie; c.sleep=(!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true&&!loc.lie)||(!!a&&loc.lie===true); c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true&&!loc.lie;
+      c.base=a?1:0; el.style.display=a?'':'none'; c.rush=!!a&&!!RL[i]&&i!==NINA&&working&&!lunch&&loc.seat===true&&!loc.lie&&(!LV||(lm>=arrMin(i)&&!lvd(i))); c.dl=(a&&working&&!lunch&&loc.seat===true&&!loc.lie&&DLI[i]&&DLI[i].days<=3&&(!LV||(lm>=arrMin(i)&&!lvd(i))))?Math.min(DLI[i].days,2):undefined; c.working=!!a && (working||PREP) && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))) && loc.seat===true&&!loc.lie; c.sleep=(!!a&&lunch&&!!LP[i]&&lm>=((LP[i].late?99999:(LP[i].out?LP[i].back:720)))&&loc.seat===true&&!loc.lie)||(!!a&&loc.lie===true); c.eat=!!a&&lunch&&!!LP[i]&&!LP[i].out&&lm<720&&loc.seat===true&&!loc.lie;
       el.title=(a&&!a.idle)? nm+': '+a.n+L_(' việc, ',' tasks, ')+a.proj : nm+L_(': hôm nay chưa ghi việc',': no work logged today');
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
@@ -8685,7 +8712,7 @@ const OFC = (function(){
       info[i]={loc:loc,say:say,a:a};
     });
     st.snap=false; st.info=info;
-    st.canMe=(function(){ try{ const me=meIdx(); if(me<0||!act[me]||!liveOn()||!info[me]) return false; return working&&!lunch&&!meeting&&!evOn&&!lvd(me)&&lm>=arrMin(me)&&(info[me].loc.seat===true||!!trips[me])&&!(WF&&true&&false); }catch(e){ return false; } })();
+    st.canMe=(function(){ try{ const me=meIdx(); if(me<0||!act[me]||!liveOn()||!info[me]) return false; return (working||PREP)&&!lunch&&!meeting&&!evOn&&!lvd(me)&&lm>=arrMin(me)&&(info[me].loc.seat===true||!!trips[me])&&!(WF&&true&&false); }catch(e){ return false; } })();
     const pop=$('ofc-pop');
     if(st.sel>=0 && info[st.sel]){
       const c=info[st.sel], px=Math.min(Math.max(c.loc.x-130,4),1120-264), py=(c.loc.y-31-250>40)?c.loc.y-31-250:Math.min(c.loc.y+40,640);
@@ -8713,9 +8740,10 @@ const OFC = (function(){
       else { $('ofc-w'+k+'t').textContent=o?((useN||(MEET&&MEET.items.length))?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; } }
     { const base=(decKeyNow()==='welcome'?'Welcome KTA':(useN?T(NOTEH||'Bảng tin'):(MEET?T(MEET.title):'Daily report'))), hd=(inDL?L_('Deadline 7 ngày tới','Deadlines this week'):base)+((inDL?pagesB:pagesA)>1?' '+(page+1)+'/'+(inDL?pagesB:pagesA):''); $('ofc-wbh').textContent=hd;
       $('ofc-wbn').textContent=inDL?(DL.length+L_(' mốc',' due')):((useN||(MEET&&MEET.items.length))?'':day.tasks+' tasks');
-      // tivi phòng họp: chỉ sáng khi đang họp, không chiếu nội dung
-      { const sc=$('ofc-scr'); if(sc){ const on=!!MEETON; sc.style.background=on?'linear-gradient(135deg,#9fdcff,#4aa3e8)':'#1c2b3a'; sc.style.boxShadow=on?'0 0 14px 4px rgba(120,200,255,.75),0 3px 0 #6f7f96':'0 3px 0 #6f7f96';
-        [0,1,2,3].forEach(q=>{ const e=$('ofc-scr'+q); if(e){ e.textContent=''; e.style.height=on?'3px':'7px'; e.style.margin=on?(q===0?'4px 0 2px':'0 0 2px'):'0'; e.style.background=on?'rgba(255,255,255,.85)':'none'; e.style.width=on?[60,100,80,40][q]+'%':'auto'; e.style.borderRadius='2px'; } }); } } }
+      // tivi phòng họp: sáng khi có người trong phòng họp; họp sáng thì chiếu thông tin Tracker + deadline từng người
+      { const sc=$('ofc-scr'); if(sc){ const on=!!MEETON; let ln=['','','','']; if(on){ try{ ln=tvLines(tk,day,meeting); }catch(e){} }
+        sc.style.background=on?'linear-gradient(135deg,#0f2f52,#1b5c93)':'#1c2b3a'; sc.style.boxShadow=on?'0 0 14px 4px rgba(120,200,255,.75),0 3px 0 #6f7f96':'0 3px 0 #6f7f96';
+        [0,1,2,3].forEach(q=>{ const e=$('ofc-scr'+q); if(e){ e.textContent=on?String(ln[q]||''):''; e.style.height='7px'; e.style.margin='0'; e.style.background='none'; e.style.width='auto'; e.style.fontSize='6px'; e.style.lineHeight='7px'; } }); } } }
     { const wl=decKeyNow()==='welcome', gl=guestList();
       for(let k=0;k<6;k++){ const el=$('ofc-g'+k); if(!el) continue;
         if(!wl||k>=gl.length){ el.style.display='none'; continue; }
@@ -8735,7 +8763,8 @@ const OFC = (function(){
     const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx; try{ renderStars(); }catch(e){} try{ renderDecor(); }catch(e){} try{ const staff=(typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader'); $('ofc-evsel').style.display=staff?'':'none'; if(!staff&&(st.preview||st.demoMeet||st.decorPrev)){ st.preview=''; st.demoMeet=false; st.decorPrev=''; $('ofc-evsel').value=''; } }catch(e){}
     $('ofc-day').textContent=T(WD[day.wd])+', '+day.date;
     let ph;
-    if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
+    if(PREP && lm>=450) ph='Vào văn phòng, tự do trước giờ họp 8:45';
+    else if(cf.arrive && tk<1) ph='Thang máy, chuẩn bị vào văn phòng';
     else if(cf.arrive && tk<3) ph='07:30, nhóm đầu vào văn phòng';
     else if(cf.arrive && tk<5) ph='08:00, nhóm sau vào văn phòng';
     else if(aw&&aw.ceremony&&tk>=AW.s-2&&tk<AW.s+40) ph='🏆 Vinh danh tháng '+(+aw.month.slice(5,7))+': '+NAMES[aw.who2[0]]+' & '+NAMES[aw.who2[1]]+(st.preview==='award'&&!awardInfo(null)?' (demo)':'');
