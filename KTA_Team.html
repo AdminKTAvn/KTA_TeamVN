@@ -8914,10 +8914,11 @@ const OFC = (function(){
     s.push("<rect width='"+W+"' height='"+H+"' fill='"+P.ground+"'/>");
     s.push("<rect x='1636' y='0' width='62' height='"+H+"' fill='"+P.road+"'/><line x1='1667' y1='0' x2='1667' y2='"+H+"' stroke='"+P.line+"' stroke-width='2' stroke-dasharray='14 12'/>");
     s.push("<rect x='250' y='168' width='1410' height='38' fill='"+P.road+"'/><line x1='252' y1='187' x2='1660' y2='187' stroke='"+P.line+"' stroke-width='2' stroke-dasharray='16 12'/>");
+    if(RAIN){ [[1667,430,24,11],[1654,790,19,8],[217,300,20,9],[238,690,24,11],[820,196,30,8],[1180,178,22,7],[470,196,20,7]].forEach(function(q){ s.push("<ellipse cx='"+q[0]+"' cy='"+q[1]+"' rx='"+q[2]+"' ry='"+q[3]+"' fill='"+(night?'#4a5a6a':'#7d93a8')+"' opacity='.8'/><ellipse cx='"+(q[0]-q[2]*.25)+"' cy='"+(q[1]-q[3]*.3)+"' rx='"+(q[2]*.5)+"' ry='"+(q[3]*.35)+"' fill='#e8f2fb' opacity='.55'/>"); }); }
     var RB=[[1500,250,120,110],[1722,340,100,130],[1500,560,120,110]];
     var shAlpha=night?.28:.30;
     RB.forEach(function(b){ var x=b[0],y=b[1],w=b[2],h=b[3],c=pk(P.roofs);
-      var bv=sh(14); for(var k=6;k>=1;k--){ s.push("<rect x='"+(x+bv[0]*k/6)+"' y='"+(y+bv[1]*k/6)+"' width='"+w+"' height='"+h+"' fill='rgba(0,0,0,"+(shAlpha/2.2).toFixed(2)+")'/>"); }
+      var bv=sh(14); if(!RAIN) for(var k=6;k>=1;k--){ s.push("<rect x='"+(x+bv[0]*k/6)+"' y='"+(y+bv[1]*k/6)+"' width='"+w+"' height='"+h+"' fill='rgba(0,0,0,"+(shAlpha/2.2).toFixed(2)+")'/>"); }
       s.push("<rect x='"+x+"' y='"+y+"' width='"+w+"' height='"+h+"' rx='2' fill='"+c+"' stroke='"+P.roofd+"' stroke-width='1.5'/>");
       for(var i=0;i<Math.max(1,Math.floor(w*h/2600));i++) s.push("<rect x='"+(x+ri(6,Math.max(7,w-18)))+"' y='"+(y+ri(6,Math.max(7,h-14)))+"' width='"+ri(8,15)+"' height='"+ri(6,11)+"' fill='"+P.ac+"' opacity='.9'/>");
       if(night) for(var j=0;j<Math.max(1,Math.floor(w*h/5000));j++) s.push("<rect x='"+(x+ri(4,Math.max(5,w-8)))+"' y='"+(y+ri(4,Math.max(5,h-8)))+"' width='4' height='3' fill='#ffd978' opacity='.85'/>");
@@ -8930,11 +8931,11 @@ const OFC = (function(){
     for(var yy=20;yy<H;yy+=46){ if(yy>150&&yy<228) continue; trees.push([292,yy+ri(-4,4),ri(11,15),pk(P.t)]); }
     var cnt=0; while(cnt<150){ var x=ri(1480,1840), y2=ri(0,H), ok=!(x>1620&&x<1716)&&!(x<1620&&y2>150&&y2<225); if(ok) RB.forEach(function(b){ if(x>b[0]-26&&x<b[0]+b[2]+26&&y2>b[1]-26&&y2<b[1]+b[3]+26) ok=false; }); if(ok){ trees.push([x,y2,ri(14,28),pk(P.t)]); cnt++; } }
     var shc=night?'rgba(0,0,0,.25)':'rgba(0,0,0,.20)';
-    var tv=sh(8); trees.forEach(function(t){ s.push("<circle cx='"+(t[0]+tv[0])+"' cy='"+(t[1]+tv[1])+"' r='"+t[2]+"' fill='"+shc+"'/>"); });
+    var tv=sh(8); if(!RAIN) trees.forEach(function(t){ s.push("<circle cx='"+(t[0]+tv[0])+"' cy='"+(t[1]+tv[1])+"' r='"+t[2]+"' fill='"+shc+"'/>"); });
     trees.forEach(function(t){ s.push("<circle cx='"+t[0]+"' cy='"+t[1]+"' r='"+t[2]+"' fill='"+t[3]+"'/>"); });
     var cx0=W/2-585, cx1=W/2+585, cy0=232, ov=sh(110), NS=10;
     s.push("<defs><filter id='bl' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='14'/></filter></defs><g filter='url(#bl)'>");
-    for(var q=1;q<=NS;q++){ s.push("<rect x='"+(cx0+ov[0]*q/NS)+"' y='"+(cy0+ov[1]*q/NS)+"' width='"+(cx1-cx0)+"' height='"+(H-cy0+80)+"' fill='rgba(0,0,0,"+(night?.045:.06)+")'/>"); }
+    if(!RAIN) for(var q=1;q<=NS;q++){ s.push("<rect x='"+(cx0+ov[0]*q/NS)+"' y='"+(cy0+ov[1]*q/NS)+"' width='"+(cx1-cx0)+"' height='"+(H-cy0+80)+"' fill='rgba(0,0,0,"+(night?.045:.06)+")'/>"); }
     s.push("</g>");
     s.push("<rect width='"+W+"' height='"+H+"' fill='rgba(14,22,14,"+(night?.10:.16)+")'/>");
     // đèn đường dọc 2 bên các dãy đường: ban đêm sáng ấm + quầng sáng, ban ngày chỉ là cột đèn nhỏ
