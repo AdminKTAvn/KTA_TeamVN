@@ -7958,6 +7958,7 @@ const OFC = (function(){
           wo.forEach((i2,ix)=>{ busy[i2]=1; if(i2!==LIAM && tk===tm_-4 && !trips[i2]) trips[i2]=newTrip(i2,'wmeet',allLoc(i2,ids0),GMEET,''); }); }
       }
       if(liveOn()){ const lmn=liveMin(); NAMES.forEach((nm,q)=>{ if(lmn<arrMin(q)) busy[q]=1; }); }   // chưa vào văn phòng thì chưa đi lại/nói chuyện
+      NAMES.forEach((n_,q)=>{ if(st.gone&&st.gone[q]) busy[q]=1; });   // người đã về thì không đi lại / không bị gọi tới
       const active=activeList(day), rnd=p=>R()<p;
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
       active.forEach(i=>{
@@ -8649,6 +8650,7 @@ const OFC = (function(){
     [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(leaveTk[pr[0]],leaveTk[pr[1]]); leaveTk[pr[0]]=m; leaveTk[pr[1]]=m; } });
     const LV=liveOn(), lm=liveMin(), liveT={}; if(LV){ byLeave.forEach((p,k)=>{ const sch=leaveMin(p); liveT[p]=(NAMES[p]==='Nina')?((act[p].t!=null&&act[p].t>=1020)?act[p].t:sch):Math.max(sch,(act[p].t!=null?act[p].t:0)); }); [[BONNIE,WILDER],[LIAM,ALICE]].forEach(pr=>{ if(act[pr[0]]&&act[pr[1]]){ const m=Math.min(liveT[pr[0]],liveT[pr[1]]); liveT[pr[0]]=m; liveT[pr[1]]=m; } }); }
     const lvd=q=>LV?(lm>=450&&lm>=liveT[q]):(tk>=leaveTk[q]);
+    st.gone={}; NAMES.forEach((n_,q)=>{ if(act[q]&&lvd(q)) st.gone[q]=1; });
     const lunch=LV&&lm>=690&&lm<780, DLI=dlMap(effIso(day)), RL={}; order.forEach(q=>{ if(DLI[q]&&DLI[q].days<=0&&(!LV||(lm>=arrMin(q)&&!lvd(q)))){ const ld=team[q]==='S'?STU:(team[q]==='N'?NINA:-1); if(ld>=0&&ld!==q&&act[ld]) RL[ld]=true; } });
     // nghỉ trưa: ~40% đi ăn ngoài (về lại 12:10-12:25), còn lại ăn tại chỗ; sau đó ngủ trưa (3 người đầu ngủ ở sofa, còn lại ngủ tại bàn) đến 13:00
     const LP={}; let lnIn=0, lnOut=0, lnNap=0;
