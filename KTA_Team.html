@@ -8733,15 +8733,15 @@ const OFC = (function(){
           else mine.forEach(x=>{ h+='<div><b style="color:#f0c98a">'+dlabel(x.d)+'</b> '+x.t.slice(0,60)+'</div>'; }); }
         box.innerHTML=h; box.style.display=h?'block':'none'; }
     } else pop.style.display='none';
-    const useN=NOTES.length>0, PL=useN?NOTES.map(x=>({t:x.t,c:x.c})):((MEET&&MEET.items.length)?MEET.items.map(x=>({t:x.t,c:x.w>=0?NAMES[x.w]:''})):day.projs);
+    const useN=NOTES.length>0, PL=useN?NOTES.map(x=>({t:x.t,c:x.c})):day.projs;
     const PS=5, pagesA=Math.max(1,Math.ceil(PL.length/PS));
-    const T1=trkFor(effIso(day)), DL=(!useN&&!(MEET&&MEET.items.length)&&decKeyNow()!=='welcome'&&T1)?T1.dead:[];
+    const T1=trkFor(effIso(day)), DL=(!useN&&decKeyNow()!=='welcome'&&T1)?T1.dead:[];
     const pagesB=DL.length?Math.ceil(DL.length/PS):0, pages=pagesA+pagesB, pg=Math.floor(tk/3)%pages, inDL=pg>=pagesA, page=inDL?pg-pagesA:pg, cnt=inDL?DL.length:PL.length; DLNOW=inDL; DLLIST=DL;
     for(let k=0;k<PS;k++){ const o=inDL?DL[page*PS+k]:PL[page*PS+k];
       if(inDL){ $('ofc-w'+k+'t').textContent=o?o.t:''; $('ofc-w'+k+'n').textContent=o?dlabel(o.d):''; }
-      else { $('ofc-w'+k+'t').textContent=o?((useN||(MEET&&MEET.items.length))?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; } }
-    { const base=(decKeyNow()==='welcome'?'Welcome KTA':(useN?T(NOTEH||'Bảng tin'):(MEET?T(MEET.title):'Daily report'))), hd=(inDL?L_('Deadline 7 ngày tới','Deadlines this week'):base)+((inDL?pagesB:pagesA)>1?' '+(page+1)+'/'+(inDL?pagesB:pagesA):''); $('ofc-wbh').textContent=hd;
-      $('ofc-wbn').textContent=inDL?(DL.length+L_(' mốc',' due')):((useN||(MEET&&MEET.items.length))?'':day.tasks+' tasks');
+      else { $('ofc-w'+k+'t').textContent=o?(useN?T(o.t):o.t):''; $('ofc-w'+k+'n').textContent=o?(useN?T(String(o.c||'')):String(o.c)):''; } }
+    { const base=(decKeyNow()==='welcome'?'Welcome KTA':(useN?T(NOTEH||'Bảng tin'):'Daily report')), hd=(inDL?L_('Deadline 7 ngày tới','Deadlines this week'):base)+((inDL?pagesB:pagesA)>1?' '+(page+1)+'/'+(inDL?pagesB:pagesA):''); $('ofc-wbh').textContent=hd;
+      $('ofc-wbn').textContent=inDL?(DL.length+L_(' mốc',' due')):(useN?'':day.tasks+' tasks');
       // tivi phòng họp: sáng khi có người trong phòng họp; họp sáng thì chiếu thông tin Tracker + deadline từng người
       { const sc=$('ofc-scr'); if(sc){ const on=!!MEETON; let ln=['','','','']; if(on){ try{ ln=tvLines(tk,day,meeting); }catch(e){} }
         sc.style.background=on?'linear-gradient(135deg,#0f2f52,#1b5c93)':'#1c2b3a'; sc.style.boxShadow=on?'0 0 14px 4px rgba(120,200,255,.75),0 3px 0 #6f7f96':'0 3px 0 #6f7f96';
