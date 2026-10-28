@@ -7877,7 +7877,9 @@ const OFC = (function(){
     const P=meetPlan(), ei=P?P.ei:effIso(day), T0=trkFor(ei);
     const sum=()=>{ let np=0; const seen={}; if(T0) Object.keys(T0.by).forEach(w=>T0.by[w].forEach(e=>{ if(!e.hold&&!seen[e.name]){ seen[e.name]=1; np++; } })); const nd=T0?T0.dead.length:0;
       return ['TRACKER · '+L_('tuần ','week ')+(T0?dlabel(T0.week):''), L_(np+' dự án đang chạy',np+' active projects'), L_(nd+' deadline trong 7 ngày',nd+' deadlines in 7 days'), MEET?String(MEET.title||''):'']; };
-    if(!meeting||!P) return sum();
+    if(!meeting||!P){ const dd=T0?T0.dead:[]; const ix=dd.length?Math.floor(tk/3)%(dd.length+1):0; if(ix===0) return sum();
+      const x=dd[ix-1], ms=String(x.t||'').split(' · ').slice(1).join(' · '), dn=Math.round((new Date(x.d+'T00:00:00').getTime()-new Date(ei+'T00:00:00').getTime())/864e5);
+      return ['TRACKER · Deadline '+ix+'/'+dd.length, x.p, ms, (x.w?x.w+' · ':'')+dlabel(x.d)+' · '+(dn<=0?L_('hôm nay','today'):L_('còn '+dn+' ngày',dn+' days left'))]; }
     for(let k=0;k<MEET.items.length;k++){ if(tk>=5+2*k&&tk<7+2*k){ const x=MEET.items[k]; return ['● '+(NAMES[x.w]||''), x.t||'', x.r||'', '']; } }
     for(let j=0;j<P.sp.length;j++){ const t0=P.d0+3*j; if(tk>=t0&&tk<t0+3){ const q=P.sp[j], D=P.DL[q], en=((T0&&T0.by[NAMES[q]])||[]).find(e=>e.name===D.proj)||null, ms=String(D.t||'').split(' · ').slice(1).join(' · ');
       return ['● '+NAMES[q]+' · Deadline', D.proj, ms||(en?[en.ph,en.scale].filter(Boolean).join(' · '):''), dlabel(D.d)+' · '+(D.days<=0?L_('hôm nay','today'):L_('còn '+D.days+' ngày',D.days+' days left'))]; } }
