@@ -8567,12 +8567,12 @@ const OFC = (function(){
     if((m=/^call:(\d+)$/.exec(key||''))){ const j=+m[1]; if(!NAMES[j]||j===who) return null; return newTrip(who,'ucall',standLoc(j),5,L_('Qua chỗ '+NAMES[j],'Visiting '+NAMES[j]),{to:j,hostSay:L_('Chào '+NAMES[who]+'!','Hi '+NAMES[who]+'!')}); }
     return null;
   }
-  function sendAct(key,at){ try{ const n=Date.now(); if(n-(window._ofcLastAct||0)<3000) return; window._ofcLastAct=n; if(typeof window.ktaSendAct==='function') window.ktaSendAct(key,at); }catch(e){} }
+  function sendAct(key,at){ try{ const n=Date.now(); if(n-(window._ofcLastAct||0)<5000) return; window._ofcLastAct=n; if(typeof window.ktaSendAct==='function') window.ktaSendAct(key,at); }catch(e){} }
   function userGo(id){
-    if(isGuestRole()){ if(kgLive()){ if(Date.now()-(window._ofcLastAct||0)<3000){ toast(L_('Từ từ thôi, đợi vài giây rồi bấm tiếp nhé!','Easy! Wait a few seconds before the next click.')); return; } guestGo(id); } else toast(L_('Văn phòng đã đóng cửa theo giờ Việt Nam. Bạn chỉ xem được thôi.','The office is closed (Vietnam time). View only.')); return; }
+    if(isGuestRole()){ if(kgLive()){ if(Date.now()-(window._ofcLastAct||0)<5000){ toast(L_('Từ từ thôi, đợi vài giây rồi bấm tiếp nhé!','Easy! Wait a few seconds before the next click.')); return; } guestGo(id); } else toast(L_('Văn phòng đã đóng cửa theo giờ Việt Nam. Bạn chỉ xem được thôi.','The office is closed (Vietnam time). View only.')); return; }
     const me=meIdx(); if(me<0){ toast(L_('Hãy chọn tên của bạn trước','Pick your name first')); return; }
     if(!st.canMe){ toast(L_('Bây giờ chưa điều khiển được: văn phòng đang đóng cửa, nghỉ trưa hoặc họp. Bạn quay lại trong giờ làm việc nhé!','Not available now: office is closed, lunch break or meeting. Come back during work hours!')); return; }
-    if(Date.now()-(window._ofcLastAct||0)<3000){ toast(L_('Từ từ thôi, đợi vài giây rồi bấm tiếp nhé!','Easy! Wait a few seconds before the next click.')); return; }
+    if(Date.now()-(window._ofcLastAct||0)<5000){ toast(L_('Từ từ thôi, đợi vài giây rồi bấm tiếp nhé!','Easy! Wait a few seconds before the next click.')); return; }
     const t=buildAct(me,id); if(!t) return; st.trips[me]=t; paint(); sendAct(id);
   }
   function userHome(){ const me=meIdx(), t=st.trips[me]; if(me<0||!t) return; st.trips[me]=Object.assign({},t,{stage:'back',n:etaTicks(t.dest,seatLoc(me)),say:''}); paint(); }
@@ -9055,9 +9055,9 @@ const OFC = (function(){
   }
   window.ktaSendAct=function(a,at){ window.KTA_ACT=String(a||'').slice(0,80); window.KTA_ACTAT=at||0; ifl=0; ping(); };
   window.addEventListener('pagehide',function(){ try{ if(role()!=='guest') return; var u=(typeof sheetsScriptUrl!=='undefined'&&sheetsScriptUrl)||(typeof getSheetsConfig==='function'&&getSheetsConfig().scriptUrl)||''; if(!u) return; fetch(u,{method:'POST',body:JSON.stringify({action:'presence',password:pw(),act:'bye'}),keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'}}); }catch(e){} });
-  var lastP=0, ifl=0; var _ping0=ping; ping=function(){ if(ifl&&Date.now()-ifl<4000) return; ifl=Date.now(); lastP=Date.now(); _ping0(); };
-  // tab Văn phòng: 2–8 người online hỏi mỗi 6s, 9–15 người 8s, trên 15 người 10s (tránh quá tải Apps Script); chỉ 1 người 15s; tab khác 60s
-  setInterval(function(){ var ac=document.querySelector('.main-tab.active'), off=ac&&ac.id==='maintab-office', n=(window.KTA_ONLINE||[]).length, gap=off?(n<=1?15000:(n<=8?6000:(n<=15?8000:10000))):60000; if(Date.now()-lastP>=gap-500) ping(); },3000);
+  var lastP=0, ifl=0; var _ping0=ping; ping=function(){ if(ifl&&Date.now()-ifl<2000) return; ifl=Date.now(); lastP=Date.now(); _ping0(); };
+  // tab Văn phòng: nhịp hỏi = max(3s, số người online × 0.35s) để tổng tải luôn ≤ ~3 lượt/giây (22 người ≈ 7,7s); khách 10s; chỉ 1 người 15s; tab khác 60s
+  setInterval(function(){ var ac=document.querySelector('.main-tab.active'), off=ac&&ac.id==='maintab-office', n=(window.KTA_ONLINE||[]).length, gap=off?(role()==='guest'?10000:(n<=1?15000:Math.max(3000,n*350))):60000; if(Date.now()-lastP>=gap-500) ping(); },1000);
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') ping(); });
   /* sau đăng nhập mà chưa chọn tên thì hỏi 1 lần */
   var t0=setInterval(function(){ var r=role(); if(r&&r!=='none'){ ping(); clearInterval(t0); } },1500);
