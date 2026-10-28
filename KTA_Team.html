@@ -8192,14 +8192,14 @@ const OFC = (function(){
   // Thời tiết thật (Open-Meteo, miễn phí, không cần key) — khu vực TP.HCM (Tân Bình). Dòng weather trong Sheet (rain/clear) ghi đè; không có dòng = theo thời gian thực.
   const WX_LAT=10.8, WX_LON=106.66;
   function fetchWx(){
-    try{ const c=JSON.parse(localStorage.getItem('kta_wx2')||'null'); if(c&&Date.now()-c.t<600000){ window._ofcWxLive=!!c.r; window._ofcWxDay=c.d||{}; return; } }catch(e){}
+    try{ const c=JSON.parse(localStorage.getItem('kta_wx3')||'null'); if(c&&Date.now()-c.t<600000){ window._ofcWxLive=!!c.r; window._ofcWxDay=c.d||{}; return; } }catch(e){}
     try{
       const ac=window.AbortController?new AbortController():null; const tm=setTimeout(()=>{ try{ ac&&ac.abort(); }catch(e){} },8000);
       fetch('https://api.open-meteo.com/v1/forecast?latitude='+WX_LAT+'&longitude='+WX_LON+'&current=precipitation,rain,weather_code&daily=precipitation_sum&past_days=60&forecast_days=1&timezone=Asia%2FBangkok',ac?{signal:ac.signal}:{})
         .then(r=>r.json()).then(j=>{ clearTimeout(tm); const c=j&&j.current; if(!c) return;
-          const codes=[51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]; const rain=(+c.precipitation>=0.1)||(+c.rain>=0.1)||codes.indexOf(+c.weather_code)>=0;
+          const codes=[61,63,65,66,67,80,81,82,95,96,99]; const rain=(+c.precipitation>=0.5)||(+c.rain>=0.5)||codes.indexOf(+c.weather_code)>=0;
           const d={}; try{ const t=j.daily.time, v=j.daily.precipitation_sum; for(let i=0;i<t.length;i++) d[t[i]]=(+v[i]>=2)?1:0; }catch(e){}
-          window._ofcWxLive=rain; window._ofcWxDay=d; try{ localStorage.setItem('kta_wx2',JSON.stringify({t:Date.now(),r:rain?1:0,d:d})); }catch(e){} paintWeather(); })
+          window._ofcWxLive=rain; window._ofcWxDay=d; try{ localStorage.setItem('kta_wx3',JSON.stringify({t:Date.now(),r:rain?1:0,d:d})); }catch(e){} paintWeather(); })
         .catch(()=>{ clearTimeout(tm); });
     }catch(e){}
   }
