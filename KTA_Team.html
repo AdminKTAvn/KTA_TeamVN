@@ -7,13 +7,13 @@
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAChElEQVR4nO2XT2vyQBDGn9nEXUkUvAptseix0GMPvfgBRL+Dn9FD8Vh66qEFod4CgkgvpX9jVDA7Pdj1NdbE1bf2vbw/WAwzk+Rxdmd2Q8zMyEBrDSEEbm5uQEQoFApIu4WIMB6Pwcy4vLxc3puFm+ldwfd9nJ2dIZfLZcbN53M8PDwsBW0jW94KWmtEUQStNbTWG/2rMbZYCwAAIcRyPD4+4uXlBR8fH+j3+wnfLlhPwTpBEGA4HEIIgYuLCzCzVcrX2U3uCp7nodvtYjweo1KppC7Mgwl4fn5Gu93G0dERut3uzqk37D0FtVoNAHBycoLr6+u9p2AnAcy8HJVKZWmr1+sJ3/rYBBGBme0FMDOUUiCixD811+ZXKQUp5be4NBHWAogIt7e38Dwvc8FFUYThcIjpdJo6LcYeRRFoWys2mCZjHpAmMgxDBEGA8/Pz1DitNRzHwf39vX0GhBAoFApb4xzHQbFYtIotlUr7l2EacRwjjmMA6ZkyrTqO4/3L0JYwDNHpdDAajXB6eopGo5HY0H48A6swM3zfR6PRgFIKzWYTUspEZg4qAFgsTCklfN+H635P+MEFAItMzGazjb5fEZDL5dBqtX5PgOM4i4d/bVBCCJTL5T8v/bI7jgN3Mplklo3p2VJKKKWsBLy/vyMMw0QnXL02Z8XX11e4V1dXOD4+3to2n56eUK/Xkc/nM1/ueR6UUuj3+0vxmyCiRT/o9Xpsw93dHb+9vVnF7oI7n8/BzNBaZ2Ygzb8J21hmhmu2TSLaeKqxOduvYxtPRL9Thln8F/DPBbimAtI+p4w9rZ7/WkA+n8/8pDJ2KeVhBPR6Pcxms9RyM31gMBigWq3+uIBP0BrFzbH8tY0AAAAASUVORK5CYII=">
 <style>
 :root{
-  --color-background-primary:#FFFFFF;
-  --color-background-secondary:#F7F6F3;
+  --color-background-primary:#F1EFE8;
+  --color-background-secondary:#E6E4DB;
   --color-text-primary:#1A1A18;
   --color-text-secondary:#5F5E5A;
   --color-text-tertiary:#9C9A94;
-  --color-border-tertiary:#E5E3DD;
-  --color-border-secondary:#D4D1C8;
+  --color-border-tertiary:#D3D0C5;
+  --color-border-secondary:#C2BEB1;
   --border-radius-md:8px;
   --border-radius-lg:12px;
   --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -3430,6 +3430,11 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 .ev-wrap .tab{padding:8px 16px;font-size:13px;cursor:pointer;border-radius:var(--border-radius-md) var(--border-radius-md) 0 0;color:var(--color-text-secondary);border:0.5px solid transparent;margin-bottom:-1px;user-select:none}
 .ev-wrap .tab.active{color:var(--color-text-primary);font-weight:500;background:var(--color-background-primary);border-color:var(--color-border-tertiary);border-bottom-color:var(--color-background-primary)}
 .ev-wrap .panel{display:none}.ev-wrap .panel.active{display:block}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* dễ nhìn trên nền hình: thanh tab + vùng nội dung có nền riêng */
+.ev-wrap .tabs{background:var(--color-background-primary);padding:5px 6px 0;border-radius:var(--border-radius-lg) var(--border-radius-lg) 0 0;border:0.5px solid var(--color-border-tertiary);border-bottom:none;margin-bottom:0;overflow-x:auto}
+.ev-wrap .tab.active{background:var(--color-background-secondary);border-bottom-color:var(--color-background-secondary)}
+.ev-wrap .panel.active{background:var(--color-background-secondary);padding:16px;border-radius:0 0 var(--border-radius-lg) var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);border-top:none}
 .ev-wrap .level-selector{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.25rem}
 .ev-wrap .lv-btn{padding:10px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);cursor:pointer;text-align:center;background:var(--color-background-primary);transition:all .15s}
 .ev-wrap .lv-btn:hover{background:var(--color-background-secondary)}
