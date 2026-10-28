@@ -7814,7 +7814,7 @@ const OFC = (function(){
   }
   // Giờ Việt Nam cho mọi người (kể cả người xem ở nước khác)
   const VNF=(function(){ try{ return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ho_Chi_Minh',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){ return null; } })();
-  function vnParts(){ if(!VNF){ const t=new Date(), p=n=>(n<10?'0':'')+n; return {year:''+t.getFullYear(),month:p(t.getMonth()+1),day:p(t.getDate()),hour:''+t.getHours(),minute:''+t.getMinutes()}; } const o={}; VNF.formatToParts(new Date()).forEach(q=>{ o[q.type]=q.value; }); return o; }
+  function vnParts(){ const NW=new Date(Date.now()+(window.KTA_SKEW||0)); if(!VNF){ const t=NW, p=n=>(n<10?'0':'')+n; return {year:''+t.getFullYear(),month:p(t.getMonth()+1),day:p(t.getDate()),hour:''+t.getHours(),minute:''+t.getMinutes()}; } const o={}; VNF.formatToParts(NW).forEach(q=>{ o[q.type]=q.value; }); return o; }
   function localIso(){ const o=vnParts(); return o.year+'-'+o.month+'-'+o.day; }
   // Vinh danh top 1-2 tháng (lấy từ Hiệu suất tháng đã chốt sổ)
   // upToIso: chỉ xét các tháng đã kết thúc trước ngày này (để xem lại ngày cũ vẫn đúng cúp của tháng trước đó)
