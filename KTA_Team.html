@@ -7536,6 +7536,8 @@ const OFC = (function(){
   'Nếu có ngôi nhà trên mây...':'If only I had a house in the clouds...',
   'Pha cà phê':'Making coffee',
   'Ra ngoài lấy đồ':'Going out to pick something up',
+  'Đi hút thuốc 🚬':'Going for a smoke 🚬',
+  'Hút xong rồi 😮‍💨':'Back from a smoke 😮‍💨',
   'Ra về':'Heading home',
   'Rảnh không, nói chuyện xíu!':'Free? Quick chat!',
   'Rửa ly':'Washing a cup',
@@ -8008,6 +8010,7 @@ const OFC = (function(){
         if(rnd(0.006)){ trips[i]=newTrip(i,'dish',corLoc(114,jit(650,6)),3,'Rửa ly'); busy[i]=1; n++; return; }
         if(rnd(0.004)){ trips[i]=newTrip(i,'trash',corLoc(114,jit(668,4)),2,'Đổ rác'); busy[i]=1; n++; return; }
         if(rnd(0.007)){ trips[i]=newTrip(i,'wc',corLoc(jit(975,6),jit(662,4)),3,'Đi vệ sinh'); trips[i].dest.hide=true; busy[i]=1; n++; return; }
+        if(i===STU && rnd(0.03)){ trips[i]=newTrip(i,'out',ELEV,8,'Đi hút thuốc 🚬',{back:'Hút xong rồi 😮‍💨'}); busy[i]=1; n++; return; }
         if(nm==='Alice' && rnd(0.012)){ trips[i]=newTrip(i,'buy',ELEV,6,'Đi mua trà sữa',{back:'Trà sữa về rồi!'}); busy[i]=1; n++; return; }
         if(rnd(0.006)){ trips[i]=newTrip(i,'buy',ELEV,6,'Đi mua nước'); busy[i]=1; n++; return; }
         if(rnd(0.004)){ trips[i]=newTrip(i,'out',ELEV,6,'Ra ngoài lấy đồ'); busy[i]=1; n++; return; }
@@ -8765,7 +8768,7 @@ const OFC = (function(){
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
     $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?(LV?(lunch?0:order.filter(q=>!act[q].idle&&!lvd(q)&&lm>=arrMin(q)).length):nAct):0; $('ofc-h2').textContent=day.tasks;
-    $('ofc-h3').textContent=Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
+    $('ofc-h3').textContent=lunch?Object.keys(C).filter(k=>{ const c=C[k], el=$('ofc-c'+k); return c&&c.moving&&el&&el.style.display!=='none'; }).length:Object.keys(trips).filter(k=>trips[k].stage!=='stay'||trips[k].kind==='bcsit').length;
     $('ofc-range').textContent='KTA TeamVN · '+days[0].date+L_(' đến ',' to ')+days[days.length-1].date;
     $('ofc-d0').textContent=days[0].date; $('ofc-d1').textContent=days[days.length-1].date;
     const rg=$('ofc-rng'); rg.max=days.length-1; rg.value=st.idx; try{ renderStars(); }catch(e){} try{ renderDecor(); }catch(e){} try{ const staff=(typeof sheetsRole!=='undefined')&&(sheetsRole==='admin'||sheetsRole==='leader'); $('ofc-evsel').style.display=staff?'':'none'; if(!staff&&(st.preview||st.demoMeet||st.decorPrev)){ st.preview=''; st.demoMeet=false; st.decorPrev=''; $('ofc-evsel').value=''; } }catch(e){}
