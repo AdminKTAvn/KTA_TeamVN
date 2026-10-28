@@ -8567,7 +8567,7 @@ const OFC = (function(){
   function buildAct(who,key){
     let m;
     if((m=/^poi:(\w+)$/.exec(key||''))){ const P=POIS.find(q=>q.id===m[1]); if(!P) return null; const o=P.mk(who); return newTrip(who,o.k,o.dest,o.stay,o.say,o.extra); }
-    if((m=/^call:(\d+)$/.exec(key||''))){ const j=+m[1]; if(!NAMES[j]||j===who) return null; return newTrip(who,'ucall',standLoc(j),5,L_('Qua chỗ '+NAMES[j],'Visiting '+NAMES[j]),{to:j,hostSay:L_('Chào '+NAMES[who]+'!','Hi '+NAMES[who]+'!')}); }
+    if((m=/^call:(\d+)$/.exec(key||''))){ const j=+m[1]; if(!NAMES[j]||j===who) return null; return newTrip(who,'ucall',standLoc(j),5,L_('Qua chỗ '+NAMES[j],'Heading to '+NAMES[j]+"'s desk"),{to:j,hostSay:L_('Chào '+NAMES[who]+'!','Hi '+NAMES[who]+'!')}); }
     return null;
   }
   function sendAct(key,at){ try{ const n=Date.now(); if(n-(window._ofcLastAct||0)<5000) return; window._ofcLastAct=n; if(typeof window.ktaSendAct==='function') window.ktaSendAct(key,at); }catch(e){} }
@@ -8627,7 +8627,7 @@ const OFC = (function(){
       let b=$('ofc-pgo'); const pop=$('ofc-pop');
       if(!b&&pop){ b=document.createElement('button'); b.id='ofc-pgo'; b.style.cssText='pointer-events:auto;margin-top:8px;cursor:pointer;border:none;border-radius:999px;background:#2ecc71;color:#06260f;font:700 13px system-ui,sans-serif;padding:8px 14px;width:100%'; pop.appendChild(b);
         b.addEventListener('click',e=>{ e.stopPropagation(); const j=st.sel; if(j===meIdx()){ userHome(); } else if(j>=0){ const inf=st.info&&st.info[j]; if(!inf||!inf.loc||inf.loc.seat!==true||inf.loc.meet){ toast(L_(NAMES[j]+' đang không ở chỗ ngồi','Not at their desk')); return; } userGo('call:'+j); st.sel=-1; paint(); } }); }
-      if(b){ const s=st.sel; if(!can||s<0){ b.style.display='none'; } else if(s===me){ b.style.display=st.trips[me]?'block':'none'; b.textContent=L_('↩ Về chỗ ngồi','↩ Back to my desk'); } else { b.style.display='block'; b.textContent=L_('🚶 Qua chỗ '+NAMES[s],'🚶 Visit '+NAMES[s]); } }
+      if(b){ const s=st.sel; if(!can||s<0){ b.style.display='none'; } else if(s===me){ b.style.display=st.trips[me]?'block':'none'; b.textContent=L_('↩ Về chỗ ngồi','↩ Back to my desk'); } else { b.style.display='block'; b.textContent=L_('🚶 Qua chỗ '+NAMES[s],'🚶 Go to '+NAMES[s]+"'s desk"); } }
     }catch(e){}
   }
   function refresh(i){ // trạng thái đứng yên: gõ phím khi ngồi làm
