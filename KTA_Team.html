@@ -3324,7 +3324,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
 @keyframes ofcbr{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 .ofc-in.ofc-sleep{animation:ofcbr 2.6s ease-in-out infinite}
 .ofc-ch.ofc-zz::after{content:'Z z z';position:absolute;left:34px;top:-14px;font:900 17px/1 system-ui,sans-serif;color:#1f4fb4;letter-spacing:1px;text-shadow:0 0 3px #fff,0 0 3px #fff;pointer-events:none;z-index:80;animation:ofczz 2.4s ease-out infinite}
-.ofc-in.ofc-eat::after{content:'🍱';position:absolute;left:26px;top:-12px;font-size:13px}
+.ofc-in.ofc-eat::after{content:'🍱';position:absolute;left:22px;top:-26px;font-size:24px;line-height:24px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.25))}
 .ofc-tag.on::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#2ecc71;margin-right:3px;vertical-align:1px;box-shadow:0 0 4px #2ecc71}
 .ofc-tag.me{border-color:#2ecc71;border-width:2px;line-height:12px}
 .ofc-tag{position:absolute;left:-8px;top:56px;width:60px;box-sizing:border-box;background:#fff;border:1px solid #14202b;border-radius:8px;text-align:center;font-size:10px;font-weight:700;line-height:14px;color:#14202b;pointer-events:none}
@@ -8782,7 +8782,7 @@ const OFC = (function(){
     else if(tk>=cf.leave) ph='Cuối ngày, mọi người ra về';
     else ph='Giờ làm việc';
     if(lunch&&!allGone) ph=(lm<720)?L_('Nghỉ trưa 🍜 · ăn tại chỗ '+lnIn+', đi ăn ngoài '+lnOut,'Lunch break 🍜 · eating in '+lnIn+', eating out '+lnOut):L_('Nghỉ trưa 😴 · '+lnNap+' bạn ngủ trưa (đi ăn ngoài về 12:00–12:15)',"Nap time 😴 · "+lnNap+' napping (lunch-out back 12:00–12:15)'); if(allGone) ph='Văn phòng đã đóng cửa 🌙';
-    $('ofc-phase').textContent=T(ph)+(LV?' · '+hhmm(lm):'');
+    { const pt=T(ph)+(LV?' · '+hhmm(lm):''); $('ofc-phase').innerHTML=String(pt).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(🍜|😴|🏆|🎂|😋)/g,'<span style="font-size:1.7em;line-height:0;vertical-align:-.15em">$1</span>'); }
     try{ let nt=$('ofc-night'); if(!nt){ nt=document.createElement('div'); nt.id='ofc-night'; nt.style.cssText='position:absolute;inset:0;background:#0b1626;opacity:0;pointer-events:none;transition:opacity 2.5s;z-index:60;border-radius:inherit'; $('ofc-scene').appendChild(nt); } nt.style.opacity=allGone?'.45':((lunch&&lm>=720)?'.32':'0'); }catch(e){}
     $('ofc-btn').textContent=T(st.journey?'Dừng, về ngày gần nhất':'Xem lại cả hành trình');
     $('ofc-st').textContent=L_(nAct+' bạn có việc, '+day.projs.length+' dự án, '+day.tasks+' task',nAct+' members working, '+day.projs.length+' projects, '+day.tasks+' tasks');
