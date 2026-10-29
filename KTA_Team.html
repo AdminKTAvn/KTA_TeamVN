@@ -7832,12 +7832,27 @@ const OFC = (function(){
       if(upToIso) months=months.filter(x=>{ const y=+x.slice(0,4), mo=+x.slice(5,7); return ((mo===12?y+1:y)+'-'+pad2(mo===12?1:mo+1)+'-01')<=upToIso; });
       if(!months.length) return null;
       const m=months[months.length-1];
-      const top=mp.filter(r=>String(r.month).slice(0,7)===m).sort((a,b)=>a.rankInLevel-b.rankInLevel).map(r=>NAMES.indexOf(String(r.personName||'').split(' ')[0])).filter(j=>j>=0&&j!==8).slice(0,2);
+      const rows=mp.filter(r=>String(r.month).slice(0,7)===m).sort((a,b)=>a.rankInLevel-b.rankInLevel).map(r=>({j:NAMES.indexOf(String(r.personName||'').split(' ')[0]),n:+r.taskCount||0})).filter(o=>o.j>=0&&o.j!==8).slice(0,2);
+      const top=rows.map(o=>o.j);
       if(top.length<2) return null;
-      return { month:m, who:top };
+      return { month:m, who:top, tasks:rows.map(o=>o.n) };
     }catch(e){ return null; }
   }
   function nextMonthStart(m){ const y=+m.slice(0,4), mo=+m.slice(5,7); return new Date(mo===12?y+1:y, mo===12?0:mo, 1); }
+  function showTrophy(){
+    try{ const box=$('ofc-pop')&&$('ofc-pop').parentNode; if(!box) return; let t=$('ofc-trophy'); if(t) t.remove();
+      const day=days[st.idx]; const isLast=st.idx===days.length-1, iso=day?(isLast&&localIso()>day.iso?localIso():day.iso):'';
+      const a=awardInfo(iso); const mo=a?(+a.month.slice(5,7)):0;
+      t=document.createElement('div'); t.id='ofc-trophy'; t.style.cssText='position:absolute;left:52px;top:300px;width:292px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:95;display:flex;flex-direction:column;gap:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);font-family:\'DM Sans\',system-ui,sans-serif';
+      let h='<div style="font-size:12px;font-weight:700;color:#f0c98a;letter-spacing:.08em;text-transform:uppercase">🏆 '+L_('Tủ cúp','Trophy case')+(a?' · '+L_('Tháng ','Month ')+mo:'')+'</div>';
+      if(a){ h+='<div style="font-size:16px;font-weight:700">'+L_('Vinh danh tháng '+mo,'Month '+mo+' honors')+'</div>';
+        a.who.forEach((j,k)=>{ h+='<div style="display:flex;justify-content:space-between;align-items:center;background:#1f3042;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600"><span>'+(k?'🥈 ':'🥇 ')+NAMES[j]+'</span><span style="color:#f0c98a">'+(a.tasks&&a.tasks[k]?a.tasks[k]+' '+L_('task','tasks'):'—')+'</span></div>'; });
+        h+='<div style="font-size:12px;color:#9fb0c0">'+L_('Liam trao cúp vào ngày làm việc đầu tháng sau','Liam presents the trophies on the first working day of next month')+'</div>';
+      } else h+='<div style="font-size:14px">'+L_('Chưa có kết quả vinh danh tháng.','No monthly results yet.')+'</div>';
+      t.innerHTML=h; box.appendChild(t); const close=()=>{ try{ t.remove(); }catch(e){} document.removeEventListener('click',close,true); };
+      setTimeout(()=>document.addEventListener('click',close,true),50); setTimeout(close,9000);
+    }catch(e){}
+  }
   function awardEv(a, demo){
     const lb='tháng '+(+a.month.slice(5,7));
     return { type:'award', who2:a.who, title:'🏆 Vinh danh '+lb+': '+NAMES[a.who[0]]+' & '+NAMES[a.who[1]]+(demo?' (demo)':'') };
@@ -8617,7 +8632,7 @@ const OFC = (function(){
     const sc=$('ofc-scene'); if(!sc||$('ofc-poi')) return;
     const css=document.createElement('style'); css.textContent='.ofc-poi{position:absolute;z-index:80;border-radius:12px;border:2px dashed transparent;pointer-events:none}.ofc-poi.on{pointer-events:auto;cursor:pointer}.ofc-poi.can:hover{border-color:#2ecc71;background:rgba(46,204,113,.18)}'; document.head.appendChild(css);
     const box=document.createElement('div'); box.id='ofc-poi'; box.style.cssText='position:absolute;left:0;top:0;width:0;height:0'; sc.appendChild(box);
-    POIS.forEach(P=>{ const d=document.createElement('div'); d.className='ofc-poi'; d.id='ofc-poi-'+P.id; d.style.cssText='left:'+P.r[0]+'px;top:'+P.r[1]+'px;width:'+P.r[2]+'px;height:'+P.r[3]+'px'; d.title=L_(P.tip[0],P.tip[1]); d.addEventListener('click',e=>{ e.stopPropagation(); userGo('poi:'+P.id); }); box.appendChild(d); });
+    POIS.forEach(P=>{ const d=document.createElement('div'); d.className='ofc-poi'; d.id='ofc-poi-'+P.id; d.style.cssText='left:'+P.r[0]+'px;top:'+P.r[1]+'px;width:'+P.r[2]+'px;height:'+P.r[3]+'px'; d.title=L_(P.tip[0],P.tip[1]); d.addEventListener('click',e=>{ e.stopPropagation(); if(P.id==='trophy') showTrophy(); userGo('poi:'+P.id); }); box.appendChild(d); });
     { const d=document.createElement('div'); d.className='ofc-poi'; d.id='ofc-poi-ev'; d.style.cssText='left:420px;top:395px;width:100px;height:70px'; d.title=L_('Chúc mừng!','Cheers!'); d.addEventListener('click',e=>{ e.stopPropagation(); userWish('ev',470,400); }); box.appendChild(d); }
     { const dc=$('ofc-decor'); if(dc){ const c2=document.createElement('style'); c2.textContent='#ofc-decor .ofc-dec-i{pointer-events:auto;cursor:pointer}'; document.head.appendChild(c2); dc.addEventListener('click',e=>{ const it=e.target.closest('.ofc-dec-i'); if(!it) return; const r=it.getBoundingClientRect(), sr=$('ofc-scene').getBoundingClientRect(), k=sr.width/1120; userWish('decor',(r.left-sr.left)/k,(r.top-sr.top)/k); }); } }
   }
@@ -8716,13 +8731,14 @@ const OFC = (function(){
       go(i,loc,snap,(t&&t.lag)?t.lag:((!LV&&cf.arrive&&C[i]&&C[i].key===ELEV.key&&loc!==ELEV&&loc.key!==ELEV.key)?arrLag(i,act):0)||((a&&lvd(i)&&(i===WILDER||i===ALICE)&&act[i===WILDER?BONNIE:LIAM])?LAG:0));
       if(!c.moving){ el.style.opacity=loc.hide?0:c.base; refresh(i); }
       if(a&&loc.meet) MEETON=true;
+      if(PREP&&MEET) MEETON=true;
       { const o=st.sayo&&st.sayo[i]; if(o){ if(Date.now()<o.u) say=o.t; else delete st.sayo[i]; } }
       const b=$('ofc-b'+i); b.textContent=(a&&!a.idle)?a.n:''; b.style.opacity=(a&&!a.idle&&!loc.meet)?1:0;
       $('ofc-t'+i).style.opacity=loc.meet?0:((a&&!a.idle)?1:0.85);
       const s=$('ofc-s'+i); s.textContent=T(say); s.style.opacity=say?1:0;
       { const bx=loc.x-60; s.style.transform=bx<4?('translateX('+(4-bx)+'px)'):((loc.x+60>1116)?('translateX('+(1116-loc.x-60)+'px)'):''); }
       if(say) el.style.zIndex=70;
-      const lit=!!a && working && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
+      const lit=!!a && (working||PREP||(loc.seat===true&&!loc.lie&&!loc.meet)) && !lunch && (!LV||(lm>=arrMin(i)&&!lvd(i))), yt=(nm==='Dale' && lit && !t && ((tk+3)%6<3));
       [0,1].forEach(k=>{ const m=$('ofc-m'+i+k); if(!m) return; const red=yt&&k===1; m.style.background=red?'#e5484d':(lit?'#7fd1ff':'#55616f'); const h=red?'<div style="position:absolute;left:3px;top:6px;width:0;height:0;border-left:6px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent"></div>':''; if(m.dataset.h!==h){ m.innerHTML=h; m.dataset.h=h; } });
       if(yt && !say && (tk+3)%6===0) { const L=PERS.Dale.idle; say=L[Math.floor(tk/6)%L.length]; const sb=$('ofc-s'+i); sb.textContent=T(say); sb.style.opacity=1; el.style.zIndex=70; }
       info[i]={loc:loc,say:say,a:a};
