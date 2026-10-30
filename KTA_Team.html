@@ -7672,6 +7672,25 @@ const OFC = (function(){
     }
     evSet(ev,tk); return tk;
   }
+  // nhạc Happy Birthday tự tạo bằng WebAudio (không cần link YouTube, không quảng cáo)
+  function playBirthday(){
+    try{ if(localStorage.getItem('kta_bd')==='0') return; }catch(e){}
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      const ac=window._ofcAC||(window._ofcAC=new AC()); if(ac.state==='suspended') ac.resume();
+      const B=0.46, N=[[392,.75],[392,.25],[440,1],[392,1],[523.25,1],[493.88,2],[392,.75],[392,.25],[440,1],[392,1],[587.33,1],[523.25,2],[392,.75],[392,.25],[783.99,1],[659.25,1],[523.25,1],[493.88,1],[440,1],[698.46,.75],[698.46,.25],[659.25,1],[523.25,1],[587.33,1],[523.25,2.4]];
+      // tạm dừng nhạc nền (YouTube hoặc audio) trong lúc hát, xong tự phát lại
+      try{ const mb=document.getElementById('ofc-musbox'); if(mb&&!window._ofcMusOff){ const fr=mb.querySelector('iframe'), au=mb.querySelector('audio'), cmd=f=>{ try{ fr.contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:[]}),'*'); }catch(e){} };
+          if(fr||(au&&!au.paused)){ if(window._ofcBdT) clearTimeout(window._ofcBdT); if(fr) cmd('pauseVideo'); if(au) au.pause();
+            window._ofcBdT=setTimeout(()=>{ window._ofcBdT=0; try{ if(window._ofcMusOff) return; if(fr&&mb.contains(fr)) cmd('playVideo'); if(au&&mb.contains(au)) au.play(); }catch(e){} },12800); } } }catch(e){}
+      let t=ac.currentTime+0.15; const out=ac.createGain(); out.gain.value=0.5; out.connect(ac.destination);
+      N.forEach(n=>{ const d=n[1]*B;
+        [[1,'triangle',0.30],[2,'sine',0.08]].forEach(h=>{ const o=ac.createOscillator(), g=ac.createGain(); o.type=h[1]; o.frequency.value=n[0]*h[0];
+          g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(h[2],t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+d*0.96);
+          o.connect(g); g.connect(out); o.start(t); o.stop(t+d); });
+        t+=d; });
+    }catch(e){}
+  }
   function evSet(ev,tk){ const W=(ev&&ev.type==='birthday')?EVWIN_B:[[108,120]]; let w=W[W.length-1]; for(let q=0;q<W.length;q++){ if(tk<W[q][1]){ w=W[q]; break; } } EV.s=w[0]; EV.e=w[1]; }
   const COFFEE_FANS = ['Rhys','Zolius','Jayson'];      // hay đi pha cà phê
   const G1 = ['Daniel','Rhys','Sayid','Nina','Dale','Mei','Zolius','William','Henry','Andrew','Sam','Jayce','Nora']; // 07:30
@@ -8799,7 +8818,7 @@ const OFC = (function(){
         el.style.left=(ps.x-22)+'px'; el.style.top=(ps.y-31)+'px';
         const inn=$('ofc-gi'+k); inn.className='ofc-in'+(ps.mv?' ofc-walking':''); inn.parentElement.style.transform=(ps.x>860&&ps.y<470)?'scale(.62)':''; { const gt=$('ofc-gt'+k); gt.style.fontSize=(ps.x>860&&ps.y<470)?'6px':''; gt.style.padding=(ps.x>860&&ps.y<470)?'0 3px':'0 6px'; }
         $('ofc-gt'+k).textContent=gl[k].n; const sy=$('ofc-gs'+k); sy.textContent=T(ps.say); sy.style.opacity=ps.say?1:0; } }
-    const evd=$('ofc-ev'), showDecor=!!ev && tv>=EV.s+2 && tv<EV.e; st.evKind=showDecor?{type:ev.type,who:ev.who}:null;
+    const evd=$('ofc-ev'), showDecor=!!ev && tv>=EV.s+2 && tv<EV.e; st.evKind=showDecor?{type:ev.type,who:ev.who}:null; try{ if(showDecor&&ev.type==='birthday'){ const nw=Date.now(); if(!st.bdN||(st.bdN===1&&nw-st.bdAt>70000)){ st.bdN=(st.bdN||0)+1; st.bdAt=nw; playBirthday(); } } else if(!showDecor&&st.bdN&&Date.now()-st.bdAt>30000) st.bdN=0; }catch(e){}
     if(showDecor){ if(evd.dataset.k!==ev.type+(ev.who||'')){ evd.dataset.k=ev.type+(ev.who||''); evd.innerHTML=evDecor(ev); } evd.style.display='block'; } else evd.style.display='none';
     const nAct=order.filter(i=>!act[i].idle).length, total=NAMES.length-GONE.length;
     $('ofc-h0').textContent=total; $('ofc-h1').textContent=working?(LV?(lunch?0:order.filter(q=>!act[q].idle&&!lvd(q)&&lm>=arrMin(q)).length):nAct):0; $('ofc-h2').textContent=day.tasks;
