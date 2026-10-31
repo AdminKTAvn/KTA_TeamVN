@@ -8076,6 +8076,123 @@ const OFC = (function(){
   }
   const $=id=>document.getElementById(id);
   const WD=['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'];
+  // ═══ Nhân vật người ═══
+// ── Bộ vẽ nhân vật kiểu người (dùng chung cho nhân sự và khách) ──
+// sp: {sk:màu da, hs:kiểu tóc, hc:màu tóc, gl:kính, hat:nón, hatc:màu nón, bd:râu, bld:dáng, top:màu áo, tp:kiểu áo, acc:phụ kiện, f:nữ, fr:tàn nhang}
+const KP_E='#14202b';
+const KP={
+ head(sp){
+  const E=KP_E, sk=sp.sk||'#f1c9a3', hc=sp.hc||'#2b2118', f=!!sp.f;
+  const r=sp.bld==='broad'?15:(sp.bld==='thin'?13:14), cx=22, cy=23;
+  let back='', front='', extra='', face='';
+  const hs=sp.hs||'short';
+  const top=(extraY)=>`M${cx-r-1} 22 Q${cx-r-1} 6 ${cx} 6 Q${cx+r+1} 6 ${cx+r+1} 22`;
+  if(hs==='long'){ back=`<path d="M${cx-r-2} 20 Q${cx-r-3} 4 ${cx} 4 Q${cx+r+3} 4 ${cx+r+2} 20 L${cx+r+3} 44 L${cx-r-3} 44Z" fill="${hc}"/>`; front=`<path d="M${cx-r} 22 Q${cx-r} 8 ${cx} 8 Q${cx+r} 8 ${cx+r} 22 Q${cx+r-4} 15 ${cx+2} 14 Q${cx-6} 14 ${cx-r} 22Z" fill="${hc}"/>`; }
+  else if(hs==='longs'){ back=`<path d="M${cx-r-2} 20 Q${cx-r-3} 4 ${cx} 4 Q${cx+r+3} 4 ${cx+r+2} 20 L${cx+r+3} 37 Q${cx+r+1} 39 ${cx+r-3} 37 L${cx-r+3} 37 Q${cx-r-1} 39 ${cx-r-3} 37Z" fill="${hc}"/>`; front=`<path d="M${cx-r+.5} 21 Q${cx-r} 7 ${cx} 7 Q${cx+r} 7 ${cx+r-.5} 21 Q${cx+r-4} 14 ${cx} 11.5 Q${cx-r+4} 14 ${cx-r+.5} 21Z" fill="${hc}"/>`; }
+  else if(hs==='bob'){ back=`<path d="M${cx-r-2} 20 Q${cx-r-2} 4 ${cx} 4 Q${cx+r+2} 4 ${cx+r+2} 20 L${cx+r+2} 36 Q${cx+r-2} 38 ${cx+r-4} 34 L${cx-r+4} 34 Q${cx-r+2} 38 ${cx-r-2} 36Z" fill="${hc}"/>`; front=`<path d="M${cx-r} 21 Q${cx-r} 8 ${cx} 8 Q${cx+r} 8 ${cx+r} 21 Q${cx+4} 13 ${cx-4} 15 Q${cx-r+3} 16 ${cx-r} 21Z" fill="${hc}"/>`; }
+  else if(hs==='bun'){ back=`<circle cx="${cx}" cy="5" r="5.5" fill="${hc}"/>`; front=`<path d="M${cx-r} 22 Q${cx-r} 8 ${cx} 8 Q${cx+r} 8 ${cx+r} 22 Q${cx+5} 13 ${cx-5} 14 Q${cx-r+2} 15 ${cx-r} 22Z" fill="${hc}"/>`; }
+  else if(hs==='pony'){ back=`<path d="M${cx+r-2} 14 Q${cx+r+8} 14 ${cx+r+6} 30 Q${cx+r+2} 24 ${cx+r-2} 22Z" fill="${hc}"/>`; front=`<path d="M${cx-r} 22 Q${cx-r} 7 ${cx} 7 Q${cx+r} 7 ${cx+r} 22 Q${cx+5} 12 ${cx-5} 14 Q${cx-r+2} 15 ${cx-r} 22Z" fill="${hc}"/>`; }
+  else if(hs==='curly'){ front=[[-11,12],[-6,7],[0,5],[6,7],[11,12],[-13,19],[13,19]].map(p=>`<circle cx="${cx+p[0]}" cy="${p[1]+2}" r="5.5" fill="${hc}"/>`).join(''); }
+  else if(hs==='afro'){ back=`<circle cx="${cx}" cy="17" r="${r+6}" fill="${hc}"/>`; }
+  else if(hs==='spiky'){ front=`<path d="M${cx-r-1} 20 L${cx-r+1} 8 L${cx-8} 13 L${cx-5} 2 L${cx} 11 L${cx+5} 2 L${cx+8} 13 L${cx+r-1} 8 L${cx+r+1} 20 Q${cx+4} 13 ${cx-4} 14Z" fill="${hc}"/>`; }
+  else if(hs==='buzz'){ front=`<path d="M${cx-r} 21 Q${cx-r} 9 ${cx} 9 Q${cx+r} 9 ${cx+r} 21 Q${cx} 14 ${cx-r} 21Z" fill="${hc}" opacity=".85"/>`; }
+  else if(hs==='puff'){ front=`<path d="M${cx-r-2} 29 Q${cx-r-6} 3 ${cx} 1 Q${cx+r+6} 3 ${cx+r+2} 29 L${cx+r+1} 22 Q${cx+r-1} 15 ${cx+5} 14.5 Q${cx+2} 18 ${cx} 15 Q${cx-2} 18 ${cx-5} 14.5 Q${cx-r+1} 15 ${cx-r-1} 22Z" fill="${hc}"/>`; }
+  else if(hs==='bangs'){ front=`<path d="M${cx-r-1} 23 Q${cx-r-2} 3 ${cx} 3 Q${cx+r+2} 3 ${cx+r+1} 23 L${cx+r-1} 22 L${cx+r-1} 16 Q${cx} 14 ${cx-r+1} 16 L${cx-r+1} 22Z" fill="${hc}"/>`; }
+  else if(hs==='neat'){ front=`<path d="M${cx-r+1.5} 20 Q${cx-r+1} 5 ${cx} 4.5 Q${cx+r-1} 5 ${cx+r-1.5} 20 Q${cx+r-5} 14 ${cx} 13 Q${cx-r+5} 14 ${cx-r+1.5} 20Z" fill="${hc}"/>`; }
+  else if(hs==='bangsin'){ const w=r-3; front=`<path d="M${cx-w} 20 Q${cx-w-1} 5 ${cx} 4 Q${cx+w+1} 5 ${cx+w} 20 L${cx+w-1} 19 L${cx+w-1} 15.5 Q${cx} 13.5 ${cx-w+1} 15.5 L${cx-w+1} 19Z" fill="${hc}"/>`; }
+  else if(hs==='puffin'){ const w=r-1.2; front=`<path d="M${cx-w} 22 Q${cx-w-2} 2 ${cx} 1.5 Q${cx+w+2} 2 ${cx+w} 22 Q${cx+w-1} 15 ${cx+5} 14.5 Q${cx+2} 18 ${cx} 15 Q${cx-2} 18 ${cx-5} 14.5 Q${cx-w+1} 15 ${cx-w} 22Z" fill="${hc}"/>`; }
+  else if(hs==='sweep'){ const w=r+1; front=`<path d="M${cx-w} 24.5 Q${cx-w-1} 4 ${cx} 2.5 Q${cx+w+1} 4 ${cx+w} 24.5 L${cx+w-1} 20 Q${cx+6} 16 ${cx} 11.5 Q${cx-6} 16 ${cx-w+1} 20Z" fill="${hc}"/><path d="M${cx} 11.5 L${cx} 4" stroke="#3a3a46" stroke-width="1" stroke-linecap="round"/>`; }
+  else if(hs==='spikyin'){ const w=r-1.5; front=`<path d="M${cx-w} 20 L${cx-w+1} 9 L${cx-7} 12 L${cx-4.5} 2.5 L${cx-.5} 10 L${cx+3} 2 L${cx+5.5} 10.5 L${cx+9} 4 L${cx+w-1} 10 L${cx+w} 20 Q${cx+5} 14 ${cx-4} 14.5Z" fill="${hc}"/>`; }
+  else if(hs==='crop'){ front=`<path d="M${cx-r+.5} 18 Q${cx-r} 5 ${cx} 5 Q${cx+r} 5 ${cx+r-.5} 18 Q${cx+r-4} 13 ${cx+3} 12 Q${cx-r+5} 12 ${cx-r+.5} 18Z" fill="${hc}"/>`; }
+  else if(hs==='side'){ front=`<path d="M${cx-r-1} 22 Q${cx-r-1} 6 ${cx} 6 Q${cx+r+1} 6 ${cx+r+1} 22 L${cx+r+1} 26 Q${cx+r-3} 14 ${cx-4} 13 Q${cx-r+3} 14 ${cx-r-1} 24Z" fill="${hc}"/>`; }
+  else if(hs==='bald'){ front=`<path d="M${cx-r} 22 Q${cx-r-1} 17 ${cx-r+2} 18 L${cx-r+2} 22Z M${cx+r} 22 Q${cx+r+1} 17 ${cx+r-2} 18 L${cx+r-2} 22Z" fill="${hc}"/>`; }
+  else { front=`<path d="M${cx-r-1} 22 Q${cx-r-1} 6 ${cx} 6 Q${cx+r+1} 6 ${cx+r+1} 22 L${cx+r+1} 25 Q${cx+r-2} 14 ${cx} 13 Q${cx-r+2} 14 ${cx-r-1} 25Z" fill="${hc}"/>`; }   // short
+  // nón
+  const hat=sp.hat||'', hatc=sp.hatc||'#2b3340';
+  if(hat==='cap'){ extra+=`<path d="M${cx-r-1} 19 Q${cx-r-1} 4 ${cx} 4 Q${cx+r+1} 4 ${cx+r+1} 19Z" fill="${hatc}" stroke="${E}" stroke-width="2" stroke-linejoin="round"/><path d="M${cx+6} 17 L${cx+r+8} 19 Q${cx+r+6} 22 ${cx+r+1} 21 L${cx+6} 20Z" fill="${hatc}" stroke="${E}" stroke-width="1.5" stroke-linejoin="round"/>`; front=''; }
+  if(hat==='capback'){ extra+=`<path d="M${cx-r-1} 19 Q${cx-r-1} 4 ${cx} 4 Q${cx+r+1} 4 ${cx+r+1} 19Z" fill="${hatc}" stroke="${E}" stroke-width="2" stroke-linejoin="round"/><path d="M${cx-6} 17 L${cx-r-8} 19 Q${cx-r-6} 22 ${cx-r-1} 21 L${cx-6} 20Z" fill="${hatc}" stroke="${E}" stroke-width="1.5" stroke-linejoin="round"/>`; front=''; }
+  if(hat==='beanie'){ extra+=`<path d="M${cx-r-1} 17 Q${cx-r-1} 3 ${cx} 3 Q${cx+r+1} 3 ${cx+r+1} 17Z" fill="${hatc}" stroke="${E}" stroke-width="2" stroke-linejoin="round"/><rect x="${cx-r-2}" y="14" width="${2*r+4}" height="5" rx="2.5" fill="${hatc}" stroke="${E}" stroke-width="1.6"/><circle cx="${cx}" cy="2.5" r="2.4" fill="${hatc}" stroke="${E}" stroke-width="1.4"/>`; front=''; }
+  if(hat==='band'){ extra+=`<path d="M${cx-r-1} 15 Q${cx} 9 ${cx+r+1} 15 L${cx+r+1} 18 Q${cx} 12 ${cx-r-1} 18Z" fill="${hatc}" stroke="${E}" stroke-width="1.4" stroke-linejoin="round"/>`; }
+  // mặt
+  const eye=(x)=>`<circle cx="${x}" cy="25" r="1.7" fill="${E}"/>`+(f?`<path d="M${x-3} 23.3 L${x-1.6} 24.2 M${x+3} 23.3 L${x+1.6} 24.2" stroke="${E}" stroke-width="1.1"/>`:'');
+  face=eye(17)+eye(27);
+  const gl=sp.gl||'', GC=sp.glc||E;
+  if(gl==='round') face+=`<circle cx="17" cy="25" r="4.4" fill="none" stroke="${GC}" stroke-width="1.3"/><circle cx="27" cy="25" r="4.4" fill="none" stroke="${GC}" stroke-width="1.3"/><path d="M21.4 25 H22.6" stroke="${GC}" stroke-width="1.3"/>`;
+  if(gl==='square') face+=`<rect x="12.5" y="21.5" width="9" height="7" rx="1.5" fill="none" stroke="${GC}" stroke-width="1.4"/><rect x="22.5" y="21.5" width="9" height="7" rx="1.5" fill="none" stroke="${GC}" stroke-width="1.4"/><path d="M21.5 24.5 H22.5" stroke="${GC}" stroke-width="1.4"/>`;
+  if(gl==='shades') face=`<rect x="10.5" y="22" width="10" height="6" rx="2.5" fill="#0d0d0d" stroke="${E}" stroke-width="1"/><rect x="23.5" y="22" width="10" height="6" rx="2.5" fill="#0d0d0d" stroke="${E}" stroke-width="1"/><path d="M20 24.5 H24" stroke="${E}" stroke-width="1.4"/>`;
+  let mouth=f?`<path d="M19 31 Q22 34 25 31" fill="none" stroke="#d4453b" stroke-width="2" stroke-linecap="round"/>`:`<path d="M19 31 Q22 34 25 31" fill="none" stroke="${E}" stroke-width="1.6" stroke-linecap="round"/>`;
+  const bd=sp.bd||'';
+  let beard='';
+  if(bd==='stubble') beard=`<path d="M${cx-r+2} 27 Q${cx} ${cy+r+4} ${cx+r-2} 27 Q${cx} 33 ${cx-r+2} 27Z" fill="${hc}" opacity=".35"/>`;
+  if(bd==='goatee') beard=`<path d="M18 33 Q22 41 26 33 Q22 35 18 33Z" fill="${hc}" stroke="${E}" stroke-width="1"/>`;
+  if(bd==='full'){ beard=`<path d="M${cx-r} 26 Q${cx-r+1} ${cy+r+3} ${cx} ${cy+r+4} Q${cx+r-1} ${cy+r+3} ${cx+r} 26 Q${cx+r-4} 31 ${cx} 30 Q${cx-r+4} 31 ${cx-r} 26Z" fill="${hc}" stroke="${E}" stroke-width="1.2" stroke-linejoin="round"/>`; mouth=`<path d="M19.5 32 Q22 34 24.5 32" fill="none" stroke="#f1c9a3" stroke-width="1.4" stroke-linecap="round"/>`; }
+  if(bd==='mustache') beard=`<path d="M16 29.5 Q22 27 28 29.5 Q22 31.5 16 29.5Z" fill="${hc}" stroke="${E}" stroke-width="1"/>`;
+  let cheek=sp.fr?`<g fill="#c47e57"><circle cx="14" cy="29" r=".8"/><circle cx="17" cy="30" r=".8"/><circle cx="30" cy="29" r=".8"/><circle cx="27" cy="30" r=".8"/><circle cx="22" cy="28.5" r=".7"/></g>`:'';
+  if(f) cheek+=`<circle cx="13.5" cy="29.5" r="2.2" fill="#f0a0a0" opacity=".45"/><circle cx="30.5" cy="29.5" r="2.2" fill="#f0a0a0" opacity=".45"/>`;
+  let ear=''; if(sp.acc==='earring') ear=`<circle cx="${cx-r-1}" cy="30" r="1.8" fill="#f5c542" stroke="${E}" stroke-width="1"/><circle cx="${cx+r+1}" cy="30" r="1.8" fill="#f5c542" stroke="${E}" stroke-width="1"/>`;
+  if(sp.age){ extra+=`<g fill="none" stroke="${E}" stroke-width="1" stroke-linecap="round" opacity=".55"><path d="M${cx-8} 29 Q${cx-10} 33 ${cx-8} 37"/><path d="M${cx+8} 29 Q${cx+10} 33 ${cx+8} 37"/></g><g fill="#c9ccd3"><ellipse cx="${cx-r+5}" cy="11" rx="2" ry="1.3"/><ellipse cx="${cx+r-5}" cy="11" rx="2" ry="1.3"/><ellipse cx="${cx-3}" cy="8" rx="2" ry="1"/></g>`; }
+  if(sp.cross){ const cc=sp.cc||'#c8d0d8'; extra+=`<g fill="none" stroke="${E}" stroke-width="3" stroke-linecap="round"><path d="M${cx-6} 39 Q${cx} 52 ${cx+6} 39"/><path d="M${cx} 50 L${cx} 55 M${cx-2} 52 L${cx+2} 52" stroke-width="3.2"/></g><g fill="none" stroke="${cc}" stroke-width="1.2" stroke-linecap="round"><path d="M${cx-6} 39 Q${cx} 52 ${cx+6} 39"/><path d="M${cx} 50 L${cx} 55 M${cx-2} 52 L${cx+2} 52" stroke-width="1.4"/></g>`; }
+  if(sp.hb){ const b=sp.hb; extra+= sp.f&&sp.hbt==='band' ? `<path d="M${cx-r} 15 Q${cx} 3 ${cx+r} 15" fill="none" stroke="${E}" stroke-width="5" stroke-linecap="round"/><path d="M${cx-r} 15 Q${cx} 3 ${cx+r} 15" fill="none" stroke="${b}" stroke-width="2.6" stroke-linecap="round"/>` : `<g transform="translate(${cx+r-4} 11)" fill="${b}" stroke="${E}" stroke-width="1.4" stroke-linejoin="round"><path d="M0 0 L-6 -4 L-6 4Z"/><path d="M0 0 L6 -4 L6 4Z"/><circle r="2"/></g>`; }
+  return `<svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0;overflow:visible"><g stroke="${E}" stroke-width="2" stroke-linejoin="round">${back}${sp.fs==='square'?`<rect x="${cx-r-1}" y="${cy-r+1}" width="${2*r+2}" height="${2*r-1}" rx="8" fill="${sk}"/>`:sp.fs==='soft'?`<rect x="${cx-r+1.5}" y="${cy-r+1.5}" width="${2*r-3}" height="${2*r-.5}" rx="11" fill="${sk}"/>`:sp.fs==='round'?`<ellipse cx="${cx}" cy="${cy+1}" rx="${r+1.5}" ry="${r+.5}" fill="${sk}"/>`:sp.fs==='thin'?`<ellipse cx="${cx}" cy="${cy+1}" rx="${r-2.5}" ry="${r+.5}" fill="${sk}"/>`:sp.fs==='slim'?`<ellipse cx="${cx}" cy="${cy+1}" rx="${r-1}" ry="${r+.5}" fill="${sk}"/>`:`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${sk}"/>`}${front}</g>${extra}${face}${beard}${mouth}${cheek}${ear}</svg>`;
+ },
+ body(sp){
+  const E=KP_E, bw=sp.bld==='broad'?38:(sp.bld==='thin'?22:30), bl=Math.round(22-bw/2), bh=sp.bld==='thin'?28:24, c=sp.top||'#6f8fae', c2=sp.top2||'#f4f4f0';
+  const rad=sp.f&&sp.tp==='dress'?'10px 10px 8px 8px':(sp.f&&(sp.tp||'tee')==='tee'?'12px 12px 7px 7px':'10px 10px 4px 4px');
+  const box=(col,css)=>`<div style="position:absolute;left:${bl}px;top:38px;width:${bw}px;height:${bh}px;box-sizing:border-box;border:2px solid ${E};border-radius:${rad};background:${col};${css||''}"></div>`;
+  let h=box(c); const tp=sp.tp||'tee';
+  if(tp==='hoodie') h+=`<div style="position:absolute;left:${bl+bw/2-9}px;top:37px;width:18px;height:9px;box-sizing:border-box;border:2px solid ${E};border-radius:0 0 9px 9px;background:${c};filter:brightness(.85)"></div><div style="position:absolute;left:${bl+bw/2-1}px;top:46px;width:2px;height:8px;background:${c2};opacity:.8"></div>`;
+  if(tp==='blazer') h+=`<div style="position:absolute;left:${bl+bw/2-6}px;top:38px;width:12px;height:${bh}px;box-sizing:border-box;border:2px solid ${E};background:${c2};clip-path:polygon(0 0,100% 0,50% 70%)"></div><div style="position:absolute;left:${bl}px;top:38px;width:8px;height:${bh}px;box-sizing:border-box;border:2px solid ${E};border-radius:10px 0 0 4px;background:${c};filter:brightness(.9)"></div><div style="position:absolute;left:${bl+bw-8}px;top:38px;width:8px;height:${bh}px;box-sizing:border-box;border:2px solid ${E};border-radius:0 10px 4px 0;background:${c};filter:brightness(.9)"></div>`;
+  if(tp==='shirt') h+=`<div style="position:absolute;left:${bl+bw/2-6}px;top:38px;width:12px;height:9px;box-sizing:border-box;border:2px solid ${E};background:${c2};clip-path:polygon(0 0,100% 0,50% 100%)"></div><div style="position:absolute;left:${bl+bw/2-1}px;top:46px;width:2px;height:${bh-8}px;background:${E};opacity:.35"></div>`;
+  if(tp==='polo'){ const sk2=sp.sk||'#f1c9a3', hw=bw/2;
+    h+=`<svg width="${bw}" height="18" viewBox="0 0 ${bw} 18" style="position:absolute;left:${bl}px;top:38px;overflow:visible"><g stroke="${E}" stroke-width="1.6" stroke-linejoin="round"><path d="M${hw-5} 0 L${hw+5} 0 L${hw} 8Z" fill="${sk2}"/><path d="M${hw-5} 0 L${hw-11} 3 L${hw-5} 10 L${hw-.5} 8Z" fill="${c}" style="filter:brightness(1.2)"/><path d="M${hw+5} 0 L${hw+11} 3 L${hw+5} 10 L${hw+.5} 8Z" fill="${c}" style="filter:brightness(1.2)"/><path d="M${hw} 8 L${hw} 15" fill="none"/></g><circle cx="${hw}" cy="12" r="1.2" fill="${E}"/></svg>`; }
+  if(tp==='jacket'){ const m=bl+bw/2;
+    h+=`<div style="position:absolute;left:${m-5}px;top:38px;width:10px;height:${bh}px;box-sizing:border-box;border-left:2px solid ${E};border-right:2px solid ${E};background:${c2}"></div>`;
+    h+=`<div style="position:absolute;left:${m-5}px;top:37px;width:10px;height:6px;box-sizing:border-box;border:2px solid ${E};border-top:none;border-radius:0 0 6px 6px;background:${sp.sk||'#f1c9a3'}"></div>`;
+    h+=`<div style="position:absolute;left:${bl+3}px;top:44px;width:7px;height:2px;background:${E};opacity:.5"></div><div style="position:absolute;left:${bl+bw-10}px;top:44px;width:7px;height:2px;background:${E};opacity:.5"></div>`; }
+  if(tp==='dress'){ const sk2=sp.sk||'#f1c9a3', hw=bw/2;
+    h+=`<svg width="${bw}" height="${bh}" viewBox="0 0 ${bw} ${bh}" style="position:absolute;left:${bl}px;top:38px;overflow:visible"><g stroke="${E}" stroke-width="1.6" stroke-linejoin="round"><path d="M${hw-4} 0 L${hw+4} 0 L${hw} 6Z" fill="${sk2}"/><path d="M${hw-4} 0 L${hw-11} 2 L${hw-4} 9 L${hw-.5} 6Z" fill="${c2}"/><path d="M${hw+4} 0 L${hw+11} 2 L${hw+4} 9 L${hw+.5} 6Z" fill="${c2}"/><path d="M${hw} 6 L${hw} ${bh-2}" fill="none"/></g><g fill="${E}"><circle cx="${hw}" cy="11" r="1.1"/><circle cx="${hw}" cy="16" r="1.1"/><circle cx="${hw}" cy="21" r="1.1"/></g></svg>`; }
+  if(sp.logo) h+=`<div style="position:absolute;left:${bl+bw/2-5}px;top:${tp==='hoodie'?54:46}px;width:10px;height:7px;box-sizing:border-box;border:1px solid ${sp.logo};color:${sp.logo};font:bold 5px/5px sans-serif;text-align:center;border-radius:1px">KT</div>`;
+  if(tp==='band'){ const hw=bw/2;
+    h+=`<svg width="${bw}" height="${bh}" viewBox="0 0 ${bw} ${bh}" style="position:absolute;left:${bl}px;top:38px;overflow:visible"><g stroke="${E}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M${hw-5} 0 Q${hw} 8 ${hw+5} 0" fill="${sp.sk||'#f1c9a3'}"/><path d="M${hw} 6 L${hw} ${bh-2}" fill="none" opacity=".6"/></g><g fill="${E}" opacity=".8"><circle cx="${hw}" cy="10" r="1"/><circle cx="${hw}" cy="15" r="1"/></g></svg>`; }
+  if(sp.f&&tp==='tee') h+=`<div style="position:absolute;left:${bl+bw/2-5}px;top:37px;width:10px;height:7px;box-sizing:border-box;border:2px solid ${E};border-top:none;border-radius:0 0 6px 6px;background:${sp.sk||'#f1c9a3'}"></div>`;
+  if(tp==='stripe') h+=[10,16,22].map(y=>`<div style="position:absolute;left:${bl+2}px;top:${38+y}px;width:${bw-4}px;height:3px;background:${c2};opacity:.9"></div>`).join('');
+  if(tp==='patch') h+=`<div style="position:absolute;left:${bl+4}px;top:44px;width:9px;height:8px;border-radius:50%;background:${c2}"></div><div style="position:absolute;left:${bl+bw-14}px;top:50px;width:8px;height:7px;border-radius:50%;background:${c2}"></div>`;
+  if(tp==='cardigan') h+=`<div style="position:absolute;left:${bl+bw/2-7}px;top:38px;width:14px;height:${bh}px;box-sizing:border-box;border:2px solid ${E};background:${c2}"></div>`;
+  if(sp.acc==='lanyard') h+=`<div style="position:absolute;left:${bl+bw/2-1}px;top:40px;width:2px;height:12px;background:#d4453b"></div><div style="position:absolute;left:${bl+bw/2-4}px;top:51px;width:8px;height:6px;background:#fff;border:1px solid ${E}"></div>`;
+  if(sp.acc==='chain') h+=`<div style="position:absolute;left:${bl+bw/2-6}px;top:40px;width:12px;height:9px;box-sizing:border-box;border:2px solid ${sp.cc||'#f5c542'};border-top:none;border-radius:0 0 8px 8px"></div>`;
+  if(sp.acc==='scarf') h+=`<div style="position:absolute;left:${bl+2}px;top:37px;width:${bw-4}px;height:6px;box-sizing:border-box;border:2px solid ${E};border-radius:4px;background:${sp.sc||'#f5a742'}"></div>`;
+  return h;
+ },
+ html(sp){ return KP.body(sp)+KP.head(sp); }
+};
+
+const KPEOPLE={
+Stuart:{fs:'soft',g:'Nam',sk:'#f1c9a3',hs:'sweep',hc:'#1c1c24',bld:'normal',ht:1,top:'#1c1c24',tp:'tee',logo:'#f4f4f0',n:'Mặt hơi vuông, thun đen không cổ logo KT, mặt vuông nhẹ cỡ William, dáng như William',dang:'Vạm vỡ',cao:'TB'},
+Liam:{acc:'lanyard',g:'Nam',sk:'#f1c9a3',hs:'side',hc:'#1c1c24',bld:'normal',ht:1,top:'#e6d9bd',tp:'shirt',top2:'#e6d9bd',n:'Tóc đen rẽ, không kính, sơ mi kem',dang:'Vừa',cao:'TB'},
+Daniel:{fs:'square',g:'Nam',sk:'#f1c9a3',hs:'short',hc:'#1c1c24',gl:'square',glc:'#14202b',bld:'broad',ht:1,top:'#26407a',tp:'polo',top2:'#26407a',n:'Mặt vuông, tóc ngắn dày, kính chữ nhật đen dày, polo xanh đậm',dang:'Vạm vỡ',cao:'TB'},
+Wilder:{g:'Nam',sk:'#f1c9a3',hs:'spikyin',hc:'#1c1c24',bld:'normal',ht:1,top:'#1c1c24',tp:'tee',n:'Tóc đen chỉa, không kính, thun đen cổ tròn',dang:'Vừa',cao:'TB'},
+Andrew:{fs:'thin',g:'Nam',sk:'#f1c9a3',hs:'bangsin',hc:'#1c1c24',bld:'thin',ht:1.08,top:'#b9bfc6',tp:'dress',top2:'#cfd4da',n:'Mặt dài, tóc mái bằng dày, không kính, sơ mi xám nhạt',dang:'Gầy',cao:'Cao'},
+William:{fs:'soft',g:'Nam',sk:'#f1c9a3',hs:'neat',hc:'#1c1c24',bld:'normal',ht:1.08,top:'#f6f4ee',tp:'band',top2:'#fbfaf6',n:'Tóc đen ngắn gọn, không kính, sơ mi linen trắng không cổ bẻ',dang:'Vừa',cao:'Cao'},
+Alice:{hb:'#d4453b',g:'Nữ',f:1,sk:'#f6d2b0',hs:'bob',hc:'#2b2118',gl:'round',glc:'#14202b',bld:'thin',ht:.92,top:'#f4f4f0',tp:'stripe',top2:'#b23a3a',n:'Bob đen, kính tròn, áo polo sọc đỏ trắng (không nón)',dang:'Gầy',cao:'Thấp'},
+Jayson:{fs:'thin',g:'Nam',sk:'#f1c9a3',hs:'bangsin',hc:'#1c1c24',gl:'square',glc:'#14202b',bld:'thin',ht:1.08,top:'#f6f4ee',tp:'patch',top2:'#b4543c',n:'Mặt dài, tóc đen mái lệch, kính chữ nhật đen, thun trắng rộng có hình in nâu đỏ',dang:'Gầy',cao:'Cao'},
+Henry:{fs:'soft',g:'Nam',sk:'#f1c9a3',hs:'crop',hc:'#1c1c24',gl:'square',glc:'#14202b',bld:'normal',ht:1,top:'#dfe6ee',tp:'dress',top2:'#f4f7fa',n:'Mặt hơi vuông, tóc ngắn gọn như Dale, kính gọng đen mảnh, sơ mi sáng màu',dang:'Vừa',cao:'TB'},
+Bonnie:{g:'Nữ',f:1,sk:'#f6d2b0',hs:'longs',hc:'#2a1c18',gl:'round',glc:'#14202b',bld:'thin',ht:1,top:'#1c1c24',tp:'tee',n:'Tóc dài nâu đen rẽ giữa, kính tròn gọng đen, áo thun nữ đen ôm cổ tròn rộng, không dây chuyền',dang:'Gầy',cao:'TB'},
+Dale:{fs:'slim',g:'Nam',sk:'#f1c9a3',hs:'crop',hc:'#1c1c24',gl:'square',glc:'#14202b',bld:'broad',ht:1.08,top:'#4d5b34',tp:'polo',top2:'#4d5b34',n:'Mặt thon, tóc gọn, kính chữ nhật đen, áo xanh rêu',dang:'Vạm vỡ',cao:'Cao'},
+Nina:{hb:'#f4f4f0',hbt:'band',g:'Nữ',f:1,sk:'#f6d2b0',hs:'bob',hc:'#1c1c24',gl:'square',glc:'#b8c0c8',bld:'thin',ht:1,top:'#f4f4f0',tp:'tee',n:'Tóc bob đen, kính gọng bạc, áo trắng ren',dang:'Gầy',cao:'TB'},
+Sayid:{bd:'stubble',g:'Nam',sk:'#f1c9a3',hs:'short',hc:'#14100c',gl:'square',glc:'#9aa5ad',bld:'normal',ht:1,top:'#e6d9bd',tp:'tee',n:'Tóc đen ngắn, kính gọng trong xám, thun kem',dang:'Vừa-gầy',cao:'TB'},
+Zolius:{acc:'scarf',sc:'#f5a742',g:'Nam',sk:'#f1c9a3',hs:'short',hc:'#14100c',bld:'normal',ht:.92,top:'#8fd0cc',tp:'shirt',top2:'#8fd0cc',n:'Tóc đen ngắn, không kính, áo thun nữ xanh ngọc nhạt',dang:'Vừa',cao:'Thấp'},
+Rhys:{g:'Nam',sk:'#f1c9a3',hs:'curly',hc:'#14100c',gl:'round',glc:'#14202b',bld:'normal',ht:1,top:'#5b6b3a',tp:'stripe',top2:'#f4f4f0',n:'Tóc ngắn xoăn, kính tròn, áo sọc ngang xanh rêu trắng',dang:'Vừa',cao:'TB'},
+Jayce:{fs:'round',g:'Nam',sk:'#f1c9a3',hs:'puff',hc:'#1c1c24',bld:'broad',ht:1,top:'#1f1f26',tp:'jacket',top2:'#f4f4f0',n:'Mặt tròn, tóc phồng 2 mái, khoác jacket đen hở, áo trắng bên trong',dang:'Vừa',cao:'TB'},
+Mei:{g:'Nữ',f:1,sk:'#f6d2b0',hs:'bob',hc:'#1c1c24',gl:'square',glc:'#14202b',bld:'thin',ht:1,top:'#c0446a',tp:'tee',acc:'earring',n:'(CHỜ) Tóc bob đen như các nữ khác, kính, áo thun nữ hồng đậm',dang:'Gầy',cao:'TB'},
+Nick:{acc:'scarf',sc:'#2f7d5b',g:'Nam',sk:'#f1c9a3',hs:'short',hc:'#2b2118',bld:'normal',ht:1,top:'#6f8fae',tp:'stripe',top2:'#f4f4f0',n:'(CHỜ) Tóc đen ngắn, áo sọc (bỏ nón)',dang:'Vừa',cao:'TB'},
+Nora:{acc:'scarf',sc:'#d4453b',g:'Nữ',f:1,sk:'#f6d2b0',hs:'long',hc:'#1c1c24',bld:'normal',ht:1,top:'#7a5aa8',tp:'cardigan',top2:'#f4f4f0',n:'(CHỜ) Tóc dài đen thẳng, không kính, cardigan tím',dang:'Vừa',cao:'TB'},
+Sam:{g:'Nam',sk:'#f1c9a3',hs:'short',hc:'#8a5a2b',fr:1,gl:'square',glc:'#14202b',bld:'normal',ht:1,top:'#4aa0a8',tp:'tee',n:'(CHỜ) Tàn nhang, tóc nâu, kính, áo xanh ngọc',dang:'Vừa',cao:'TB'},
+Vanessa:{g:'Nữ',f:1,sk:'#f6d2b0',hs:'bob',hc:'#1c1c24',gl:'round',glc:'#14202b',bld:'normal',ht:1,top:'#3f6b9a',tp:'tee',top2:'#3f6b9a',n:'(CHỜ) Tóc bob đen như các nữ khác, kính, áo thun nữ xanh',dang:'Vừa',cao:'TB'},
+Kevin:{g:'Khách',sk:'#f1c9a3',hs:'short',hc:'#9b9da1',gl:'square',glc:'#14202b',bld:'normal',ht:1,top:'#23232b',tp:'tee',n:'Khách: tóc muối tiêu, kính đen, thun đen',dang:'Vừa',cao:'TB'},
+Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
+};
+  // nhân vật người (thay nhân vật thú). Muốn quay lại thú: localStorage.kta_animals='1'
+  const HUMAN=(function(){ try{ return localStorage.getItem('kta_animals')!=='1'; }catch(e){ return true; } })();
   function build(){
     const root=$('ofc-root'); if(!root) return;
     let mons='', chs='';
@@ -8084,7 +8201,7 @@ const OFC = (function(){
       const s=seat[i];
       mons+=[-28,2].map((dy,k)=>`<div id="ofc-m${i}${k}" style="position:absolute;left:${MONX[s.c]}px;top:${s.y+dy}px;width:14px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f;z-index:5"></div>`).join('');
       mons+=`<div id="ofc-tr${i}" style="position:absolute;left:${MONX[s.c]+((s.c==='A'||s.c==='E')?20:-24)}px;top:${s.y-10}px;font-size:17px;line-height:20px;display:none;z-index:6">🏆</div>`;
-      chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}" style="left:${s.x-22}px;top:${s.y-31}px"><div class="ofc-rot" id="ofc-r${i}"><div class="ofc-in"><div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:${tcol[i]}"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an${i}"></use></svg></div></div><div class="ofc-badge" id="ofc-b${i}"></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
+      chs+=`<div class="ofc-ch" id="ofc-c${i}" data-i="${i}" style="left:${s.x-22}px;top:${s.y-31}px"><div class="ofc-rot" id="ofc-r${i}"><div class="ofc-in">${HUMAN?'<div style="position:absolute;left:0;top:0;width:44px;height:64px;transform:scale('+((KPEOPLE[nm]||KPEOPLE.Kane).ht||1)+');transform-origin:22px 62px">'+KP.html(KPEOPLE[nm]||KPEOPLE.Kane)+'</div>':'<div style="position:absolute;left:7px;top:38px;width:30px;height:24px;box-sizing:border-box;border:2px solid #14202b;border-radius:10px 10px 4px 4px;background:'+tcol[i]+'"></div><svg width="44" height="44" viewBox="0 0 44 44" style="position:absolute;left:0;top:0" aria-hidden="true"><use href="#an'+i+'"></use></svg>'}</div></div><div class="ofc-badge" id="ofc-b${i}"></div><div class="ofc-tag" id="ofc-t${i}">${nm}</div><div class="ofc-say" id="ofc-s${i}"></div></div>`;
     });
     const hud=(id,lb)=>`<div class="ofc-hud"><span id="${id}">0</span><i>${lb}</i></div>`;
     const board=`<div style="position:absolute;left:846px;top:52px;width:256px;height:156px;box-sizing:border-box;z-index:5;border:3px solid #14202b;border-radius:10px;background:#1c2b3a;box-shadow:0 5px 0 #9ea9bc;padding:10px 14px;display:flex;flex-direction:column;gap:2px">
