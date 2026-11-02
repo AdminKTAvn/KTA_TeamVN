@@ -7878,9 +7878,8 @@ const OFC = (function(){
       const a=awardInfo(iso); const mo=a?(+a.month.slice(5,7)):0;
       t=document.createElement('div'); t.id='ofc-trophy'; t.style.cssText='position:absolute;left:52px;top:300px;width:292px;box-sizing:border-box;padding:12px 14px;border-radius:14px;background:#14202b;color:#F6F1E7;z-index:95;display:flex;flex-direction:column;gap:6px;box-shadow:0 6px 18px rgba(0,0,0,.35);font-family:\'DM Sans\',system-ui,sans-serif';
       let h='<div style="font-size:12px;font-weight:700;color:#f0c98a;letter-spacing:.08em;text-transform:uppercase">🏆 '+L_('Tủ cúp','Trophy case')+(a?' · '+L_('Tháng ','Month ')+mo:'')+'</div>';
-      if(a){ h+='<div style="font-size:16px;font-weight:700">'+L_('Vinh danh tháng '+mo,'Month '+mo+' honors')+'</div>';
+      if(a){
         a.who.forEach((j,k)=>{ h+='<div style="display:flex;justify-content:space-between;align-items:center;background:#1f3042;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600"><span>'+(k?'🥈 ':'🥇 ')+NAMES[j]+'</span><span style="color:#f0c98a">'+(a.tasks&&a.tasks[k]?a.tasks[k]+' '+L_('task','tasks'):'—')+'</span></div>'; });
-        h+='<div style="font-size:12px;color:#9fb0c0">'+L_('Liam trao cúp vào ngày làm việc đầu tháng sau','Liam presents the trophies on the first working day of next month')+'</div>';
       } else h+='<div style="font-size:14px">'+L_('Chưa có kết quả vinh danh tháng.','No monthly results yet.')+'</div>';
       t.innerHTML=h; box.appendChild(t); const close=()=>{ try{ t.remove(); }catch(e){} document.removeEventListener('click',close,true); };
       setTimeout(()=>document.addEventListener('click',close,true),50); setTimeout(close,9000);
