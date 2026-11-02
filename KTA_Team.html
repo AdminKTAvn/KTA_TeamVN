@@ -8462,6 +8462,11 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
     });
   }
   function decorActive(iso){
+    let r=decorActive0(iso);
+    if(!r.length&&!st.decorPrev){ try{ const pv=new Date(Date.parse(iso+'T00:00:00Z')-864e5).toISOString().slice(0,10); r=decorActive0(pv); }catch(e){} }
+    return r;
+  }
+  function decorActive0(iso){
     if(st.decorPrev){ const t=DECOR.find(d=>d.k===st.decorPrev); return t?[{t:t,ban:''}]:[]; }
     const out=[];
     DECOR.forEach(t=>{
