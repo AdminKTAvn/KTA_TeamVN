@@ -7660,7 +7660,7 @@ const OFC = (function(){
   ];
   const EV={s:108,e:120};
   // sinh nhật: 3 lần/ngày (sáng, trưa, chiều); tiệc ăn uống: 1 lần buổi trưa
-  const EVWIN_B=[[52,64],[108,120],[176,188]];
+  const EVWIN_B=[[108,120]];
   const EVL_B=[600,680,930], EVL_M=[680], EVDUR=150;   // trực tiếp: sinh nhật 10:00, 11:20, 15:30 (mỗi lần ~2,5 phút); tiệc 11:20
   function evTk(ev,tk){
     if(!ev) return tk;
@@ -8277,7 +8277,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
       let v=e.target.value; st.decorPrev=''; st.wPrev=''; if(/^decor:/.test(v)){ st.decorPrev=v.slice(6); v=''; } else if(/^weather:/.test(v)){ st.wPrev=v.slice(8); v=''; } st.demoMeet=(v==='meeting'); st.preview=(v==='meeting')?'':(v||''); st.journey=false; applyOffice();
       const act=presOf(days[st.idx]), ids=Object.keys(act).map(Number).filter(i=>seat[i]);
       st.pwho=ids.length?NAMES[ids[Math.floor(R()*ids.length)]]:'';
-      st.trips={}; st.cup={}; st.tk=(v==='award')?AW.s-3:((v&&v!=='meeting')?Math.max(cfg().work,EVWIN_B[1][0]-3):0); st.snap=true; paint();
+      st.trips={}; st.cup={}; st.tk=(v==='award')?AW.s-3:((v&&v!=='meeting')?Math.max(cfg().work,EVWIN_B[0][0]-3):0); st.snap=true; paint();
     });
     NAMES.forEach((nm,i)=>{ const el=$('ofc-c'+i); if(!el) return; const d=document.createElement('div'); d.id='ofc-cr'+i; d.textContent='🏆'; d.style.cssText='position:absolute;left:26px;top:14px;font-size:16px;line-height:16px;display:none;z-index:3;pointer-events:none'; el.appendChild(d); });
     built=true;
