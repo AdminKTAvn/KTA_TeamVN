@@ -8464,6 +8464,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
   function decorActive(iso){
     let r=decorActive0(iso);
     if(!r.length&&!st.decorPrev){ try{ const pv=new Date(Date.parse(iso+'T00:00:00Z')-864e5).toISOString().slice(0,10); r=decorActive0(pv); }catch(e){} }
+    if(!r.length&&!st.decorPrev){ try{ const li=days.length?days[days.length-1].iso:''; if(li&&li<iso&&iso===localIso()){ r=decorActive0(li); if(!r.length) r=decorActive0(new Date(Date.parse(li+'T00:00:00Z')-864e5).toISOString().slice(0,10)); } }catch(e){} }
     return r;
   }
   function decorActive0(iso){
@@ -8519,7 +8520,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
     const isLast=st.idx===days.length-1, iso=isLast&&localIso()>days[st.idx].iso?localIso():days[st.idx].iso;
     const list=decorActive(iso), key=list.map(a=>a.t.k+'|'+a.ban).join(',')+'#'+LANGEN();
     if(f.dataset.k===key) return; f.dataset.k=key;
-    const h=list.length?decorHtml(list):['','',''];
+    const h=decorHtml(list);
     f.innerHTML=h[0]; o.innerHTML=h[1]; if(o3) o3.innerHTML=h[2]||'';
   }
 
