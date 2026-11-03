@@ -7951,7 +7951,7 @@ const OFC = (function(){
   let _s=12345; function R(){ _s=(Math.imul(_s,1664525)+1013904223)>>>0; return _s/4294967296; }
   function seedRng(str){ let h=2166136261; for(let k=0;k<str.length;k++){ h^=str.charCodeAt(k); h=Math.imul(h,16777619); } _s=(h>>>0)||1; R(); R(); }
   function jit(v,a){ return v+(R()*2-1)*a; }
-  function liveOn(){ try{ if(st.journey||st.preview||st.demoMeet||st.decorPrev) return false; if(st.idx!==days.length-1) return false; const day=days[st.idx]; const a=awardFor(day); if(a&&a.ceremony) return false; return true; }catch(e){ return false; } }
+  function liveOn(){ try{ if(st.journey||st.preview||st.demoMeet||st.decorPrev) return false; if(st.idx!==days.length-1) return false; const day=days[st.idx]; const a=awardFor(day); if(a&&a.ceremony&&localIso()<=day.iso) return false; return true; }catch(e){ return false; } }
   function liveMin(){ const o=vnParts(); if(isWeekendVN(o)) return 1439; return (+o.hour)*60+(+o.minute); }
   function isWeekendVN(o){ try{ const w=new Date(+o.year,(+o.month)-1,+o.day).getDay(); return w===0||w===6; }catch(e){ return false; } }
   // trả về tick mục tiêu theo giờ thật (hoặc -1 nếu không cần ép)
