@@ -8011,6 +8011,7 @@ const OFC = (function(){
       const active=activeList(day), rnd=p=>R()<p;
       const members=ld=>active.filter(j=>j!==ld && team[j]===team[ld] && !busy[j]);
       active.forEach(i=>{
+        if(DECT==='payday2' && !busy[i] && R()<0.04){ const PS2=['Ting ting! Lương về rồi 🎉','Check app: có tiền rồi nè 📱','Cảm ơn công ty 🙏','Tối nay ăn mừng thôi 🥳','Tháng này cố gắng xứng đáng 💪']; trips[i]={kind:'sit',dest:seatLoc(i),say:PS2[Math.floor(R()*PS2.length)],stage:'stay',n:3,stay:3}; busy[i]=1; return; }
         if(PAYDAY && !busy[i] && R()<0.03){ const PS=['Mai có lương rồi nhỉ? 💸','Ngóng lương quá 🤑','Check app ngân hàng cái 📱','Sắp có lương rồi 💰','Lương về chưa nhỉ…']; trips[i]={kind:'sit',dest:seatLoc(i),say:PS[Math.floor(R()*PS.length)],stage:'stay',n:3,stay:3}; busy[i]=1; return; }
         if(busy[i]||n>=5) return;
         if(i===WILDER && act[BONNIE]) { return; }   // Wilder chỉ đi theo Bonnie
@@ -8298,6 +8299,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
     women83:{s:[['Tặng bạn hoa nhân ngày 8/3!','Cảm ơn nhiều nha!'],['Chúc mừng ngày 8/3!','Cảm ơn bạn!']],solo:['Ngắm hoa']},
     women2010:{s:[['Tặng bạn hoa nhân ngày 20/10!','Cảm ơn nhiều nha!'],['Chúc mừng ngày 20/10!','Cảm ơn bạn!']],solo:['Ngắm hoa']},
     national:{s:[['Chúc mừng ngày lễ nha!','Nghỉ lễ vui vẻ nhé!'],['Tự hào Việt Nam!','Việt Nam ơi!']],solo:['Chào cờ nè!']},
+    payday2:{s:[['Ting ting! Lương về rồi 🎉','Thật hả? Để mình check app ngay!'],['Tháng này lương về sớm ghê!','Ừ, vui quá, đi ăn mừng thôi!'],['Cuối tháng khỏi lo rồi 💰','Cố gắng thêm tháng sau nữa nha!'],['Đi uống trà sữa ăn mừng không?','Ok luôn, hôm nay mình đãi!']],solo:['Check app ngân hàng 📱','Ngắm số dư mỉm cười','Lên kế hoạch tiêu tiền']},
     trungthu:{s:[['Mời bạn miếng bánh trung thu!','Cảm ơn, ngon quá!'],['Rước đèn không?','Đi thôi, vui quá!']],solo:['Ngắm trăng rằm','Chụp hình với đèn lồng']},
   };
   // Dịch mô tả task sang tiếng Anh (qua Apps Script LanguageApp), lưu cache trong trình duyệt
@@ -8440,6 +8442,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
     {k:'newyear', sm:['🎉','🥳','🎊','✨','🍾'], hang:['🎉','🎊','✨','🎉','🎊'], re:/năm mới dương|dương lịch|nam moi duong|new ?year|tết tây|tet tay/i, vn:'Năm mới', en:'New Year', rng:['12-27..01-03'], ban:['🎆 Chúc mừng năm mới · Happy New Year','🎆 Happy New Year'], col:'#1f3a93', bulbs:['#f5c542','#fff','#6aa9e0','#f58fb0'], fall:['✨',16], floor:[['🍾',900,500,42],['🥂',960,520,38],['🎈',1040,480,44],['🎈',860,470,38]], fire:true},
     {k:'tet', sm:['🧧','🍊','🌼','🎋','🌸'], hang:['🏮','🧧','🏮','🧧','🏮'], re:/tết|tet\b|âm lịch|am lich|lunar/i, vn:'Tết Nguyên Đán', en:'Lunar New Year', rng:['2027-01-30..2027-02-14','2028-01-20..2028-02-04'], ban:['🧧 Chúc mừng năm mới · Xuân an khang','🧧 Happy Lunar New Year'], col:'#c0392b', bulbs:['#e5484d','#f5c542'], fall:['🌸',18], floor:[['🌸',900,470,76],['🌼',966,486,52],['🧧',870,574,26],['🧧',1000,580,24],['🍊',940,580,28]], lantern:true},
     {k:'halloween', sm:['🎃','🕷','💀','🍬','🦇'], hang:['🕷','🎃','🕸','🕷','🎃'], web:true, re:/halloween|ma quỷ|ma quy/i, vn:'Halloween', en:'Halloween', rng:['10-25..10-31'], ban:['🎃 Halloween vui vẻ · Happy Halloween','🎃 Happy Halloween'], col:'#6c3483', bulbs:['#f5821f','#8e44ad'], fall:['🦇',0], floor:[['🎃',900,490,64],['🎃',976,520,40],['🕸',852,462,40],['👻',1030,490,44]], bats:true},
+    {k:'payday2', sm:['🎉','💸','💰','🤑','🥳'], hang:['💰','🎉','💸','🎉','💰'], re:/lương về|luong ve|có lương|co luong|payday2|ting ting/i, vn:'Lương về rồi', en:'Payday is here', rng:[], ban:['💸 Lương về rồi · Ting ting! 🎉','💸 Payday is here · Cha-ching! 🎉'], col:'#e67e22', bulbs:['#f5c542','#2ecc71','#e74c3c'], fall:['💸',16], floor:[['💰',900,490,56],['🎉',976,520,40],['🪙',866,540,30],['🥳',1020,490,40]]},
     {k:'payday', sm:['💸','💰','🤑','💵','🪙'], hang:['💰','💸','💵','💰','💸'], re:/lương|luong|payday|salary/i, vn:'Ngóng lương về', en:'Payday is near', rng:PAYRNG, ban:['💸 Sắp có lương rồi · Ngóng lương về','💸 Payday is almost here'], col:'#1e8449', bulbs:['#f5c542','#2ecc71','#fff'], fall:['💸',14], floor:[['💰',900,490,56],['💵',976,520,40],['🪙',866,540,30],['🤑',1020,490,40]]},
     {k:'women83', sm:['🌷','🌹','💐','🌸','🎀'], hang:['🌸','🌷','🎀','🌸','🌷'], re:/8\/3|8-3|quốc tế phụ nữ|quoc te phu nu|women'?s? ?day|march 8/i, vn:'Quốc tế Phụ nữ 8/3', en:"Women's Day 8/3", rng:['03-06..03-08'], ban:['🌷 Chúc mừng 8/3 · Happy Women’s Day','🌷 Happy International Women’s Day'], col:'#d6336c', bulbs:['#f58fb0','#fff','#f5d76e'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
     {k:'women2010', sm:['🌹','💐','🌷','🎀','🌸'], hang:['🌸','🌹','🎀','🌸','🌹'], re:/20\/10|20-10|phụ nữ việt|phu nu viet/i, vn:'Phụ nữ Việt Nam 20/10', en:"Vietnamese Women's Day 20/10", rng:['10-18..10-20'], ban:['🌹 Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam','🌹 Happy Vietnamese Women’s Day 20/10'], col:'#d6336c', bulbs:['#f58fb0','#fff','#e5484d'], fall:['🌸',16], floor:[['💐',900,490,64],['🌹',976,510,40],['🌷',866,540,36]]},
@@ -8470,8 +8473,23 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
   function decorActive0(iso){
     if(st.decorPrev){ const t=DECOR.find(d=>d.k===st.decorPrev); return t?[{t:t,ban:''}]:[]; }
     const out=[];
+    const P2=DECOR.find(d=>d.k==='payday2');
+    const addD=(v,n)=>{ try{ return new Date(Date.parse(v+'T00:00:00Z')+n*864e5).toISOString().slice(0,10); }catch(e){ return v; } };
     DECOR.forEach(t=>{
-      const rows=DECORROWS.filter(r=>r.t===t.k);
+      if(t.k==='payday2') return;
+      let rows=DECORROWS.filter(r=>r.t===t.k);
+      if(t.k==='payday'){
+        // Ngày lương đặt trong tab: trước 2 ngày → "Ngóng lương về"; đúng ngày lương → "Lương về rồi" (câu thoại riêng); sau đó hết
+        rows=DECORROWS.filter(r=>r.t==='payday'||r.t==='payday2');
+        if(rows.length){
+          const on=rows.filter(r=>!r.off&&r.range);
+          const pay=on.find(r=>rngIn(r.range,iso));
+          if(pay&&P2){ out.push({t:P2,ban:pay.ban}); return; }
+          const wait=on.find(r=>rngIn(r.range,addD(iso,1))||rngIn(r.range,addD(iso,2)));
+          if(wait) out.push({t:t,ban:''});
+          return;
+        }
+      }
       if(rows.length){
         const on=rows.filter(r=>!r.off);
         if(!on.length) return;
