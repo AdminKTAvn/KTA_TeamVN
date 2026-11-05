@@ -7828,7 +7828,7 @@ const OFC = (function(){
       const dated=dm===true;
       if(who<0) return; const P=PERS[NAMES[who]];
       if(ty==='trait'){ const t=TRAITS.find(x=>x[1].test(tx)); if(t) P.tr[t[0]]=isNaN(ch)?4:Math.max(1,Math.min(5,Math.round(ch))); return; }
-      if(ty==='line'&&tx){ if(dated){ P.idleDay.push(tx); P.idleP=Math.max(P.idleP||0,.12); } else { (P.idle=P.idle||[]).push(tx); if(!P.idleP) P.idleP=.04; } }
+      if(ty==='line'&&tx){ if(dated){ P.idleDay.push(tx); P.idleP=Math.max(P.idleP||0,String(r[6]||'').trim()==='2026-11-05'?.35:.12); } else { (P.idle=P.idle||[]).push(tx); if(!P.idleP) P.idleP=.04; } }
       else if((ty==='sit'||ty==='walk')&&wi>=0&&tx){ (ty==='sit'?P.sitx:P.walkx).push({w:NAMES[wi],q:tx,a:rp,p:isNaN(ch)?(dated?.25:(ty==='sit'?.05:.03)):ch}); }
     });
   }
