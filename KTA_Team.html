@@ -9278,5 +9278,29 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
   var t0=setInterval(function(){ var r=role(); if(r&&r!=='none'){ ping(); clearInterval(t0); } },1500);
 })();
 </script>
+
+<div id="whatsnew-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,18,14,.45);z-index:100000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;color:#222;border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:inherit">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">🎉 Có gì mới?</div>
+    <div id="whatsnew-ver" style="font-size:12px;color:#888;margin-bottom:12px"></div>
+    <ul id="whatsnew-list" style="margin:0 0 18px 18px;padding:0;font-size:14px;line-height:1.7"></ul>
+    <button onclick="closeWhatsNew()" style="width:100%;padding:10px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Đã xem</button>
+  </div>
+</div>
+<script>
+var WN_VERSION='2026.11.05-office';
+var WN_LOG={date:'05/11/2026',items:['Đã dọn dẹp trang trí văn phòng bởi Dale và Jayson']};
+function closeWhatsNew(){
+  try{localStorage.setItem('teamhub_seen_version',WN_VERSION);}catch(e){}
+  document.getElementById('whatsnew-overlay').style.display='none';
+}
+(function(){
+  var seen=null;try{seen=localStorage.getItem('teamhub_seen_version');}catch(e){}
+  if(seen===WN_VERSION)return;
+  document.getElementById('whatsnew-ver').textContent='Cập nhật '+WN_LOG.date;
+  document.getElementById('whatsnew-list').innerHTML=WN_LOG.items.map(function(i){return '<li>'+i+'</li>';}).join('');
+  document.getElementById('whatsnew-overlay').style.display='flex';
+})();
+</script>
 </body>
 </html>
