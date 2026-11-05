@@ -8466,8 +8466,9 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
   }
   function decorActive(iso){
     let r=decorActive0(iso);
-    if(!r.length&&!st.decorPrev){ try{ const pv=new Date(Date.parse(iso+'T00:00:00Z')-864e5).toISOString().slice(0,10); r=decorActive0(pv); }catch(e){} }
-    if(!r.length&&!st.decorPrev){ try{ const li=days.length?days[days.length-1].iso:''; if(li&&li<iso&&iso===localIso()){ r=decorActive0(li); if(!r.length) r=decorActive0(new Date(Date.parse(li+'T00:00:00Z')-864e5).toISOString().slice(0,10)); } }catch(e){} }
+    const keep=l=>l.filter(x=>x.t.k!=='payday'&&x.t.k!=='payday2');   // sự kiện 1 ngày (lương) không kéo dài sang ngày sau
+    if(!r.length&&!st.decorPrev){ try{ const pv=new Date(Date.parse(iso+'T00:00:00Z')-864e5).toISOString().slice(0,10); r=keep(decorActive0(pv)); }catch(e){} }
+    if(!r.length&&!st.decorPrev){ try{ const li=days.length?days[days.length-1].iso:''; if(li&&li<iso&&iso===localIso()) r=keep(decorActive0(li)); }catch(e){} }
     return r;
   }
   function decorActive0(iso){
@@ -8479,16 +8480,23 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
       if(t.k==='payday2') return;
       let rows=DECORROWS.filter(r=>r.t===t.k);
       if(t.k==='payday'){
-        // Ngày lương đặt trong tab: trước 2 ngày → "Ngóng lương về"; đúng ngày lương → "Lương về rồi" (câu thoại riêng); sau đó hết
-        rows=DECORROWS.filter(r=>r.t==='payday'||r.t==='payday2');
-        if(rows.length){
-          const on=rows.filter(r=>!r.off&&r.range);
-          const pay=on.find(r=>rngIn(r.range,iso));
-          if(pay&&P2){ out.push({t:P2,ban:pay.ban}); return; }
-          const wait=on.find(r=>rngIn(r.range,addD(iso,1))||rngIn(r.range,addD(iso,2)));
-          if(wait) out.push({t:t,ban:''});
-          return;
-        }
+        // Quy tắc lương: (1) có ngày đặt trong tab → "Ngóng lương về" từ cuối tháng trước đến sát ngày lương; "Lương về rồi" đúng các ngày đặt + 1 ngày duy trì; sau đó tắt.
+        // (2) chưa có ngày đặt cho kỳ này → "Ngóng lương về" từ ngày cuối tháng đến hết ngày 10 tháng sau (hoặc đến khi có ngày đặt tay)
+        const all=DECORROWS.filter(r=>r.t==='payday'||r.t==='payday2');
+        const on=all.filter(r=>!r.off&&r.range);
+        if(all.length&&!on.length) return;   // chỉ có dòng "off"
+        const prevD=addD(iso,-1);
+        const pay=on.find(r=>rngIn(r.range,iso)||rngIn(r.range,prevD));
+        if(pay&&P2){ out.push({t:P2,ban:pay.ban}); return; }
+        const lastPrev=d=>addD(d.slice(0,8)+'01',-1);   // ngày cuối tháng trước của d
+        for(const r of on){ let ds=''; for(let k=1;k<=45;k++){ const d=addD(iso,k); if(rngIn(r.range,d)){ ds=d; break; } }
+          if(ds){ const st0=lastPrev(ds), lim=addD(ds,-10); if(iso>=(st0>lim?st0:lim)){ out.push({t:t,ban:''}); return; } } }
+        // mặc định khi kỳ này chưa có ngày đặt
+        const dd=+iso.slice(8,10), first=iso.slice(0,8)+'01', ml=addD(addD(first,32).slice(0,8)+'01',-1);
+        const L=(iso===ml)?iso:lastPrev(iso);   // ngày cuối tháng gần nhất
+        { const sp0=L.slice(0,8)+'11', sp1=addD(iso,75); let has=false; for(let d=sp0; d<=sp1&&!has; d=addD(d,1)) if(on.some(r=>rngIn(r.range,d))) has=true;   // kỳ này đã có ngày đặt tay chưa
+          if(!has&&L>='2026-10-31') out.push({t:t,ban:''}); }   // chưa đặt → cứ ngóng lương đến khi đặt tay (chỉ từ kỳ cuối tháng 10/2026, không đụng lịch sử cũ)
+        return;
       }
       if(rows.length){
         const on=rows.filter(r=>!r.off);
