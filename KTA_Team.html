@@ -8235,6 +8235,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
   function build(){
     const root=$('ofc-root'); if(!root) return;
     let mons='', chs='';
+    [[2,'D']].forEach(g=>{ const y=CY[g[0]], c=g[1]; mons+=[-28,2].map(dy=>`<div style="position:absolute;left:${MONX[c]}px;top:${y+dy}px;width:14px;height:26px;box-sizing:border-box;border:2px solid #14202b;border-radius:3px;background:#55616f;z-index:5"></div>`).join(''); });   // ghế trống (Rhys nghỉ): giữ màn hình
     NAMES.forEach((nm,i)=>{
       if(!seat[i]) return;
       const s=seat[i];
@@ -8870,6 +8871,7 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
       if(b){ const s=st.sel; if(!can||s<0){ b.style.display='none'; } else if(s===me){ b.style.display=st.trips[me]?'block':'none'; b.textContent=L_('↩ Về chỗ ngồi','↩ Back to my desk'); } else { b.style.display='block'; b.textContent=L_('🚶 Qua chỗ '+NAMES[s],'🚶 Go to '+NAMES[s]+"'s desk"); } }
     }catch(e){}
   }
+  function dmy_(){ try{ const d=(days[st.idx]||{}).iso||''; return d?(d.slice(8,10)+'/'+d.slice(5,7)):''; }catch(e){ return ''; } }
   function refresh(i){ // trạng thái đứng yên: gõ phím khi ngồi làm
     const c=C[i]; if(!c||c.moving) return;
     const inn=document.querySelector('#ofc-c'+i+' .ofc-in'); if(!inn) return;
@@ -8972,9 +8974,9 @@ Kane:{sk:'#f1c9a3',hs:'neat',hc:'#2b2118',bld:'normal',top:'#6f8fae',tp:'tee'}
       pop.style.display='flex'; pop.style.left=px+'px'; pop.style.top=py+'px';
       $('ofc-p0').textContent=NAMES[st.sel];
       $('ofc-p1').textContent=(c.a&&!c.a.idle)?L_('Dự án chính: ','Main project: ')+c.a.proj:T('Hôm nay chưa ghi việc');
-      $('ofc-p2').textContent=(c.a&&!c.a.idle)?(c.a.n+L_(' việc trong ngày',(c.a.n===1?' task':' tasks')+' today')+(c.a.others?L_(', cùng ',', plus ')+c.a.others+L_(' dự án khác',' other projects'):'')):T('Chưa chắc là nghỉ');
+      $('ofc-p2').textContent=(c.a&&!c.a.idle)?(c.a.n+L_(' việc ngày '+dmy_(),(c.a.n===1?' task':' tasks')+' on '+dmy_())+(c.a.others?L_(', cùng ',', plus ')+c.a.others+L_(' dự án khác',' other projects'):'')):T('Chưa chắc là nghỉ');
       const tl=c.a&&!c.a.idle&&c.a.tasks&&c.a.tasks.length?c.a.tasks[Math.floor(tk/3)%c.a.tasks.length]:null;
-      $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm: ','Working on: ')+(LANGEN()?(trEn(tl.d)||tl.d):tl.d):'';
+      $('ofc-p4').textContent=tl&&tl.d?L_('Đang làm ('+dmy_()+'): ','Working on ('+dmy_()+'): ')+(LANGEN()?(trEn(tl.d)||tl.d):tl.d):'';
       $('ofc-p3').textContent=T(c.say)||((c.a&&!c.a.idle)?T('Đang ngồi làm tại bàn'):T('Đang ở chỗ ngồi'));
       if(c.a&&c.a.idle){ ['ofc-p1','ofc-p2','ofc-p3','ofc-p4'].forEach(id=>{ $(id).textContent='...'; }); }
       { const box=$('ofc-p5'), TT=trkFor(effIso(day)); let h='';
