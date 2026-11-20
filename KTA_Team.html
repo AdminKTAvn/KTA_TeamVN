@@ -1665,6 +1665,9 @@ function _extractCandidatesFromExistingData(){
         <option value="Medium">Medium</option>
         <option value="Large">Large</option>
       </select>
+      <select class="pm-filter-select" id="pm-filter-year" onchange="renderProjects()">
+        <option value="">Tất cả năm</option>
+      </select>
       <select class="pm-filter-select" id="pm-filter-status" onchange="renderProjects()">
         <option value="">Tất cả trạng thái</option>
         <option value="Not Started">Chưa bắt đầu</option>
@@ -1690,6 +1693,7 @@ function _extractCandidatesFromExistingData(){
     <table class="pm-table">
       <thead>
         <tr>
+          <th style="width:34px">STT</th>
           <th>Tên dự án</th>
           <th>Quy mô</th>
           <th>Độ phức tạp</th>
@@ -1714,6 +1718,11 @@ function _extractCandidatesFromExistingData(){
       <div class="pm-field">
         <label>Tên dự án</label>
         <input type="text" id="pm-f-name" placeholder="VD: Riverside Apartments — Phase 2">
+      </div>
+
+      <div class="pm-field">
+        <label>Ngày nhập dự án <span style="font-weight:400;color:var(--color-text-tertiary)">(năm / tháng)</span></label>
+        <input type="month" id="pm-f-startmonth">
       </div>
 
       <div class="pm-field">
@@ -1953,6 +1962,7 @@ function openProjectModal(editId){
     document.getElementById('pm-modal-title').textContent='Sửa dự án';
     document.getElementById('pm-edit-id').value=editId;
     document.getElementById('pm-f-name').value=p.name;
+    document.getElementById('pm-f-startmonth').value=p.startMonth||'';
     document.getElementById('pm-f-status').value=p.status;
     document.getElementById('pm-f-phase').value=p.lastKnownPhase||'';
     document.getElementById('pm-f-notes').value=p.notes||'';
@@ -1974,6 +1984,7 @@ function openProjectModal(editId){
     document.getElementById('pm-modal-title').textContent='Thêm dự án mới';
     document.getElementById('pm-edit-id').value='';
     document.getElementById('pm-f-name').value='';
+    document.getElementById('pm-f-startmonth').value=(new Date().getFullYear())+'-'+String(new Date().getMonth()+1).padStart(2,'0');
     document.getElementById('pm-f-notes').value='';
     document.getElementById('pm-f-projecttype').value = 'ARCH_FULL';
     document.getElementById('pm-f-status').value='Not Started';
@@ -2005,6 +2016,7 @@ function saveProject(){
   const phase = document.getElementById('pm-f-phase').value;
   const notes = document.getElementById('pm-f-notes').value.trim();
   const projectType = document.getElementById('pm-f-projecttype').value;
+  const startMonth = document.getElementById('pm-f-startmonth').value||'';
   const editId = document.getElementById('pm-edit-id').value;
 
   if(!name){ alert('Vui lòng nhập tên dự án.'); return; }
@@ -2035,7 +2047,7 @@ function saveProject(){
       p.name=name; p.size=sizeEl.value; p.team=teamEl.value;
       p.membersMain=membersMain; p.membersBackup=membersBackup;
       p.members=[...membersMain,...membersBackup];
-      p.status=status; p.notes=notes; p.projectType=projectType;
+      p.status=status; p.notes=notes; p.projectType=projectType; p.startMonth=startMonth;
       p.customAllocation = customAllocation; // null nếu không bật -> dùng công thức tự động
       if(phase) p.lastKnownPhase = phase; // chỉ ghi đè khi Admin chọn cụ thể, để trống = giữ nguyên giá trị tự động đã dò trước đó
       if(hasAnyDcmCheckbox) p.doneCycleMembers = doneCycleMembersManual; // chỉ ghi khi đang ở chế độ tick tay
@@ -2046,7 +2058,7 @@ function saveProject(){
       id: 'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
       name, size: sizeEl.value, team: teamEl.value,
       membersMain, membersBackup, members:[...membersMain,...membersBackup],
-      status, notes, createdAt: Date.now(), projectType,
+      status, notes, createdAt: Date.now(), projectType, startMonth,
       customAllocation: customAllocation,
       lastKnownPhase: phase || '',
       doneCycleMembers: hasAnyDcmCheckbox ? doneCycleMembersManual : [],
@@ -2096,8 +2108,34 @@ function renderProjects(){
   const fSize=document.getElementById('pm-filter-size').value;
   const fStatus=document.getElementById('pm-filter-status').value;
 
+  // Ngày nhập dự án (năm-tháng): ưu tiên giá trị nhập tay; chưa nhập thì tạm lấy tháng có task đầu tiên trong ActivityLog
+  function pmEffStart(p){
+    if(p.startMonth) return {ym:p.startMonth, auto:false};
+    try{
+      if(typeof activityLog!=='undefined' && activityLog.length){
+        let min='';
+        activityLog.forEach(function(t){
+          if(t.date && sameProjectName(t.projectName,p.name)){ const d=String(t.date).slice(0,7); if(!min||d<min) min=d; }
+        });
+        if(min) return {ym:min, auto:true};
+      }
+    }catch(e){}
+    return {ym:'', auto:false};
+  }
+  window.__pmEffStart = pmEffStart;
+  const yearSel=document.getElementById('pm-filter-year');
+  if(yearSel){
+    const cur=yearSel.value, ys={};
+    projects.forEach(function(p){ const y=(pmEffStart(p).ym||'').slice(0,4); if(y) ys[y]=(ys[y]||0)+1; });
+    const noYear=projects.filter(function(p){return !pmEffStart(p).ym;}).length;
+    yearSel.innerHTML='<option value="">Tất cả năm</option>'+Object.keys(ys).sort().map(function(y){return '<option value="'+y+'">'+y+' ('+ys[y]+')</option>';}).join('')+(noYear?'<option value="none">Chưa có ngày ('+noYear+')</option>':'');
+    yearSel.value=cur;
+  }
+  const fYear=yearSel?yearSel.value:'';
+
   const filtered = projects.filter(p=>
-    (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus)
+    (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus) &&
+    (!fYear || (fYear==='none' ? !pmEffStart(p).ym : (pmEffStart(p).ym||'').slice(0,4)===fYear))
   );
 
   // ── Stats ──
@@ -2155,10 +2193,12 @@ function renderProjects(){
   }
   empty.style.display='none';
   tbody.innerHTML = filtered.slice().sort((a,b)=>{
-    // Use explicit order field if available, else createdAt ascending
+    // Sắp theo Ngày nhập dự án tăng dần (dự án chưa có ngày xuống cuối), cùng tháng thì theo order/createdAt
+    const ma=pmEffStart(a).ym||'9999-99', mb=pmEffStart(b).ym||'9999-99';
+    if(ma!==mb) return ma<mb?-1:1;
     if(a.order!==undefined && b.order!==undefined) return a.order - b.order;
     return a.createdAt - b.createdAt;
-  }).map(p=>{
+  }).map((p,idx)=>{
     const cxCount = p.complexityCount||0;
     const mainTags = (p.membersMain||[]).map(m=>`<span class="pm-role-tag pm-role-main">${escapeHtml(m)}</span>`).join('');
     const backupTags = (p.membersBackup||[]).map(m=>`<span class="pm-role-tag pm-role-backup">${escapeHtml(m)}</span>`).join('');
@@ -2186,10 +2226,14 @@ function renderProjects(){
       const sel = (p.lastKnownPhase||'')===ph ? ' selected' : '';
       return `<option value="${ph}"${sel}>${label}</option>`;
     }).join('');
+    const _es = pmEffStart(p);
+    const startLbl = _es.ym ? `<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px"${_es.auto?' title="Tạm lấy theo task đầu tiên trong ActivityLog — bấm ✎ để nhập ngày thật"':''}>${_es.auto?'~ ':''}${_es.ym.slice(5,7)}/${_es.ym.slice(0,4)}</div>` : '';
     return `
     <tr>
+      <td style="color:var(--color-text-tertiary);font-size:12px">${idx+1}</td>
       <td>
         <div class="pm-proj-name">${escapeHtml(p.name)}${wPhase?` <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${wPhaseColor.bg};color:${wPhaseColor.fg};font-weight:600;vertical-align:middle" title="${wPhaseSrcLabel}">${escapeHtml(wPhase)}</span>${wPhaseBonus}${wPhaseCycle}`:''}${typeBadge}</div>
+        ${startLbl}
         ${p.notes?`<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:3px">${escapeHtml(p.notes)}</div>`:''}
       </td>
       <td><span class="pm-badge ${SIZE_CLASS[p.size]}">${p.size}</span></td>
