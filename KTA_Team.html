@@ -1644,6 +1644,11 @@ function _extractCandidatesFromExistingData(){
   .pm-role-backup{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)}
   </style>
 
+  <div id="pm-subtabs" style="display:flex;gap:6px;margin-bottom:10px">
+    <button class="pm-add-btn" id="pm-tab-list" onclick="setPmView('list')">📋 Danh sách dự án</button>
+    <button class="pm-add-btn" id="pm-tab-phase" onclick="setPmView('phase')">📊 Theo giai đoạn</button>
+  </div>
+
   <div class="pm-toolbar">
     <div style="display:flex;gap:8px;align-items:center">
       <button class="pm-add-btn" onclick="openProjectModal()">+ Thêm dự án</button>
@@ -1679,6 +1684,8 @@ function _extractCandidatesFromExistingData(){
       </select>
     </div>
   </div>
+
+  <div id="pm-phase-view" style="display:none"></div>
 
   <!-- Overview stats -->
   <div class="pm-stats-grid" id="pm-stats-grid"></div>
@@ -2103,6 +2110,40 @@ function projectHasNoActivityLog(p){
   return !(typeof activityLog!=='undefined' && activityLog.some(t=>sameProjectName(t.projectName,p.name)));
 }
 
+function setPmView(v){ window.__pmView=v; renderProjects(); }
+
+function renderPmPhaseView(list){
+  const order=['',...Object.keys(PHASE_COMPLETION_PCT)];
+  const groups={}; order.forEach(function(k){ groups[k]=[]; });
+  groups['__done']=[];
+  list.forEach(function(p){
+    let ph=getProjectPhaseLabel(p.name)||'';
+    if(ph==='CA (Complete)') ph='__done';
+    if(!(ph in groups)) ph='';
+    groups[ph].push(p);
+  });
+  const keys=order.concat(['__done']);
+  const max=Math.max.apply(null, keys.map(function(k){return groups[k].length;}).concat([1]));
+  const label=function(k){ return k==='' ? 'Chưa xác định giai đoạn' : (k==='__done' ? 'Đã Complete (chưa rõ giai đoạn)' : k); };
+  const pct=function(k){ return (k===''||k==='__done') ? '' : ' <span style="color:var(--color-text-tertiary);font-weight:400">('+Math.round((PHASE_COMPLETION_PCT[k]||0)*100)+'%)</span>'; };
+  const stCol={Hold:'opacity:.55'};
+  let h='<div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Tổng <b>'+list.length+'</b> dự án — giai đoạn lấy theo ActivityLog thật → Tracker tuần → set tay (giống bảng danh sách). Bấm tên dự án để sửa.</div>';
+  keys.forEach(function(k){
+    const g=groups[k]; if(!g.length && k!=='') { /* vẫn hiện giai đoạn rỗng để đủ 9 mốc */ }
+    const w=Math.round(g.length/max*100);
+    const bar=(k===''||k==='__done')?'#B4B2A9':'#378ADD';
+    const chips=g.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(p){
+      return '<span onclick="openProjectModal(\''+p.id+'\')" style="cursor:pointer;display:inline-block;margin:2px 4px 2px 0;padding:2px 9px;border-radius:12px;font-size:11px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);'+(stCol[p.status]||'')+'" title="'+escapeHtml(p.status)+' · '+escapeHtml(p.team)+'">'+escapeHtml(p.name)+(p.status==='Hold'?' · Hold':'')+'</span>';
+    }).join('');
+    h+='<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:10px;padding:10px 14px;margin-bottom:8px;'+(g.length?'':'opacity:.55')+'">'
+      +'<div style="display:flex;align-items:center;gap:10px"><div style="min-width:210px;font-size:13px;font-weight:600">'+label(k)+pct(k)+'</div>'
+      +'<div style="flex:1;height:8px;background:var(--color-background-secondary);border-radius:6px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+bar+'"></div></div>'
+      +'<div style="min-width:30px;text-align:right;font-size:15px;font-weight:700">'+g.length+'</div></div>'
+      +(g.length?'<div style="margin-top:6px">'+chips+'</div>':'')+'</div>';
+  });
+  document.getElementById('pm-phase-view').innerHTML=h;
+}
+
 function renderProjects(){
   const fTeam=document.getElementById('pm-filter-team').value;
   const fSize=document.getElementById('pm-filter-size').value;
@@ -2137,6 +2178,22 @@ function renderProjects(){
     (!fTeam||p.team===fTeam) && (!fSize||p.size===fSize) && (!fStatus||p.status===fStatus) &&
     (!fYear || (fYear==='none' ? !pmEffStart(p).ym : (pmEffStart(p).ym||'').slice(0,4)===fYear))
   );
+
+  // ── Tab "Theo giai đoạn": đếm số dự án đang ở từng giai đoạn (áp dụng cùng bộ lọc) ──
+  (function(){
+    const isPhase = (window.__pmView==='phase');
+    const pv=document.getElementById('pm-phase-view');
+    const listEls=[document.getElementById('pm-stats-grid'),document.getElementById('pm-team-grid'),document.querySelector('.pm-table-wrap'),document.getElementById('pm-empty')];
+    (listEls[0]?listEls[0].parentElement:document).querySelectorAll('.pm-section-title').forEach(function(e){ listEls.push(e); });
+    listEls.forEach(function(e){ if(e) e.style.display = isPhase ? 'none' : ''; });
+    if(listEls[3] && !isPhase) listEls[3].style.display='none';
+    const tl=document.getElementById('pm-tab-list'), tp=document.getElementById('pm-tab-phase');
+    const on='background:#1A1A18;color:#fff', off='background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary)';
+    if(tl) tl.setAttribute('style', isPhase?off:on);
+    if(tp) tp.setAttribute('style', isPhase?on:off);
+    if(pv){ pv.style.display = isPhase ? '' : 'none'; if(isPhase) renderPmPhaseView(filtered); }
+  })();
+  if(window.__pmView==='phase') return;
 
   // ── Stats ──
   const total = projects.length;
@@ -3603,6 +3660,7 @@ if(typeof populatePersonDropdownFromMembers === 'function'){
     <span class="save-toast" id="save-toast">✓ Đã lưu!</span>
   </div>
   <div id="person-seniority" style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px;display:none"></div>
+  <div style="margin-top:8px"><button class="btn-reset" onclick="mergePersonsUI()" style="font-size:12px">🔗 Gộp 2 tên thành 1</button></div>
   <div id="person-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
 </div>
 
@@ -4836,6 +4894,61 @@ function renderPersonList(){
     </div>`;
   }
   container.innerHTML = html;
+}
+
+
+// ── Gộp 2 tên thành 1 (VD "Sam" + "Sam Quan"): chuyển đánh giá, dự án, nhân sự về tên giữ lại ──
+function mergePersons(from, to){
+  const nf=normStr(from), nt=normStr(to);
+  if(!nf||!nt||nf===nt) return {ok:false,msg:'Hai tên phải khác nhau'};
+  const cnt=function(d){ try{ return Object.keys((d&&d.scores3)||{}).length; }catch(e){ return 0; } };
+  let dF=null,dT=null;
+  try{ dF=JSON.parse(localStorage.getItem(getStorageKey(from))); }catch(e){}
+  try{ dT=JSON.parse(localStorage.getItem(getStorageKey(to))); }catch(e){}
+  // giữ bản đánh giá có nhiều mục chấm hơn
+  if(dF && (!dT || cnt(dF)>cnt(dT))){
+    dF.name=to; try{ localStorage.setItem(getStorageKey(to), JSON.stringify(dF)); }catch(e){}
+  }
+  try{ localStorage.removeItem(getStorageKey(from)); }catch(e){}
+  // danh sách người đã lưu
+  let list=getPersonList().filter(function(n){ return normStr(n)!==nf; });
+  if(!list.some(function(n){ return normStr(n)===nt; })) list.push(to);
+  savePersonList(list);
+  // dự án: đổi tên trong người làm chính/phụ, bỏ trùng
+  const fix=function(arr){ const out=[]; (arr||[]).forEach(function(m){ const v=(normStr(m)===nf)?to:m; if(!out.some(function(x){ return normStr(x)===normStr(v); })) out.push(v); }); return out; };
+  let pc=0;
+  (projects||[]).forEach(function(p){
+    const a=JSON.stringify([p.membersMain,p.membersBackup]);
+    if(p.membersMain) p.membersMain=fix(p.membersMain);
+    if(p.membersBackup) p.membersBackup=fix(p.membersBackup);
+    if(Array.isArray(p.members)) p.members=fix(p.members);
+    if(JSON.stringify([p.membersMain,p.membersBackup])!==a) pc++;
+  });
+  // nhân sự (tab Thành viên): nếu cả 2 cùng có thì xoá bản của tên cũ
+  try{
+    if(Array.isArray(members)){
+      const hasTo=members.some(function(m){ return normStr(m.name)===nt; });
+      members=members.filter(function(m){ return !(normStr(m.name)===nf && hasTo); });
+      members.forEach(function(m){ if(normStr(m.name)===nf) m.name=to; });
+      persistMembers();
+    }
+  }catch(e){}
+  persistProjects();
+  if(typeof syncToSheets==='function') syncToSheets('eval');
+  if(currentPersonName && normStr(currentPersonName)===nf){ currentPersonName=''; try{ document.getElementById('person-name-input').value=''; }catch(e){} }
+  renderPersonList();
+  try{ if(typeof renderProjects==='function') renderProjects(); }catch(e){}
+  return {ok:true,msg:'Đã gộp "'+from+'" vào "'+to+'" (cập nhật '+pc+' dự án)'};
+}
+function mergePersonsUI(){
+  const list=getPersonList();
+  const from=prompt('Tên CẦN BỎ (sẽ gộp đi). VD: Sam\n\nDanh sách: '+list.join(', '));
+  if(!from) return;
+  const to=prompt('Tên GIỮ LẠI. VD: Sam Quan');
+  if(!to) return;
+  if(!confirm('Gộp "'+from.trim()+'" vào "'+to.trim()+'"?\nĐánh giá, dự án, nhân sự sẽ chuyển sang "'+to.trim()+'".')) return;
+  const r=mergePersons(from.trim(), to.trim());
+  alert(r.msg);
 }
 
 function resetAll(){
