@@ -7420,6 +7420,8 @@ async function doFreezeMonthlyPerformance(){
   }
 }
 
+// Nhân sự đã nghỉ (Members.active===false) → làm mờ trong BXH, chưa xoá
+function ktaIsLeft(name){ try{ const n=normStr(name); return (members||[]).some(function(m){ return normStr(m.name)===n && m.active===false; }); }catch(e){ return false; } }
 function renderLeaderboard(){
   const isAdmin = sheetsRole === 'admin' || sheetsRole === 'leader';
   const myName = (document.getElementById('user-search-name')?.value||'').trim().toLowerCase();
@@ -7479,7 +7481,8 @@ function renderLeaderboard(){
       var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
       var bold = isMe ? ';font-weight:600' : '';
       var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'';
-      return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+'">'
+      var _left=ktaIsLeft(p.name); if(_left) displayName+=' <span style="font-size:10px">(đã nghỉ)</span>';
+      return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+(_left?';opacity:.4':'')+'">'
         +'<td style="padding:6px 8px;text-align:center;font-size:13px">'+medal+'</td>'
         +'<td style="padding:6px 8px">'+displayName+'</td>'
         +'<td style="padding:6px 8px;text-align:center;font-weight:600;color:var(--color-text-primary)">'+p.raw.toFixed(1)+'</td>'
@@ -7550,7 +7553,8 @@ function renderLeaderboard(){
         var rowBg = isMe ? 'background:#FFFBE6' : (i%2===0?'':'background:var(--color-background-secondary)');
         var bold = isMe ? ';font-weight:600' : '';
         var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'';
-        return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+'">'
+        var _left2=ktaIsLeft(p.name); if(_left2) displayName+=' <span style="font-size:10px">(đã nghỉ)</span>';
+        return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary);'+rowBg+bold+(_left2?';opacity:.4':'')+'">'
           +'<td style="padding:5px 8px;text-align:center">'+medal+'</td>'
           +'<td style="padding:5px 8px">'+displayName+'</td>'
           +'<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--color-text-primary)">'+p.score.toFixed(1)+'/10</td>'
