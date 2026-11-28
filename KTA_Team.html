@@ -4824,8 +4824,9 @@ function renderPersonList(){
   const levelClassMap = {Staff:"active-staff",Senior:"active-senior","Key Member":"active-key",Leader:"active-leader"};
 
   // Group people by level
-  const groups = {Leader:[],'Key Member':[],Senior:[],Staff:[],'—':[]};
+  const groups = {Leader:[],'Key Member':[],Senior:[],Staff:[],'—':[],'__left':[]};
   list.forEach(name=>{
+    if(ktaIsLeft(name)){ groups['__left'].push(name); return; }   // nhân sự đã nghỉ → thẻ riêng
     let lv = '—';
     try{
       const d=JSON.parse(localStorage.getItem(getStorageKey(name)));
@@ -4891,6 +4892,16 @@ function renderPersonList(){
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px">
       ${groups['—'].map(buildChip).join('')}
+    </div>`;
+  }
+  // Nhân sự đã nghỉ (tab Nhân sự đặt "Đã nghỉ") → thẻ riêng, làm mờ
+  if(groups['__left'].length){
+    html += `<div style="width:100%;display:flex;align-items:center;gap:8px;margin-bottom:4px;margin-top:10px">
+      <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;color:var(--color-text-tertiary)">Đã nghỉ</span>
+      <div style="flex:1;height:0.5px;background:var(--color-border-tertiary)"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px;opacity:.55">
+      ${groups['__left'].map(buildChip).join('')}
     </div>`;
   }
   container.innerHTML = html;
